@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core-tests:
+    name: Core logic tests
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode 16
+        run: |
+          XCODE="$(ls -d /Applications/Xcode_16*.app 2>/dev/null | tail -1 || true)"
+          if [ -n "$XCODE" ]; then sudo xcode-select -s "$XCODE"; fi
+          xcodebuild -version
+      - name: Run tests
+        run: swift test --package-path Packages/SpotCore
+
+  app:
+    name: Build app and run UI tests
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode 16
+        run: |
+          XCODE="$(ls -d /Applications/Xcode_16*.app 2>/dev/null | tail -1 || true)"
+          if [ -n "$XCODE" ]; then sudo xcode-select -s "$XCODE"; fi
+          xcodebuild -version
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate Xcode project
+        run: xcodegen generate
+      - name: Allow UI automation
+        run: sudo automationmodetool enable-automationmode-without-authentication || true
+      - name: Run UI tests
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project SpotChat.xcodeproj \
+            -scheme SpotChat \
+            -destination 'platform=macOS' \
+            -derivedDataPath build/DerivedData \
+            -resultBundlePath build/UITests.xcresult
+      - name: Build release app
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project SpotChat.xcodeproj \
+            -scheme SpotChat \
+            -configuration Release \
+            -destination 'generic/platform=macOS' \
+            -derivedDataPath build/DerivedData
+      - name: Package app
+        run: ditto -c -k --keepParent build/DerivedData/Build/Products/Release/SpotChat.app build/SpotChat.zip
+      - name: Upload app
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpotChat-app
+          path: build/SpotChat.zip
+      - name: Upload UI test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: UITests-result
+          path: build/UITests.xcresult
+          if-no-files-found: ignore

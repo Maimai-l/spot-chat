@@ -1,0 +1,64 @@
+name: SpotChat
+options:
+  bundleIdPrefix: com.maimai
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGN_STYLE: Manual
+    DEVELOPMENT_TEAM: ""
+    ENABLE_HARDENED_RUNTIME: NO
+packages:
+  SpotCore:
+    path: Packages/SpotCore
+  KeyboardShortcuts:
+    url: https://github.com/sindresorhus/KeyboardShortcuts
+    from: "2.0.0"
+targets:
+  SpotChat:
+    type: application
+    platform: macOS
+    sources:
+      - App
+    dependencies:
+      - package: SpotCore
+      - package: KeyboardShortcuts
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: Spot Chat
+        CFBundleName: Spot Chat
+        LSUIElement: true
+        LSApplicationCategoryType: public.app-category.productivity
+        UIDesignRequiresCompatibility: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.maimai.spotchat
+        PRODUCT_NAME: SpotChat
+  SpotChatUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    sources:
+      - UITests
+    dependencies:
+      - target: SpotChat
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.maimai.spotchat.uitests
+        TEST_TARGET_NAME: SpotChat
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  SpotChat:
+    build:
+      targets:
+        SpotChat: all
+        SpotChatUITests: [test]
+    test:
+      config: Debug
+      targets:
+        - SpotChatUITests
