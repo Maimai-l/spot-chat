@@ -539,6 +539,12 @@ final class SpotChatUITests: XCTestCase {
         waitForText(of: second, "SELF CONTAINS %@", "| WAL | concurrent |")
         attachScreenshot("Card")
 
+        send("math", in: app)
+        let third = replies.element(boundBy: 2)
+        XCTAssertTrue(third.waitForExistence(timeout: 10))
+        waitForText(of: third, "SELF CONTAINS %@", "frac{n(n+1)}{2}$$")
+        attachScreenshot("Math")
+
         app.buttons["Expand to Full Window"].click()
         XCTAssertTrue(element("collapseToMini", in: app).waitForExistence(timeout: 10))
         attachScreenshot("Full window")

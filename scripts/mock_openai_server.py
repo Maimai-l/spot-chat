@@ -10,6 +10,7 @@ The reply depends on the last user message:
   "slow"                   -> 60 chunks, 0.2 s apart
   "fail"                   -> HTTP 500 with an error message
   "markdown"               -> a heading, a list, a code block and a table
+  "math"                   -> inline and display LaTeX next to prices
   anything else            -> "Echo: <text>" in three chunks
 GET /v1/last-request returns the body of the last chat request.
 """
@@ -30,6 +31,12 @@ MARKDOWN_REPLY = (
     "- Second item\n\n"
     "```sql\nPRAGMA journal_mode = WAL;\n```\n\n"
     "| Mode | Readers |\n| --- | --- |\n| DELETE | blocked |\n| WAL | concurrent |\n"
+)
+
+MATH_REPLY = (
+    "The area of a circle is \\(A = \\pi r^2\\), and it costs $5 or $10 to print.\n\n"
+    "\\[\n\\int_0^1 x^2 \\, dx = \\frac{1}{3}\n\\]\n\n"
+    "With dollars: $e^{i\\pi} + 1 = 0$ and $$\\sum_{k=1}^{n} k = \\frac{n(n+1)}{2}$$\n"
 )
 
 last_request = {}
@@ -60,6 +67,8 @@ def reply_chunks(body):
         return [f"tick {i} " for i in range(60)], 0.2
     if text.strip() == "markdown":
         return [MARKDOWN_REPLY[i:i + 20] for i in range(0, len(MARKDOWN_REPLY), 20)], 0.02
+    if text.strip() == "math":
+        return [MATH_REPLY[i:i + 20] for i in range(0, len(MATH_REPLY), 20)], 0.02
     reply = f"Echo: {text}"
     third = max(1, len(reply) // 3)
     return [reply[:third], reply[third:2 * third], reply[2 * third:]], 0.05

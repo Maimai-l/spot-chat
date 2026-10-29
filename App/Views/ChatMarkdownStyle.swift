@@ -1,15 +1,36 @@
 import SwiftUI
 import Textual
 
-/// Markdown styles for replies in a conversation rather than a document:
-/// headings barely larger than the text, roomy lines, full-width tables with row rules only,
-/// and code blocks with a quiet language label.
+/// Markdown styles for replies in a conversation rather than a document, after Claude's:
+/// every block keeps no margin of its own and blocks are separated by one gap set here;
+/// 16 pt text at about 1.375 line height; medium-weight bold; headings close to the text size;
+/// code blocks as cards; full-width tables with row rules only.
+enum ChatMarkdown {
+    static let fontSize: CGFloat = 16
+    /// The one gap between blocks, 20 pt at 16 pt text.
+    static let blockGap: CGFloat = 1.25
+    /// Extra space between lines for a line height of about 1.375; SF's own line height is about 1.19.
+    static let lineSpacing: CGFloat = 0.18
+    /// Monospaced text at 14 pt.
+    static let codeScale: CGFloat = 0.875
+
+    static var blockSpacing: FontScaled<StructuredText.BlockSpacing> {
+        .fontScaled(top: blockGap, bottom: 0)
+    }
+
+    static let inlineStyle = InlineStyle()
+        .code(.monospaced, .fontScale(codeScale), .backgroundColor(DynamicColor(light: .black.opacity(0.05), dark: .white.opacity(0.08))))
+        .strong(.fontWeight(.medium))
+        .link(.foregroundColor(Color.accentColor))
+}
+
 extension View {
     func chatMarkdownStyle() -> some View {
-        textual.headingStyle(ChatHeadingStyle())
+        font(.system(size: ChatMarkdown.fontSize))
+            .textual.inlineStyle(ChatMarkdown.inlineStyle)
+            .textual.headingStyle(ChatHeadingStyle())
             .textual.paragraphStyle(ChatParagraphStyle())
-            .textual.listItemStyle(.default(markerSpacing: .fontScaled(0.7)))
-            .textual.listItemSpacing(.fontScaled(top: 0.3))
+            .textual.listItemSpacing(.fontScaled(top: 0))
             .textual.blockQuoteStyle(ChatBlockQuoteStyle())
             .textual.tableStyle(ChatTableStyle())
             .textual.tableCellStyle(ChatTableCellStyle())
@@ -18,23 +39,23 @@ extension View {
 }
 
 struct ChatHeadingStyle: StructuredText.HeadingStyle {
-    private static let fontScales: [CGFloat] = [1.3, 1.13, 1.0, 1.0, 1.0, 1.0]
+    private static let fontScales: [CGFloat] = [1.25, 1.125, 1.0, 1.0, 1.0, 1.0]
 
     func makeBody(configuration: Configuration) -> some View {
         let level = min(max(configuration.headingLevel, 1), 6)
         configuration.label
             .textual.fontScale(Self.fontScales[level - 1])
-            .textual.lineSpacing(.fontScaled(0.2))
-            .textual.blockSpacing(.fontScaled(top: 1.2, bottom: 0.35))
-            .fontWeight(level == 1 ? .bold : .semibold)
+            .textual.lineSpacing(.fontScaled(ChatMarkdown.lineSpacing))
+            .textual.blockSpacing(ChatMarkdown.blockSpacing)
+            .fontWeight(.semibold)
     }
 }
 
 struct ChatParagraphStyle: StructuredText.ParagraphStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .textual.lineSpacing(.fontScaled(0.4))
-            .textual.blockSpacing(.fontScaled(top: 0.75))
+            .textual.lineSpacing(.fontScaled(ChatMarkdown.lineSpacing))
+            .textual.blockSpacing(ChatMarkdown.blockSpacing)
     }
 }
 
@@ -49,6 +70,7 @@ struct ChatBlockQuoteStyle: StructuredText.BlockQuoteStyle {
                     .fill(Color.primary.opacity(0.15))
                     .frame(width: 3)
             }
+            .textual.blockSpacing(ChatMarkdown.blockSpacing)
     }
 }
 
@@ -58,7 +80,7 @@ struct ChatTableStyle: StructuredText.TableStyle {
         configuration.label
             .frame(maxWidth: .infinity, alignment: .leading)
             .textual.tableCellSpacing(horizontal: 0, vertical: 1)
-            .textual.blockSpacing(.fontScaled(top: 1, bottom: 1))
+            .textual.blockSpacing(ChatMarkdown.blockSpacing)
             .textual.tableOverlay { layout in
                 Canvas { context, _ in
                     for divider in layout.horizontalDividers() {
@@ -73,8 +95,8 @@ struct ChatTableCellStyle: StructuredText.TableCellStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .fontWeight(configuration.row == 0 ? .semibold : .regular)
-            .textual.lineSpacing(.fontScaled(0.3))
-            .textual.padding(.vertical, .fontScaled(0.55))
+            .textual.lineSpacing(.fontScaled(ChatMarkdown.lineSpacing))
+            .textual.padding(.vertical, .fontScaled(0.5))
             .padding(.trailing, 12)
             // Cells fill their column, so the table spreads across the reply.
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -97,30 +119,30 @@ struct CodeCopyTargetsKey: PreferenceKey {
 }
 
 struct SpotCodeBlockStyle: StructuredText.CodeBlockStyle {
-    static let headerHeight: CGFloat = 32
+    static let padding: CGFloat = 14
 
     func makeBody(configuration: Configuration) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text(configuration.languageHint ?? "")
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, 14)
-            .frame(height: Self.headerHeight)
+            .frame(height: 16)
             .anchorPreference(key: CodeCopyTargetsKey.self, value: .bounds) { anchor in
                 [CodeCopyTarget(anchor: anchor, copy: configuration.codeBlock.copyToPasteboard)]
             }
+            .padding(.horizontal, Self.padding)
+            .padding(.top, Self.padding)
             Overflow {
                 configuration.label
                     .monospaced()
-                    .textual.fontScale(0.88)
-                    .textual.lineSpacing(.fontScaled(0.35))
+                    .textual.fontScale(ChatMarkdown.codeScale)
+                    .textual.lineSpacing(.fontScaled(0.3))
                     .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 14)
-                    .padding(.top, 2)
-                    .padding(.bottom, 14)
+                    .padding(.horizontal, Self.padding)
+                    .padding(.bottom, Self.padding)
                     .background(OverlayScrollers())
             }
         }
@@ -131,7 +153,7 @@ struct SpotCodeBlockStyle: StructuredText.CodeBlockStyle {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(Color.primary.opacity(0.08))
         )
-        .textual.blockSpacing(.fontScaled(top: 0.9, bottom: 0.9))
+        .textual.blockSpacing(ChatMarkdown.blockSpacing)
     }
 }
 
@@ -143,9 +165,9 @@ struct CodeCopyButtons: View {
         GeometryReader { proxy in
             ForEach(targets.indices, id: \.self) { index in
                 let rect = proxy[targets[index].anchor]
+                // The header row reported is the label's line; the button is centered on it, inset like the label.
                 CopyCodeButton(copy: targets[index].copy)
-                    .padding(.trailing, 8)
-                    .frame(width: rect.width, height: rect.height, alignment: .trailing)
+                    .frame(width: rect.width + 8, height: rect.height, alignment: .trailing)
                     .offset(x: rect.minX, y: rect.minY)
             }
         }

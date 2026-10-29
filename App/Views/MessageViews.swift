@@ -105,8 +105,7 @@ struct AssistantMessageView: View {
         VStack(alignment: .leading, spacing: 10) {
             SpotMark(size: 22)
             if !message.text.isEmpty {
-                StructuredText(markdown: message.text)
-                    .font(.system(size: 15))
+                StructuredText(markdown: MathMarkdown.prepare(message.text), syntaxExtensions: [.math])
                     .textual.textSelection(.enabled)
                     .chatMarkdownStyle()
                     .overlayPreferenceValue(CodeCopyTargetsKey.self) { targets in
