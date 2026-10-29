@@ -11,6 +11,26 @@
         }
       }
     },
+    "%@ can't be sent. Images, PDFs and text files work.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 无法发送，支持图片、PDF 和文本文件。"
+          }
+        }
+      }
+    },
+    "%@ couldn't be added.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法添加 %@。"
+          }
+        }
+      }
+    },
     "%lld min": {
       "localizations": {
         "zh-Hans": {
@@ -61,6 +81,26 @@
         }
       }
     },
+    "Accessibility": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "辅助功能"
+          }
+        }
+      }
+    },
+    "Add Attachment or Share Window": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "添加附件或分享窗口"
+          }
+        }
+      }
+    },
     "Add Model": {
       "localizations": {
         "zh-Hans": {
@@ -101,12 +141,32 @@
         }
       }
     },
+    "Allowed": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已允许"
+          }
+        }
+      }
+    },
     "Ask Spot": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "问问 Spot"
+          }
+        }
+      }
+    },
+    "Cancel": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取消"
           }
         }
       }
@@ -137,6 +197,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "关闭"
+          }
+        }
+      }
+    },
+    "Collapse to Mini Window": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "收回小窗"
           }
         }
       }
@@ -197,6 +267,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "删除服务商"
+          }
+        }
+      }
+    },
+    "Delete…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "删除…"
+          }
+        }
+      }
+    },
+    "Done": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完成"
+          }
+        }
+      }
+    },
+    "Expand to Full Window": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "展开为完整窗口"
           }
         }
       }
@@ -311,6 +411,16 @@
         }
       }
     },
+    "No Windows": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "没有可分享的窗口"
+          }
+        }
+      }
+    },
     "None": {
       "localizations": {
         "zh-Hans": {
@@ -337,6 +447,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "打开小窗"
+          }
+        }
+      }
+    },
+    "Open System Settings": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打开系统设置"
+          }
+        }
+      }
+    },
+    "Pasted Image": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "粘贴的图片"
           }
         }
       }
@@ -391,12 +521,32 @@
         }
       }
     },
+    "Rename…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重命名…"
+          }
+        }
+      }
+    },
     "Retry": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "重试"
+          }
+        }
+      }
+    },
+    "Screen & System Audio Recording": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "录屏与系统录音"
           }
         }
       }
@@ -411,12 +561,52 @@
         }
       }
     },
+    "Settings": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "设置"
+          }
+        }
+      }
+    },
     "Settings…": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "设置…"
+          }
+        }
+      }
+    },
+    "Share Window": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "分享窗口"
+          }
+        }
+      }
+    },
+    "Share Window Needs These Permissions": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "分享窗口需要以下权限"
+          }
+        }
+      }
+    },
+    "Sharing %@": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在分享 %@"
           }
         }
       }
@@ -454,12 +644,42 @@
         }
       }
     },
+    "Stop Sharing": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "停止分享"
+          }
+        }
+      }
+    },
     "The API address in Settings isn't valid.": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "设置中的 API 地址无效。"
+          }
+        }
+      }
+    },
+    "The conversation can't be restored.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "删除后无法恢复。"
+          }
+        }
+      }
+    },
+    "The image couldn't be added.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法添加这张图片。"
           }
         }
       }
@@ -474,12 +694,82 @@
         }
       }
     },
+    "The shared window couldn't be captured.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法截取分享的窗口。"
+          }
+        }
+      }
+    },
+    "The shared window was closed.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "分享的窗口已关闭。"
+          }
+        }
+      }
+    },
     "Untitled": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "未命名"
+          }
+        }
+      }
+    },
+    "Upload File…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上传文件…"
+          }
+        }
+      }
+    },
+    "Upload Image…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上传图片…"
+          }
+        }
+      }
+    },
+    "Used to capture the window you choose": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "用于截取你选中的窗口"
+          }
+        }
+      }
+    },
+    "Used to read window titles": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "用于读取窗口标题"
+          }
+        }
+      }
+    },
+    "What's on your mind?": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有什么想问的？"
           }
         }
       }

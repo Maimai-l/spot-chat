@@ -33,4 +33,8 @@ final class MiniPanel: NSPanel {
     override func cancelOperation(_ sender: Any?) {
         onEscape?()
     }
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        EditingKeys.handle(event, in: self) || super.performKeyEquivalent(with: event)
+    }
 }

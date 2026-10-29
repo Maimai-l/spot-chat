@@ -255,7 +255,7 @@ struct SpotCodeBlockStyle: StructuredText.CodeBlockStyle {
 
 /// Attachments shown above a sent message.
 struct AttachmentStrip: View {
-    let attachments: [Attachment]
+    let attachments: [SpotCore.Attachment]
 
     var body: some View {
         HStack(spacing: 8) {
@@ -267,7 +267,7 @@ struct AttachmentStrip: View {
 }
 
 struct AttachmentTile: View {
-    let attachment: Attachment
+    let attachment: SpotCore.Attachment
     let onRemove: (() -> Void)?
 
     var body: some View {

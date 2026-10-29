@@ -77,6 +77,8 @@ struct ComposerField: NSViewRepresentable {
     var focusRequest: Int
     var onSubmit: () -> Void
     var onEscape: () -> Void
+    var onPasteFiles: ([URL]) -> Void = { _ in }
+    var onPasteImage: (Data) -> Void = { _ in }
 
     func makeCoordinator() -> Coordinator {
         Coordinator(parent: self)
@@ -109,6 +111,8 @@ struct ComposerField: NSViewRepresentable {
         textView.isAutomaticDashSubstitutionEnabled = false
         textView.placeholder = placeholder
         textView.string = text
+        textView.onPasteFiles = onPasteFiles
+        textView.onPasteImage = onPasteImage
         textView.delegate = context.coordinator
         textView.setAccessibilityIdentifier("composer")
 
@@ -125,6 +129,8 @@ struct ComposerField: NSViewRepresentable {
             textView.string = text
         }
         textView.placeholder = placeholder
+        textView.onPasteFiles = onPasteFiles
+        textView.onPasteImage = onPasteImage
         if coordinator.lastFocusRequest != focusRequest {
             coordinator.lastFocusRequest = focusRequest
             DispatchQueue.main.async {
@@ -174,6 +180,38 @@ final class ComposerTextView: NSTextView {
         didSet {
             if placeholder != oldValue { needsDisplay = true }
         }
+    }
+    var onPasteFiles: ([URL]) -> Void = { _ in }
+    var onPasteImage: (Data) -> Void = { _ in }
+
+    /// Pasted files and images become attachments; text is pasted as plain text.
+    override func paste(_ sender: Any?) {
+        if takeAttachments(from: .general) { return }
+        pasteAsPlainText(sender)
+    }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        if takeAttachments(from: sender.draggingPasteboard) { return true }
+        return super.performDragOperation(sender)
+    }
+
+    private func takeAttachments(from pasteboard: NSPasteboard) -> Bool {
+        if let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL],
+           !urls.isEmpty {
+            onPasteFiles(urls)
+            return true
+        }
+        guard pasteboard.string(forType: .string) == nil else { return false }
+        if let png = pasteboard.data(forType: .png) {
+            onPasteImage(png)
+            return true
+        }
+        if let tiff = pasteboard.data(forType: .tiff),
+           let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) {
+            onPasteImage(png)
+            return true
+        }
+        return false
     }
 
     override func draw(_ dirtyRect: NSRect) {

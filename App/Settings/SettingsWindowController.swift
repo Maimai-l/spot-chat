@@ -35,7 +35,7 @@ final class SettingsWindowController {
             symbol: "slider.horizontal.3"
         ))
 
-        let window = NSWindow(contentViewController: tabs)
+        let window = EditingWindow(contentViewController: tabs)
         window.styleMask = [.titled, .closable]
         window.setContentSize(Self.contentSize)
         window.isReleasedWhenClosed = false

@@ -7,43 +7,35 @@ import SpotCore
 @MainActor
 final class MiniWindowController: ObservableObject {
     static let width: CGFloat = 480
-    static let capsuleHeight: CGFloat = 56
 
     @Published private(set) var mode: MiniWindowMode = .hidden
-    @Published private(set) var focusRequest = 0
     @Published private(set) var scrollRequest = 0
-    /// What the user has typed but not sent. Saved on every change.
-    @Published var draft: String {
-        didSet {
-            if draft != oldValue { draftStorage.saveDraft(draft) }
-        }
-    }
-    @Published var pendingAttachments: [Attachment] = []
 
     let app: AppModel
     let session: ChatSession
+    let composer: ComposerModel
+    let inputActions: InputActions
     /// Opens the full window, carrying the conversation shown in the card.
     var openFullWindow: (UUID?) -> Void = { _ in }
     var closeFullWindow: () -> Void = {}
     var openSettings: () -> Void = {}
 
     private var state: MiniWindowState
-    private let draftStorage: DraftStorage
     private let placementStore: PlacementStore
     private var retentionTimer: DispatchWorkItem?
     private var observers: Set<AnyCancellable> = []
     private var resignObserver: NSObjectProtocol?
-    /// While a file picker or menu is open the capsule must not hide.
+    /// While a file picker, the permission guide or a menu is open the capsule must not hide.
     private var suppressFocusLoss = 0
     private lazy var panel: MiniPanel = makePanel()
 
-    init(app: AppModel, draftStorage: DraftStorage, placementStore: PlacementStore? = nil) {
+    init(app: AppModel, composer: ComposerModel, inputActions: InputActions, placementStore: PlacementStore? = nil) {
         self.app = app
+        self.composer = composer
+        self.inputActions = inputActions
         self.session = ChatSession(app: app)
-        self.draftStorage = draftStorage
         self.placementStore = placementStore ?? PlacementStore()
         self.state = MiniWindowState(retentionPolicy: app.retentionPolicy)
-        self.draft = draftStorage.loadDraft()
 
         session.$isGenerating
             .removeDuplicates()
@@ -62,9 +54,29 @@ final class MiniWindowController: ObservableObject {
             .dropFirst()
             .sink { [weak self] _ in self?.historyDidChange() }
             .store(in: &observers)
+        // The capsule grows a row for attachments, the sharing tag and notices.
+        Publishers.Merge3(
+            composer.$attachments.map { _ in () },
+            composer.$sharedWindow.map { _ in () },
+            composer.$notice.map { _ in () }
+        )
+        .receive(on: RunLoop.main)
+        .sink { [weak self] in self?.composerDidResize() }
+        .store(in: &observers)
     }
 
     var cardHeight: CGFloat { CGFloat(app.cardHeight) }
+
+    var capsuleHeight: CGFloat { ComposerLayout.height(for: composer) }
+
+    lazy var composerActions: ComposerActions = inputActions.makeActions(
+        submit: { [weak self] in self?.submit() },
+        escape: { [weak self] in self?.handle(.escape) },
+        openSettings: { [weak self] in self?.openSettings() },
+        presenting: { [weak self] work in self?.withFocusLossSuppressed(work) },
+        menuWillOpen: { [weak self] in self?.suppressFocusLoss += 1 },
+        menuDidClose: { [weak self] in self?.suppressFocusLoss -= 1 }
+    )
 
     func handle(_ event: MiniWindowEvent) {
         let effects = state.handle(event, isKey: panel.isKeyWindow)
@@ -75,22 +87,24 @@ final class MiniWindowController: ObservableObject {
     }
 
     func submit() {
-        handle(.send(text: draft, hasAttachments: !pendingAttachments.isEmpty, newConversationID: UUID()))
+        handle(.send(text: composer.draft, hasAttachments: composer.hasExtras, newConversationID: UUID()))
     }
 
     func panelWasDragged() {
         placementStore.save(topLeft: WindowPlacement.topLeft(of: panel.frame), screen: panel.screen)
     }
 
-    /// Runs work that shows another window (a file picker, an alert) without the capsule hiding meanwhile.
+    /// Runs work that shows another window without the capsule hiding meanwhile.
     /// The work calls the completion when that window is gone.
     func withFocusLossSuppressed(_ work: (@escaping () -> Void) -> Void) {
         suppressFocusLoss += 1
         work { [weak self] in
             guard let self else { return }
             self.suppressFocusLoss -= 1
-            self.panel.makeKeyAndOrderFront(nil)
-            self.focusRequest += 1
+            if self.mode != .hidden {
+                self.panel.makeKeyAndOrderFront(nil)
+                self.composer.requestFocus()
+            }
         }
     }
 
@@ -99,7 +113,7 @@ final class MiniWindowController: ObservableObject {
     private func perform(_ effect: MiniWindowEffect) {
         switch effect {
         case .showCapsule:
-            present(height: Self.capsuleHeight)
+            present(height: capsuleHeight)
         case .showCard:
             if session.topicID != state.conversationID {
                 session.load(state.conversationID)
@@ -108,18 +122,18 @@ final class MiniWindowController: ObservableObject {
         case .scrollToBottom:
             scrollRequest += 1
         case .focusInput:
-            focusRequest += 1
+            composer.requestFocus()
         case .bringToFront:
+            if NSApp.isHidden { NSApp.unhideWithoutActivation() }
             panel.orderFrontRegardless()
             panel.makeKey()
         case .hide:
             panel.orderOut(nil)
+            returnFocusToPreviousApp()
         case let .appendUserMessage(text, conversationID):
-            let attachments = pendingAttachments
-            pendingAttachments = []
-            session.send(text: text, attachments: attachments, newTopicID: conversationID)
+            inputActions.send(text: text, to: session, newTopicID: conversationID)
         case .clearDraft:
-            draft = ""
+            composer.draft = ""
         case let .scheduleRetentionExpiry(token, interval):
             scheduleRetentionExpiry(token: token, after: interval)
         case .cancelRetentionExpiry:
@@ -141,6 +155,19 @@ final class MiniWindowController: ObservableObject {
         }
     }
 
+    /// When Spot Chat became active (for a file picker, say), hiding the capsule hands focus back.
+    private func returnFocusToPreviousApp() {
+        let otherWindowsOpen = NSApp.windows.contains { $0 !== panel && $0.isVisible && $0.canBecomeMain }
+        if NSApp.isActive, !otherWindowsOpen {
+            NSApp.hide(nil)
+        }
+    }
+
+    private func composerDidResize() {
+        guard mode == .capsule, panel.isVisible, abs(panel.frame.height - capsuleHeight) > 0.5 else { return }
+        present(height: capsuleHeight)
+    }
+
     private func historyDidChange() {
         // A conversation deleted from history must not come back in the card.
         guard let id = state.conversationID, !app.topics.contains(where: { $0.id == id }) else { return }
@@ -152,6 +179,9 @@ final class MiniWindowController: ObservableObject {
     }
 
     private func present(height: CGFloat) {
+        if NSApp.isHidden {
+            NSApp.unhideWithoutActivation()
+        }
         if panel.isVisible {
             let visible = (panel.screen ?? NSScreen.main)?.visibleFrame ?? panel.frame
             let target = height > panel.frame.height
@@ -193,8 +223,8 @@ final class MiniWindowController: ObservableObject {
     // MARK: Window
 
     private func makePanel() -> MiniPanel {
-        let panel = MiniPanel.make(width: Self.width, height: Self.capsuleHeight)
-        let hosting = NSHostingView(rootView: MiniRootView(controller: self, session: session, app: app))
+        let panel = MiniPanel.make(width: Self.width, height: ComposerLayout.baseHeight)
+        let hosting = NSHostingView(rootView: MiniRootView(controller: self, session: session, app: app, composer: composer))
         hosting.sizingOptions = []
         panel.contentView = hosting
         panel.onEscape = { [weak self] in

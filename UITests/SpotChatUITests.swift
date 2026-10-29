@@ -13,7 +13,7 @@ final class SpotChatUITests: XCTestCase {
 
     // MARK: Helpers
 
-    func launch(resetState: Bool, provider: Bool = true, language: String = "en") -> XCUIApplication {
+    func launch(resetState: Bool, provider: Bool = true, language: String = "en", fullWindow: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = [
             "-SpotChatShowMiniOnLaunch", "YES",
@@ -25,6 +25,9 @@ final class SpotChatUITests: XCTestCase {
         }
         if provider {
             app.launchArguments += ["-SpotChatTestProviderURL", Self.mockURL, "-SpotChatTestProviderKey", "test-key"]
+        }
+        if fullWindow {
+            app.launchArguments += ["-SpotChatShowFullWindowOnLaunch", "YES"]
         }
         app.launch()
         return app
@@ -145,9 +148,10 @@ final class SpotChatUITests: XCTestCase {
         XCTAssertTrue(input.waitForExistence(timeout: 10))
         let before = input.frame
 
-        // The capsule's 20pt left padding, outside the input.
-        let start = input.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0.5))
-            .withOffset(CGVector(dx: -8, dy: 0))
+        // The capsule's left padding, before the + button.
+        let plus = element("plusMenu", in: app)
+        let start = plus.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0.5))
+            .withOffset(CGVector(dx: -5, dy: 0))
         let end = start.withOffset(CGVector(dx: 120, dy: 80))
         start.click(forDuration: 0.3, thenDragTo: end)
 
@@ -299,5 +303,186 @@ final class SpotChatUITests: XCTestCase {
         XCTAssertTrue(menu.waitForExistence(timeout: 10), "The new models are offered")
         send("saved", in: app)
         waitForReply(in: app, "value == %@", "Echo: saved")
+    }
+
+    // MARK: Attachments
+
+    func pasteIntoComposer(_ app: XCUIApplication) {
+        let input = composer(in: app)
+        XCTAssertTrue(input.waitForExistence(timeout: 10))
+        input.click()
+        input.typeKey("v", modifierFlags: .command)
+    }
+
+    func testPastingTextWorks() {
+        let app = launch(resetState: true)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString("pasted words", forType: .string)
+        pasteIntoComposer(app)
+        XCTAssertEqual(text(of: composer(in: app)), "pasted words")
+    }
+
+    func testPastedImageIsSentAsAnImage() throws {
+        let app = launch(resetState: true)
+        let image = NSImage(size: NSSize(width: 8, height: 8), flipped: false) { rect in
+            NSColor.systemBlue.setFill()
+            rect.fill()
+            return true
+        }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.writeObjects([image])
+        pasteIntoComposer(app)
+        XCTAssertTrue(element("attachment", in: app).waitForExistence(timeout: 5))
+
+        composer(in: app).typeText("what is this")
+        composer(in: app).typeKey(.return, modifierFlags: [])
+        waitForReply(in: app, "value == %@", "I can see 1 image(s).")
+        let messages = try lastRequest()["messages"] as? [[String: Any]] ?? []
+        let parts = messages.last?["content"] as? [[String: Any]] ?? []
+        XCTAssertTrue(parts.contains { $0["type"] as? String == "image_url" })
+    }
+
+    func testPastedTextFileIsSentWithItsContents() throws {
+        let app = launch(resetState: true)
+        let file = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("notes.txt")
+        try "meeting at 3pm".write(to: file, atomically: true, encoding: .utf8)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.writeObjects([file as NSURL])
+        pasteIntoComposer(app)
+        let tile = element("attachment", in: app)
+        XCTAssertTrue(tile.waitForExistence(timeout: 5))
+        XCTAssertEqual(tile.label, "notes.txt")
+
+        composer(in: app).typeKey(.return, modifierFlags: [])
+        waitForReply(in: app, "value == %@", "I read notes.txt.")
+        let messages = try lastRequest()["messages"] as? [[String: Any]] ?? []
+        let content = messages.last?["content"]
+        let text = (content as? String) ?? ((content as? [[String: Any]])?.compactMap { $0["text"] as? String }.joined() ?? "")
+        XCTAssertTrue(text.contains("meeting at 3pm"))
+    }
+
+    func testAttachmentsCanBeRemovedAndSurviveRelaunch() throws {
+        var app = launch(resetState: true)
+        let file = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("keep.txt")
+        try "keep".write(to: file, atomically: true, encoding: .utf8)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.writeObjects([file as NSURL])
+        pasteIntoComposer(app)
+        XCTAssertTrue(element("attachment", in: app).waitForExistence(timeout: 5))
+
+        app.terminate()
+        app = launch(resetState: false)
+        XCTAssertTrue(element("attachment", in: app).waitForExistence(timeout: 10), "Attachments not sent yet are kept")
+        element("removeAttachment", in: app).click()
+        XCTAssertTrue(element("attachment", in: app).waitForNonExistence(timeout: 5))
+    }
+
+    func testUnsupportedFileIsRefusedWithANotice() throws {
+        let app = launch(resetState: true)
+        let file = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("blob.bin")
+        try Data([0xFF, 0xFE, 0x00, 0x81, 0xC3, 0x28]).write(to: file)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.writeObjects([file as NSURL])
+        pasteIntoComposer(app)
+        let notice = element("composerNotice", in: app)
+        XCTAssertTrue(notice.waitForExistence(timeout: 5))
+        XCTAssertTrue(text(of: notice).hasPrefix("blob.bin can't be sent"))
+        XCTAssertFalse(element("attachment", in: app).exists)
+    }
+
+    func testPlusMenuOffersUploadsAndSharing() {
+        let app = launch(resetState: true)
+        let plus = element("plusMenu", in: app)
+        XCTAssertTrue(plus.waitForExistence(timeout: 10))
+        plus.click()
+        XCTAssertTrue(app.menuItems["Upload Image…"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.menuItems["Upload File…"].exists)
+        XCTAssertTrue(app.menuItems["Share Window"].exists)
+        app.typeKey(.escape, modifierFlags: [])
+        XCTAssertTrue(composer(in: app).waitForExistence(timeout: 5), "Closing the menu keeps the capsule")
+    }
+
+    func testSharingAWindowWithoutPermissionShowsTheGuide() {
+        let app = launch(resetState: true)
+        let plus = element("plusMenu", in: app)
+        XCTAssertTrue(plus.waitForExistence(timeout: 10))
+        plus.click()
+        let share = app.menuItems["Share Window"]
+        XCTAssertTrue(share.waitForExistence(timeout: 5))
+        share.click()
+        // CI machines have no screen recording permission, so the guide opens.
+        let done = app.buttons["Done"]
+        XCTAssertTrue(done.waitForExistence(timeout: 5))
+        XCTAssertFalse(done.isEnabled, "Done waits for screen recording permission")
+        XCTAssertTrue(app.buttons["Open System Settings"].exists)
+        app.buttons["Cancel"].click()
+        XCTAssertTrue(done.waitForNonExistence(timeout: 5))
+    }
+
+    // MARK: Full window
+
+    func testCardExpandsToTheFullWindowAndCollapsesBack() {
+        let app = launch(resetState: true)
+        send("carry over", in: app)
+        waitForReply(in: app, "value == %@", "Echo: carry over")
+
+        app.buttons["Expand to Full Window"].click()
+        let collapse = element("collapseToMini", in: app)
+        XCTAssertTrue(collapse.waitForExistence(timeout: 10), "The full window opens")
+        XCTAssertTrue(element("historyItem", in: app).waitForExistence(timeout: 5))
+        waitForReply(in: app, "value == %@", "Echo: carry over")
+
+        collapse.click()
+        XCTAssertTrue(collapse.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["New Chat"].waitForExistence(timeout: 5), "The card shows the same conversation")
+        waitForReply(in: app, "value == %@", "Echo: carry over")
+    }
+
+    func testHistoryIsKeptAndCanBeRenamedAndDeleted() {
+        var app = launch(resetState: true)
+        send("remember me", in: app)
+        waitForReply(in: app, "value == %@", "Echo: remember me")
+        app.terminate()
+
+        app = launch(resetState: false, fullWindow: true)
+        let item = element("historyItem", in: app)
+        XCTAssertTrue(item.waitForExistence(timeout: 10))
+        XCTAssertEqual(text(of: item), "remember me")
+        item.click()
+        waitForReply(in: app, "value == %@", "Echo: remember me")
+
+        item.rightClick()
+        app.menuItems["Rename…"].click()
+        let field = element("renameField", in: app)
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeKey("a", modifierFlags: .command)
+        field.typeText("Renamed\n")
+        let renamed = element("historyItem", in: app)
+        XCTAssertTrue(renamed.waitForExistence(timeout: 5))
+        XCTAssertEqual(text(of: renamed), "Renamed")
+
+        renamed.rightClick()
+        app.menuItems["Delete…"].click()
+        app.buttons["Delete"].click()
+        XCTAssertTrue(element("historyItem", in: app).waitForNonExistence(timeout: 5))
+    }
+
+    func testFullWindowSendsAndStartsNewChats() {
+        let app = launch(resetState: true, fullWindow: true)
+        send("from the full window", in: app)
+        waitForReply(in: app, "value == %@", "Echo: from the full window")
+        XCTAssertTrue(element("historyItem", in: app).waitForExistence(timeout: 5))
+
+        element("newChat", in: app).click()
+        XCTAssertTrue(element("message.assistant", in: app).waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["What's on your mind?"].exists)
+    }
+
+    func testSettingsOpenFromTheFullWindow() {
+        let app = launch(resetState: true, fullWindow: true)
+        let gear = element("openSettings", in: app)
+        XCTAssertTrue(gear.waitForExistence(timeout: 10))
+        gear.click()
+        XCTAssertTrue(element("addProvider", in: app).waitForExistence(timeout: 5))
     }
 }

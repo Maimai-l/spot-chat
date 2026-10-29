@@ -1,21 +1,36 @@
 import SwiftUI
+import UniformTypeIdentifiers
 import SpotCore
 
 struct MiniRootView: View {
     @ObservedObject var controller: MiniWindowController
     @ObservedObject var session: ChatSession
     @ObservedObject var app: AppModel
+    @ObservedObject var composer: ComposerModel
 
     var body: some View {
         Group {
             switch controller.mode {
             case .card:
-                CardView(controller: controller, session: session, app: app)
+                CardView(controller: controller, session: session, app: app, composer: composer)
             case .capsule, .hidden:
-                CapsuleView(controller: controller, session: session, app: app)
+                CapsuleView(controller: controller, session: session, app: app, composer: composer)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onDrop(of: [.fileURL], isTargeted: nil) { providers in
+            Self.loadFileURLs(from: providers) { composer.add(fileURLs: $0) }
+            return true
+        }
+    }
+
+    static func loadFileURLs(from providers: [NSItemProvider], completion: @escaping @MainActor ([URL]) -> Void) {
+        for provider in providers {
+            _ = provider.loadObject(ofClass: URL.self) { url, _ in
+                guard let url, url.isFileURL else { return }
+                Task { @MainActor in completion([url]) }
+            }
+        }
     }
 }
 
@@ -24,15 +39,14 @@ struct CapsuleView: View {
     @ObservedObject var controller: MiniWindowController
     @ObservedObject var session: ChatSession
     @ObservedObject var app: AppModel
+    @ObservedObject var composer: ComposerModel
 
     var body: some View {
-        ComposerRow(controller: controller, session: session, app: app)
-            .padding(.leading, 20)
-            .padding(.trailing, 12)
-            .frame(height: MiniWindowController.capsuleHeight)
+        ComposerView(composer: composer, session: session, app: app, actions: controller.composerActions)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(WindowDragArea(onDragEnd: controller.panelWasDragged))
             .background(VisualEffectBackground(material: .popover))
-            .clipShape(Capsule(style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
     }
 }
 
@@ -41,6 +55,7 @@ struct CardView: View {
     @ObservedObject var controller: MiniWindowController
     @ObservedObject var session: ChatSession
     @ObservedObject var app: AppModel
+    @ObservedObject var composer: ComposerModel
 
     var body: some View {
         VStack(spacing: 0) {
@@ -48,12 +63,10 @@ struct CardView: View {
                 MessageList(session: session, scrollRequest: controller.scrollRequest, topInset: 64, horizontalPadding: 22)
                 header
             }
-            ComposerRow(controller: controller, session: session, app: app)
-                .padding(.leading, 20)
-                .padding(.trailing, 12)
-                .frame(height: MiniWindowController.capsuleHeight)
+            ComposerView(composer: composer, session: session, app: app, actions: controller.composerActions)
+                .frame(height: ComposerLayout.height(for: composer))
                 .background(
-                    Capsule(style: .continuous)
+                    RoundedRectangle(cornerRadius: 28, style: .continuous)
                         .fill(Color(nsColor: .textBackgroundColor))
                         .shadow(color: .black.opacity(0.1), radius: 6, y: 1)
                 )
@@ -74,33 +87,12 @@ struct CardView: View {
             CircleIconButton(systemName: "square.and.pencil", label: "New Chat", filled: true) {
                 controller.handle(.newConversation)
             }
+            CircleIconButton(systemName: "arrow.up.left.and.arrow.down.right", label: "Expand to Full Window", filled: true) {
+                controller.handle(.expandToFullWindow)
+            }
         }
         .padding(12)
         .background(WindowDragArea(onDragEnd: controller.panelWasDragged))
-    }
-}
-
-/// The input with the model menu and, while a reply is generated, the stop button.
-struct ComposerRow: View {
-    @ObservedObject var controller: MiniWindowController
-    @ObservedObject var session: ChatSession
-    @ObservedObject var app: AppModel
-
-    var body: some View {
-        HStack(spacing: 6) {
-            ComposerField(
-                text: $controller.draft,
-                placeholder: String(localized: "Ask Spot"),
-                focusRequest: controller.focusRequest,
-                onSubmit: controller.submit,
-                onEscape: { controller.handle(.escape) }
-            )
-            .frame(height: 28)
-            ModelMenu(app: app, openSettings: controller.openSettings)
-            if session.isGenerating {
-                StopButton { controller.handle(.escape) }
-            }
-        }
     }
 }
 

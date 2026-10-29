@@ -9,6 +9,9 @@ struct SpotChatApp: App {
             Button("Open Mini Window") {
                 appDelegate.miniController.handle(.openRequested)
             }
+            Button("Open Full Window") {
+                appDelegate.openFullWindow()
+            }
             Button("Settings…") {
                 appDelegate.showSettings()
             }
