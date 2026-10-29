@@ -128,7 +128,7 @@ final class FullWindowController: NSObject, ObservableObject, NSWindowDelegate {
         )
         let view = FullWindowView(controller: self, session: session, app: app, composer: composer, actions: actions)
         let hosting = NSHostingController(rootView: view)
-        hosting.sceneBridgingOptions = [.toolbars, .title]
+        hosting.sceneBridgingOptions = [.toolbars]
 
         let window = EditingWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1040, height: 720),

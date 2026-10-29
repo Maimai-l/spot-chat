@@ -41,14 +41,14 @@ struct FullWindowView: View {
             .background(Color(nsColor: .textBackgroundColor))
             .toolbar(removing: .title)
             .toolbar {
-                ToolbarItem(placement: .primaryAction) {
+                ToolbarItem(placement: .automatic) {
                     Button {
                         controller.collapse()
                     } label: {
                         Label {
                             Text("Collapse to Mini Window")
                         } icon: {
-                            CornersIcon(inward: true).stroke(style: CornersIcon.stroke).frame(width: 14, height: 14)
+                            CornersIcon(inward: true).stroke(style: CornersIcon.stroke).frame(width: 15, height: 15)
                         }
                     }
                     .help(Text("Collapse to Mini Window"))
