@@ -200,3 +200,23 @@ struct TestStore {
         #expect(try store.preferences.value(PreferenceKey.cardHeight, as: Int.self) == nil)
     }
 }
+
+@Suite struct FileEntryServiceTests {
+    @Test func pendingAttachmentsCanBeLookedUpAgain() throws {
+        let store = try TestStore()
+        let first = try store.files.importData(Data([1]), fileName: "a.png")
+        let second = try store.files.importData(Data("x".utf8), fileName: "notes.txt")
+        let missing = UUID()
+        let found = try store.files.attachments(withIDs: [second.id, missing, first.id])
+        #expect(found.map(\.id) == [second.id, first.id])
+        #expect(found[0].displayName == "notes.txt")
+        #expect(found[1].kind == .image)
+    }
+
+    @Test func attachmentsWhoseFileIsGoneAreSkipped() throws {
+        let store = try TestStore()
+        let attachment = try store.files.importData(Data([1]), fileName: "a.png")
+        try FileManager.default.removeItem(at: attachment.fileURL)
+        #expect(try store.files.attachments(withIDs: [attachment.id]).isEmpty)
+    }
+}

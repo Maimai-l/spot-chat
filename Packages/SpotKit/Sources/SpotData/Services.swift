@@ -225,6 +225,21 @@ public struct FileEntryService: Sendable {
         return Attachment(id: id, name: name, ext: ext, size: Int64(data.count), fileURL: destination)
     }
 
+    /// Attachments by id, in the order asked, skipping any that no longer exist.
+    public func attachments(withIDs ids: [UUID]) throws -> [Attachment] {
+        let directory = self.directory
+        let records = try database.writer.read { db in
+            try FileEntryRecord.fetchAll(db, keys: ids.map(\.uuidString))
+        }
+        let byID = Dictionary(uniqueKeysWithValues: records.map { ($0.id, $0) })
+        return ids.compactMap { id in
+            guard let record = byID[id.uuidString] else { return nil }
+            let url = Self.fileURL(directory: directory, id: record.id, ext: record.ext)
+            guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+            return Attachment(id: id, name: record.name, ext: record.ext, size: record.size ?? 0, fileURL: url)
+        }
+    }
+
     static func fileURL(directory: URL, id: String, ext: String?) -> URL {
         let fileName = ext.map { "\(id).\($0)" } ?? id
         return directory.appendingPathComponent(fileName)

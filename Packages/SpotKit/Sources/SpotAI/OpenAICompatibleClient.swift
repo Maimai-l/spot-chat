@@ -70,7 +70,7 @@ public struct OpenAICompatibleClient: ChatResponder {
             model: request.model,
             stream: true
         )
-        let upstream = makeClient().chatsStream(query: query)
+        let upstream: AsyncThrowingStream<ChatStreamResult, Error> = makeClient().chatsStream(query: query)
         return AsyncThrowingStream { continuation in
             let task = Task {
                 do {
@@ -95,7 +95,8 @@ public struct OpenAICompatibleClient: ChatResponder {
     /// The model ids the service offers, sorted.
     public func listModels() async throws -> [String] {
         do {
-            return try await makeClient().models().data.map(\.id).sorted()
+            let result: ModelsResult = try await makeClient().models()
+            return result.data.map(\.id).sorted()
         } catch {
             throw ChatServiceError(error)
         }
