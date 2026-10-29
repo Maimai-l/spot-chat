@@ -47,10 +47,11 @@ final class ChatSession: ObservableObject {
     func send(text: String, attachments: [Attachment], newTopicID: UUID) {
         guard !isGenerating else { return }
         let topicID = self.topicID ?? newTopicID
-        if self.topicID == nil {
+        // The mini window shows a new conversation before its first message, so the topic may not be stored yet.
+        if (try? app.topicService.get(topicID)) == nil {
             try? app.topicService.create(id: topicID, name: TopicName.make(fromFirstMessage: text.isEmpty ? (attachments.first?.displayName ?? "") : text))
-            self.topicID = topicID
         }
+        self.topicID = topicID
         let message = ChatMessage(role: .user, text: text, attachments: attachments)
         store(message)
         app.historyDidChange()

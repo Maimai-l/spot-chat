@@ -16,6 +16,7 @@ GET /v1/last-request returns the body of the last chat request.
 
 import json
 import re
+import socketserver
 import sys
 import threading
 import time
@@ -146,6 +147,15 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.flush()
 
 
+class LoopbackServer(ThreadingHTTPServer):
+    def server_bind(self):
+        # HTTPServer looks up the host name here, which on macOS asks for local network access
+        # and puts a permission prompt over the app under test.
+        socketserver.TCPServer.server_bind(self)
+        self.server_name = "localhost"
+        self.server_port = self.server_address[1]
+
+
 if __name__ == "__main__":
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8765
-    ThreadingHTTPServer(("127.0.0.1", port), Handler).serve_forever()
+    LoopbackServer(("127.0.0.1", port), Handler).serve_forever()

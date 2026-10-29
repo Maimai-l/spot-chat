@@ -77,6 +77,11 @@ final class SpotChatUITests: XCTestCase {
         XCTAssertTrue(predicate.evaluate(with: current), "Text was: \(current)")
     }
 
+    /// Clicks the middle of the element, for small buttons XCTest reports as not hittable inside scroll views.
+    func tap(_ element: XCUIElement) {
+        element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
+    }
+
     func moveFocusToAnotherApp() {
         XCUIApplication(bundleIdentifier: "com.apple.finder").activate()
     }
@@ -189,7 +194,7 @@ final class SpotChatUITests: XCTestCase {
         let copy = element("copyCode", in: app)
         XCTAssertTrue(copy.waitForExistence(timeout: 5))
         NSPasteboard.general.clearContents()
-        copy.click()
+        tap(copy)
         XCTAssertEqual(NSPasteboard.general.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines), "PRAGMA journal_mode = WAL;")
     }
 
@@ -383,7 +388,7 @@ final class SpotChatUITests: XCTestCase {
         app.terminate()
         app = launch(resetState: false)
         XCTAssertTrue(element("attachment", in: app).waitForExistence(timeout: 10), "Attachments not sent yet are kept")
-        element("removeAttachment", in: app).click()
+        tap(element("removeAttachment", in: app))
         XCTAssertTrue(element("attachment", in: app).waitForNonExistence(timeout: 5))
     }
 
