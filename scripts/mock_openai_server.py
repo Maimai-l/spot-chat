@@ -26,7 +26,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 API_KEY = "test-key"
 MODELS = ["mock-fast", "mock-vision"]
 MARKDOWN_REPLY = (
-    "**注意：**这里是加粗，`inline code` 也在这一行。\n"
+    "**注意：**注意：这里是加粗，**Bold** Bold，`inline code` 也在这一行。\n"
     "模型的第二行紧接着换行。\n\n"
     "## Steps\n\n"
     "- **First** item\n"
