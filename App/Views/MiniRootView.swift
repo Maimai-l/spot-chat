@@ -17,24 +17,24 @@ struct MiniRootView: View {
     }
 }
 
-/// The collapsed mini window: + · input · model · expand.
+/// The collapsed mini window: add button, input, model name and expand button.
 struct CapsuleView: View {
     @ObservedObject var controller: MiniWindowController
 
     var body: some View {
         HStack(spacing: 6) {
-            CircleIconButton(systemName: "plus", label: "添加附件或分享窗口") {}
+            CircleIconButton(systemName: "plus", label: "Add Attachment or Share Window") {}
                 .disabled(true)
             ComposerField(
                 text: $controller.draft,
-                placeholder: "问问 Spot",
+                placeholder: String(localized: "Ask Spot"),
                 focusRequest: controller.focusRequest,
                 onSubmit: controller.submit,
                 onEscape: { controller.handle(.escape) }
             )
             .frame(height: 28)
             ModelNameLabel(name: controller.modelName)
-            CircleIconButton(systemName: "arrow.up.left.and.arrow.down.right", label: "展开为完整窗口") {}
+            CircleIconButton(systemName: "arrow.up.left.and.arrow.down.right", label: "Expand to Full Window") {}
                 .disabled(true)
         }
         .padding(.horizontal, 10)
@@ -52,14 +52,14 @@ struct CardView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
-                CircleIconButton(systemName: "xmark", label: "关闭", filled: true) {
+                CircleIconButton(systemName: "xmark", label: "Close", filled: true) {
                     controller.handle(.closeCard)
                 }
                 Spacer()
-                CircleIconButton(systemName: "square.and.pencil", label: "新对话", filled: true) {
+                CircleIconButton(systemName: "square.and.pencil", label: "New Chat", filled: true) {
                     controller.handle(.newConversation)
                 }
-                CircleIconButton(systemName: "arrow.up.left.and.arrow.down.right", label: "展开为完整窗口", filled: true) {}
+                CircleIconButton(systemName: "arrow.up.left.and.arrow.down.right", label: "Expand to Full Window", filled: true) {}
                     .disabled(true)
             }
             .padding(12)
@@ -88,11 +88,11 @@ struct CardView: View {
             }
 
             HStack(spacing: 6) {
-                CircleIconButton(systemName: "plus", label: "添加附件或分享窗口") {}
+                CircleIconButton(systemName: "plus", label: "Add Attachment or Share Window") {}
                     .disabled(true)
                 ComposerField(
                     text: $controller.draft,
-                    placeholder: "问问 Spot",
+                    placeholder: String(localized: "Ask Spot"),
                     focusRequest: controller.focusRequest,
                     onSubmit: controller.submit,
                     onEscape: { controller.handle(.escape) }
@@ -163,7 +163,7 @@ struct ModelNameLabel: View {
 
 struct CircleIconButton: View {
     let systemName: String
-    let label: String
+    let label: LocalizedStringKey
     var filled = false
     let action: () -> Void
 
@@ -183,6 +183,6 @@ struct CircleIconButton: View {
         }
         .buttonStyle(.plain)
         .help(label)
-        .accessibilityLabel(label)
+        .accessibilityLabel(Text(label))
     }
 }

@@ -58,14 +58,18 @@ jobs:
             -scheme SpotChat \
             -configuration Release \
             -destination 'generic/platform=macOS' \
-            -derivedDataPath build/DerivedData
-      - name: Package app
-        run: ditto -c -k --keepParent build/DerivedData/Build/Products/Release/SpotChat.app build/SpotChat.zip
-      - name: Upload app
+            -derivedDataPath build/DerivedData \
+            CURRENT_PROJECT_VERSION=${{ github.run_number }}
+      - name: Package alpha build
+        run: |
+          VERSION="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' build/DerivedData/Build/Products/Release/SpotChat.app/Contents/Info.plist)"
+          echo "ALPHA_NAME=SpotChat-$VERSION-alpha.${{ github.run_number }}" >> "$GITHUB_ENV"
+          ditto -c -k --keepParent build/DerivedData/Build/Products/Release/SpotChat.app "build/SpotChat-$VERSION-alpha.${{ github.run_number }}.zip"
+      - name: Upload alpha build
         uses: actions/upload-artifact@v4
         with:
-          name: SpotChat-app
-          path: build/SpotChat.zip
+          name: ${{ env.ALPHA_NAME }}
+          path: build/${{ env.ALPHA_NAME }}.zip
       - name: Upload UI test results
         if: always()
         uses: actions/upload-artifact@v4

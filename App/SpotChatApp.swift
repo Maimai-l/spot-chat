@@ -6,15 +6,15 @@ struct SpotChatApp: App {
 
     var body: some Scene {
         MenuBarExtra("Spot Chat", systemImage: "smallcircle.filled.circle") {
-            Button("打开小窗") {
+            Button("Open Mini Window") {
                 appDelegate.miniController.handle(.openRequested)
             }
-            Button("打开完整窗口") {}
+            Button("Open Full Window") {}
                 .disabled(true)
-            Button("设置…") {}
+            Button("Settings…") {}
                 .disabled(true)
             Divider()
-            Button("退出 Spot Chat") {
+            Button("Quit Spot Chat") {
                 NSApp.terminate(nil)
             }
             .keyboardShortcut("q")

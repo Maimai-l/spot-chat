@@ -7,9 +7,9 @@ final class SpotChatUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    private func launch(resetState: Bool) -> XCUIApplication {
+    private func launch(resetState: Bool, language: String = "en") -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["-SpotChatShowMiniOnLaunch", "YES"]
+        app.launchArguments = ["-SpotChatShowMiniOnLaunch", "YES", "-AppleLanguages", "(\(language))"]
         if resetState {
             app.launchArguments += ["-SpotChatResetState", "YES"]
         }
@@ -49,6 +49,19 @@ final class SpotChatUITests: XCTestCase {
         XCTAssertEqual(text(of: question), "hello spot")
         XCTAssertEqual(text(of: reply), "hello spot")
         XCTAssertEqual(text(of: composer(in: app)), "")
+        XCTAssertTrue(app.buttons["New Chat"].exists)
+    }
+
+    func testInterfaceIsTranslatedForSimplifiedChinese() {
+        let app = launch(resetState: true, language: "zh-Hans")
+        let input = composer(in: app)
+        XCTAssertTrue(input.waitForExistence(timeout: 10))
+        input.click()
+        input.typeText("hi")
+        input.typeKey(.return, modifierFlags: [])
+
+        XCTAssertTrue(app.buttons["新对话"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["关闭"].exists)
     }
 
     func testShiftEnterAddsALineInsteadOfSending() {
