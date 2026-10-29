@@ -110,6 +110,9 @@ final class ComposerModel: ObservableObject {
 /// Heights of the input area, which grows a row for attachments and one for the sharing tag.
 enum ComposerLayout {
     static let baseHeight: CGFloat = 56
+    /// The + glyph and the text field's text sit about a point above the row's center;
+    /// the model name and icons at the end are raised by the same amount so the row reads level.
+    static let trailingLift: CGFloat = 1
     static let attachmentsRowHeight: CGFloat = 64
     static let tagRowHeight: CGFloat = 26
     static let noticeRowHeight: CGFloat = 16

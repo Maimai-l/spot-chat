@@ -99,7 +99,7 @@ struct CardView: View {
             CircleIconButton(systemName: "square.and.pencil", label: "New Chat", filled: true) {
                 controller.handle(.newConversation)
             }
-            CircleIconButton(systemName: "arrow.up.left.and.arrow.down.right", label: "Expand to Full Window", filled: true) {
+            CircleIconButton.expand(filled: true) {
                 controller.handle(.expandToFullWindow)
             }
         }
@@ -147,7 +147,7 @@ struct ModelMenu: View {
                 }
             } label: {
                 Text(current.modelID)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 15, weight: .semibold))
             }
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
@@ -156,7 +156,7 @@ struct ModelMenu: View {
         } else {
             Button(action: openSettings) {
                 Text("Add Model")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 15, weight: .semibold))
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("addModel")
@@ -165,15 +165,39 @@ struct ModelMenu: View {
 }
 
 struct CircleIconButton: View {
-    let systemName: String
     let label: LocalizedStringKey
     var filled = false
+    let icon: AnyView
     let action: () -> Void
+    @State private var hovering = false
+
+    init(systemName: String, label: LocalizedStringKey, filled: Bool = false, action: @escaping () -> Void) {
+        self.init(label: label, filled: filled, icon: Image(systemName: systemName).font(.system(size: 15, weight: .medium)), action: action)
+    }
+
+    init(label: LocalizedStringKey, filled: Bool = false, icon: some View, action: @escaping () -> Void) {
+        self.label = label
+        self.filled = filled
+        self.icon = AnyView(icon)
+        self.action = action
+    }
+
+    /// Corner brackets pointing out, for expanding to the full window.
+    static func expand(filled: Bool = false, action: @escaping () -> Void) -> CircleIconButton {
+        let size: CGFloat = filled ? 14 : 17
+        return CircleIconButton(
+            label: "Expand to Full Window",
+            filled: filled,
+            icon: CornersIcon(inward: false)
+                .stroke(style: StrokeStyle(lineWidth: filled ? 1.7 : 2, lineCap: .round, lineJoin: .round))
+                .frame(width: size, height: size),
+            action: action
+        )
+    }
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: systemName)
-                .font(.system(size: 15, weight: .medium))
+            icon
                 .frame(width: 36, height: 36)
                 .background {
                     if filled {
@@ -181,11 +205,49 @@ struct CircleIconButton: View {
                             .fill(Color(nsColor: .textBackgroundColor))
                             .shadow(color: .black.opacity(0.12), radius: 5, y: 1)
                     }
+                    Circle().fill(Color.primary.opacity(hovering ? 0.07 : 0))
                 }
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
+        .onHover { hovering = $0 }
         .help(label)
         .accessibilityLabel(Text(label))
+    }
+}
+
+/// Two corner brackets at the top right and bottom left, drawn so the icon is centered exactly.
+struct CornersIcon: Shape {
+    static let stroke = StrokeStyle(lineWidth: 1.7, lineCap: .round, lineJoin: .round)
+
+    var inward: Bool
+
+    func path(in rect: CGRect) -> Path {
+        let side = min(rect.width, rect.height)
+        let origin = CGPoint(x: rect.midX - side / 2, y: rect.midY - side / 2)
+        func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+            CGPoint(x: origin.x + x * side, y: origin.y + y * side)
+        }
+        var path = Path()
+        let near: CGFloat = 0.06, far: CGFloat = 0.94, arm: CGFloat = 0.44
+        if inward {
+            path.addLines([point(1 - arm, near), point(1 - arm, arm), point(far, arm)])
+            path.addLines([point(near, 1 - arm), point(arm, 1 - arm), point(arm, far)])
+        } else {
+            path.addLines([point(1 - arm, near), point(far, near), point(far, arm)])
+            path.addLines([point(near, 1 - arm), point(near, far), point(arm, far)])
+        }
+        return path
+    }
+}
+
+/// A faint circle behind a borderless button while the pointer is over it.
+struct HoverCircle: ViewModifier {
+    @State private var hovering = false
+
+    func body(content: Content) -> some View {
+        content
+            .background(Circle().fill(Color.primary.opacity(hovering ? 0.07 : 0)))
+            .onHover { hovering = $0 }
     }
 }

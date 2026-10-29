@@ -47,6 +47,8 @@ struct ComposerView: View {
             HStack(spacing: 6) {
                 PlusMenuButton(actions: actions)
                     .frame(width: 32, height: 32)
+                    .modifier(HoverCircle())
+                    .padding(.trailing, 3)
                 ComposerField(
                     text: $composer.draft,
                     placeholder: String(localized: "Ask Spot"),
@@ -58,14 +60,16 @@ struct ComposerView: View {
                 )
                 .frame(height: 28)
                 ModelMenu(app: app, openSettings: actions.openSettings)
-                    // Keeps the model name as far from the edge as the + glyph; a button after it has its own inset.
-                    .padding(.trailing, session.isGenerating || actions.expand != nil ? 0 : 8)
+                    .offset(y: -ComposerLayout.trailingLift)
+                    // As far from the edge, or from the button after it, as the + glyph is from the start.
+                    .padding(.trailing, 10)
                 if session.isGenerating {
                     StopButton(action: actions.escape)
                 }
                 if let expand = actions.expand {
-                    CircleIconButton(systemName: "arrow.up.left.and.arrow.down.right", label: "Expand to Full Window", action: expand)
+                    CircleIconButton.expand(action: expand)
                         .frame(width: 32, height: 32)
+                        .offset(y: -ComposerLayout.trailingLift)
                 }
             }
             .frame(height: ComposerLayout.baseHeight - 16)
@@ -86,7 +90,8 @@ struct ComposerView: View {
             }
         }
         .padding(.vertical, 8)
-        .padding(.horizontal, 10)
+        // Puts the centers of the + and of the last button half the bar's height from its ends, as Gemini does.
+        .padding(.horizontal, 12)
     }
 }
 
@@ -140,7 +145,7 @@ struct PlusMenuButton: NSViewRepresentable {
             action: #selector(Coordinator.open(_:))
         )
         button.isBordered = false
-        button.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 16, weight: .regular)
+        button.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 17, weight: .regular)
         button.contentTintColor = .labelColor
         button.toolTip = label
         button.setAccessibilityIdentifier("plusMenu")

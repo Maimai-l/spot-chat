@@ -222,8 +222,8 @@ final class ComposerTextView: NSTextView {
             .foregroundColor: NSColor.placeholderTextColor,
         ]
         let origin = NSPoint(
-            x: textContainerInset.width + (textContainer?.lineFragmentPadding ?? 0),
-            y: textContainerInset.height
+            x: textContainerOrigin.x + (textContainer?.lineFragmentPadding ?? 0),
+            y: textContainerOrigin.y
         )
         (placeholder as NSString).draw(at: origin, withAttributes: attributes)
     }

@@ -45,7 +45,11 @@ struct FullWindowView: View {
                     Button {
                         controller.collapse()
                     } label: {
-                        Label("Collapse to Mini Window", systemImage: "arrow.down.right.and.arrow.up.left")
+                        Label {
+                            Text("Collapse to Mini Window")
+                        } icon: {
+                            CornersIcon(inward: true).stroke(style: CornersIcon.stroke).frame(width: 14, height: 14)
+                        }
                     }
                     .help(Text("Collapse to Mini Window"))
                     .accessibilityIdentifier("collapseToMini")
