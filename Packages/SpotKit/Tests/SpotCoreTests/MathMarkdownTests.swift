@@ -59,9 +59,8 @@ struct MathMarkdownTests {
     }
 
     #if canImport(Darwin)
-    /// Textual's own patterns for inline and display math.
-    static let inlineMath = /\$(?!\$)((?:\\\$|[^$\n])+)\$/
-    static let displayMath = /(?s)\$\$(.+?)\$\$/
+    /// Textual's own pattern for inline math.
+    static var inlineMath: Regex<(Substring, Substring)> { /\$(?!\$)((?:\\\$|[^$\n])+)\$/ }
 
     /// Parses like Textual does and returns each run's text.
     static func runs(_ markdown: String) throws -> [String] {
