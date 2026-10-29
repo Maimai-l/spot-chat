@@ -84,7 +84,8 @@ struct MathMarkdownTests {
                 }
             }
         }
-        #expect(try Self.runs("It costs $5 and $10.").joined() == "It costs $5 and $10.")
+        let shown = try Self.runs("It costs $5 and $10.").joined().replacingOccurrences(of: "\u{034F}", with: "")
+        #expect(shown == "It costs $5 and $10.")
     }
     #endif
 }

@@ -8,13 +8,14 @@ import Foundation
 /// - any two dollar signs on a line, like "$5 and $10", become a formula.
 ///
 /// This rewrites `\(…\)`, `\[…\]`, `$…$` and `$$…$$` outside code into `$…$` and `$$…$$` whose contents
-/// survive Markdown parsing, and puts every other dollar sign in its own text run so it never pairs up.
+/// survive Markdown parsing, and marks every other dollar sign so it never pairs up into a formula.
 /// Inline `$…$` follows Pandoc's rule: no space after the opening dollar, none before the closing one,
 /// and no digit right after it.
 public enum MathMarkdown {
     /// Markdown for a dollar sign that is not math, on a line with other dollar signs.
-    /// Foundation's inline attribute syntax gives it a run of its own, so Textual can't pair it with another.
-    public static let isolatedDollar = "^[\\$](inflect: true)"
+    /// The invisible combining grapheme joiner makes it a different character to Swift's Regex,
+    /// so Textual's `\$…\$` pattern can't pair it with another dollar sign.
+    public static let isolatedDollar = "\\$\u{034F}"
     /// Markdown for a dollar sign that is not math, alone on its line.
     public static let escapedDollar = "\\$"
     /// Stands in for a literal dollar sign until its line is known.
@@ -130,7 +131,7 @@ public enum MathMarkdown {
         return resolvePlaceholders(out)
     }
 
-    /// A literal dollar sign needs its own run only when another dollar sign shares its line.
+    /// A literal dollar sign needs marking only when another dollar sign shares its line.
     static func resolvePlaceholders(_ text: String) -> String {
         guard text.contains(placeholder) else { return text }
         return text.split(separator: "\n", omittingEmptySubsequences: false).map { line -> String in
