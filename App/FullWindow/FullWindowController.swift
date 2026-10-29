@@ -128,7 +128,7 @@ final class FullWindowController: NSObject, ObservableObject, NSWindowDelegate {
         )
         let view = FullWindowView(controller: self, session: session, app: app, composer: composer, actions: actions)
         let hosting = NSHostingController(rootView: view)
-        hosting.sceneBridgingOptions = [.toolbars]
+        hosting.sceneBridgingOptions = [.toolbars, .title]
 
         let window = EditingWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1040, height: 720),
@@ -138,7 +138,6 @@ final class FullWindowController: NSObject, ObservableObject, NSWindowDelegate {
         )
         window.contentViewController = hosting
         window.title = String(localized: "Spot Chat")
-        window.titleVisibility = .hidden
         window.toolbarStyle = .unified
         window.minSize = NSSize(width: 720, height: 480)
         window.isReleasedWhenClosed = false

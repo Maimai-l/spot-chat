@@ -39,9 +39,9 @@ struct FullWindowView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color(nsColor: .textBackgroundColor))
-            .toolbar(removing: .title)
+            .navigationTitle(title)
             .toolbar {
-                ToolbarItem(placement: .automatic) {
+                ToolbarItem(placement: .primaryAction) {
                     Button {
                         controller.collapse()
                     } label: {
@@ -56,6 +56,14 @@ struct FullWindowView: View {
                 }
             }
         }
+    }
+}
+
+extension FullWindowView {
+    /// The conversation's name, which also names the window in the Window menu.
+    var title: String {
+        let name = app.topics.first { $0.id == session.topicID }?.name ?? ""
+        return name.isEmpty ? String(localized: "Spot Chat") : name
     }
 }
 
