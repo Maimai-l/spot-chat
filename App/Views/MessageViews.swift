@@ -225,7 +225,8 @@ struct SpotMark: View {
 struct SpotCodeBlockStyle: StructuredText.CodeBlockStyle {
     func makeBody(configuration: Configuration) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Textual's selection layer only lets clicks through inside Overflow, so the header sits in one too.
+            // Textual's selection layer covers the reply except Overflow regions, and adds its own layer
+            // inside them unless selection is off there, so the header sits in an Overflow without selection.
             Overflow { state in
                 HStack {
                     Text(configuration.languageHint ?? "")
@@ -238,6 +239,7 @@ struct SpotCodeBlockStyle: StructuredText.CodeBlockStyle {
                 .padding(.vertical, 6)
                 .frame(width: state.containerWidth, alignment: .leading)
             }
+            .textual.textSelection(.disabled)
             Divider()
             Overflow {
                 configuration.label
