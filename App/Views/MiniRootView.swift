@@ -61,6 +61,18 @@ struct CardView: View {
         VStack(spacing: 0) {
             ZStack(alignment: .top) {
                 MessageList(session: session, scrollRequest: controller.scrollRequest, topInset: 64, horizontalPadding: 22)
+                    // Messages fade out under the header buttons instead of running into them.
+                    .mask {
+                        VStack(spacing: 0) {
+                            LinearGradient(
+                                stops: [.init(color: .clear, location: 0.25), .init(color: .black, location: 1)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                            .frame(height: 64)
+                            Color.black
+                        }
+                    }
                 header
             }
             ComposerView(composer: composer, session: session, app: app, actions: controller.composerActions)

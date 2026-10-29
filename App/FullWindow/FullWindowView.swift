@@ -39,6 +39,7 @@ struct FullWindowView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color(nsColor: .textBackgroundColor))
+            .toolbar(removing: .title)
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button {

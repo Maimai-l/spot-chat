@@ -497,7 +497,9 @@ final class SpotChatUITests: XCTestCase {
 
         renamed.rightClick()
         app.menuItems["Delete…"].click()
-        app.buttons["Delete"].click()
+        let confirm = app.sheets.buttons.matching(NSPredicate(format: "label == %@", "Delete")).firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5))
+        confirm.click()
         XCTAssertTrue(element("historyItem", in: app).waitForNonExistence(timeout: 5))
     }
 

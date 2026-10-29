@@ -225,23 +225,19 @@ struct SpotMark: View {
 struct SpotCodeBlockStyle: StructuredText.CodeBlockStyle {
     func makeBody(configuration: Configuration) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                Text(configuration.languageHint ?? "")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Button {
-                    configuration.codeBlock.copyToPasteboard()
-                } label: {
-                    Label("Copy", systemImage: "doc.on.doc")
+            // Textual's selection layer only lets clicks through inside Overflow, so the header sits in one too.
+            Overflow { state in
+                HStack {
+                    Text(configuration.languageHint ?? "")
                         .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    CopyCodeButton(copy: configuration.codeBlock.copyToPasteboard)
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-                .accessibilityIdentifier("copyCode")
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .frame(width: state.containerWidth, alignment: .leading)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
             Divider()
             Overflow {
                 configuration.label
@@ -249,8 +245,10 @@ struct SpotCodeBlockStyle: StructuredText.CodeBlockStyle {
                     .textual.fontScale(0.88)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(12)
+                    .background(OverlayScrollers())
             }
         }
+        .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
         .background(Color.primary.opacity(0.035))
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(
@@ -258,6 +256,36 @@ struct SpotCodeBlockStyle: StructuredText.CodeBlockStyle {
                 .stroke(Color.primary.opacity(0.08))
         )
         .textual.blockSpacing(.init(top: 4, bottom: 12))
+    }
+}
+
+/// Copies the code block and shows Copied for a moment.
+struct CopyCodeButton: View {
+    let copy: () -> Void
+    @State private var copied = false
+
+    var body: some View {
+        Button {
+            copy()
+            copied = true
+            Task {
+                try? await Task.sleep(for: .seconds(1.5))
+                copied = false
+            }
+        } label: {
+            Group {
+                if copied {
+                    Label("Copied", systemImage: "checkmark")
+                } else {
+                    Label("Copy", systemImage: "doc.on.doc")
+                }
+            }
+            .font(.system(size: 12))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.secondary)
+        .accessibilityIdentifier("copyCode")
     }
 }
 
