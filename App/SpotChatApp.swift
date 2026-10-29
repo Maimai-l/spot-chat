@@ -9,10 +9,6 @@ struct SpotChatApp: App {
             Button("Open Mini Window") {
                 appDelegate.miniController.handle(.openRequested)
             }
-            Button("Open Full Window") {}
-                .disabled(true)
-            Button("Settings…") {}
-                .disabled(true)
             Divider()
             Button("Quit Spot Chat") {
                 NSApp.terminate(nil)

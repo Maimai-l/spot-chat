@@ -17,14 +17,12 @@ struct MiniRootView: View {
     }
 }
 
-/// The collapsed mini window: add button, input, model name and expand button.
+/// The collapsed mini window. The add button, model name and expand button arrive with their stages.
 struct CapsuleView: View {
     @ObservedObject var controller: MiniWindowController
 
     var body: some View {
         HStack(spacing: 6) {
-            CircleIconButton(systemName: "plus", label: "Add Attachment or Share Window") {}
-                .disabled(true)
             ComposerField(
                 text: $controller.draft,
                 placeholder: String(localized: "Ask Spot"),
@@ -33,11 +31,11 @@ struct CapsuleView: View {
                 onEscape: { controller.handle(.escape) }
             )
             .frame(height: 28)
-            ModelNameLabel(name: controller.modelName)
-            CircleIconButton(systemName: "arrow.up.left.and.arrow.down.right", label: "Expand to Full Window") {}
-                .disabled(true)
+            if let modelName = controller.modelName {
+                ModelNameLabel(name: modelName)
+            }
         }
-        .padding(.horizontal, 10)
+        .padding(.horizontal, 20)
         .frame(height: MiniWindowController.capsuleHeight)
         .background(WindowDragArea(onDragEnd: controller.panelWasDragged))
         .background(VisualEffectBackground(material: .popover))
@@ -59,8 +57,6 @@ struct CardView: View {
                 CircleIconButton(systemName: "square.and.pencil", label: "New Chat", filled: true) {
                     controller.handle(.newConversation)
                 }
-                CircleIconButton(systemName: "arrow.up.left.and.arrow.down.right", label: "Expand to Full Window", filled: true) {}
-                    .disabled(true)
             }
             .padding(12)
             .background(WindowDragArea(onDragEnd: controller.panelWasDragged))
@@ -88,8 +84,6 @@ struct CardView: View {
             }
 
             HStack(spacing: 6) {
-                CircleIconButton(systemName: "plus", label: "Add Attachment or Share Window") {}
-                    .disabled(true)
                 ComposerField(
                     text: $controller.draft,
                     placeholder: String(localized: "Ask Spot"),
@@ -98,9 +92,11 @@ struct CardView: View {
                     onEscape: { controller.handle(.escape) }
                 )
                 .frame(height: 28)
-                ModelNameLabel(name: controller.modelName)
+                if let modelName = controller.modelName {
+                    ModelNameLabel(name: modelName)
+                }
             }
-            .padding(.horizontal, 10)
+            .padding(.horizontal, 20)
             .frame(height: MiniWindowController.capsuleHeight)
             .background(
                 Capsule(style: .continuous)

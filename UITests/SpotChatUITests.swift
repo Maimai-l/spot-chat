@@ -127,9 +127,9 @@ final class SpotChatUITests: XCTestCase {
         XCTAssertTrue(input.waitForExistence(timeout: 10))
         let before = input.frame
 
-        // The capsule's left padding: 10pt padding, a 36pt button and a 6pt gap sit left of the input.
+        // The capsule's 20pt left padding, outside the input.
         let start = input.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0.5))
-            .withOffset(CGVector(dx: -48, dy: 0))
+            .withOffset(CGVector(dx: -8, dy: 0))
         let end = start.withOffset(CGVector(dx: 120, dy: 80))
         start.click(forDuration: 0.3, thenDragTo: end)
 

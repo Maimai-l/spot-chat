@@ -21,7 +21,8 @@ final class MiniWindowController: ObservableObject {
         }
     }
 
-    let modelName = "Echo"
+    /// Nil until a provider is set up in stage 2.
+    let modelName: String? = nil
 
     private var state: MiniWindowState
     private let draftStorage: DraftStorage

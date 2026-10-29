@@ -1,99 +1,59 @@
 {
-  "sourceLanguage" : "en",
-  "strings" : {
-    "Add Attachment or Share Window" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "添加附件或分享窗口"
+  "sourceLanguage": "en",
+  "strings": {
+    "Ask Spot": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "问问 Spot"
           }
         }
       }
     },
-    "Ask Spot" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "问问 Spot"
+    "Close": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "关闭"
           }
         }
       }
     },
-    "Close" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "关闭"
+    "New Chat": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新对话"
           }
         }
       }
     },
-    "Expand to Full Window" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "展开为完整窗口"
+    "Open Mini Window": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打开小窗"
           }
         }
       }
     },
-    "New Chat" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "新对话"
+    "Quit Spot Chat": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "退出 Spot Chat"
           }
         }
       }
     },
-    "Open Full Window" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "打开完整窗口"
-          }
-        }
-      }
-    },
-    "Open Mini Window" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "打开小窗"
-          }
-        }
-      }
-    },
-    "Quit Spot Chat" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "退出 Spot Chat"
-          }
-        }
-      }
-    },
-    "Settings…" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "设置…"
-          }
-        }
-      }
-    },
-    "Spot Chat" : {
-      "shouldTranslate" : false
+    "Spot Chat": {
+      "shouldTranslate": false
     }
   },
-  "version" : "1.0"
+  "version": "1.0"
 }
