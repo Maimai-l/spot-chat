@@ -21,8 +21,12 @@ jobs:
             if [ -d "/Applications/Xcode_$v.app" ]; then sudo xcode-select -s "/Applications/Xcode_$v.app"; break; fi
           done
           xcodebuild -version
+      - name: Start mock OpenAI server
+        run: nohup python3 scripts/mock_openai_server.py 8765 > mock-server.log 2>&1 &
       - name: Run tests
-        run: swift test --package-path Packages/SpotCore
+        env:
+          MOCK_OPENAI_BASE_URL: http://127.0.0.1:8765/v1
+        run: swift test --package-path Packages/SpotKit
 
   app:
     name: Build app and run UI tests
@@ -39,6 +43,8 @@ jobs:
         run: brew install xcodegen
       - name: Generate Xcode project
         run: xcodegen generate
+      - name: Start mock OpenAI server
+        run: nohup python3 scripts/mock_openai_server.py 8765 > mock-server.log 2>&1 &
       - name: Allow UI automation
         run: sudo automationmodetool enable-automationmode-without-authentication || true
       - name: Run UI tests

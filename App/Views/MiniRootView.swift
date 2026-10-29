@@ -3,23 +3,88 @@ import SpotCore
 
 struct MiniRootView: View {
     @ObservedObject var controller: MiniWindowController
+    @ObservedObject var session: ChatSession
+    @ObservedObject var app: AppModel
 
     var body: some View {
         Group {
             switch controller.mode {
             case .card:
-                CardView(controller: controller)
+                CardView(controller: controller, session: session, app: app)
             case .capsule, .hidden:
-                CapsuleView(controller: controller)
+                CapsuleView(controller: controller, session: session, app: app)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
-/// The collapsed mini window. The add button, model name and expand button arrive with their stages.
+/// The collapsed mini window.
 struct CapsuleView: View {
     @ObservedObject var controller: MiniWindowController
+    @ObservedObject var session: ChatSession
+    @ObservedObject var app: AppModel
+
+    var body: some View {
+        ComposerRow(controller: controller, session: session, app: app)
+            .padding(.leading, 20)
+            .padding(.trailing, 12)
+            .frame(height: MiniWindowController.capsuleHeight)
+            .background(WindowDragArea(onDragEnd: controller.panelWasDragged))
+            .background(VisualEffectBackground(material: .popover))
+            .clipShape(Capsule(style: .continuous))
+    }
+}
+
+/// The expanded mini window: conversation with header buttons on top and the input pinned to the bottom.
+struct CardView: View {
+    @ObservedObject var controller: MiniWindowController
+    @ObservedObject var session: ChatSession
+    @ObservedObject var app: AppModel
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ZStack(alignment: .top) {
+                MessageList(session: session, scrollRequest: controller.scrollRequest, topInset: 64, horizontalPadding: 22)
+                header
+            }
+            ComposerRow(controller: controller, session: session, app: app)
+                .padding(.leading, 20)
+                .padding(.trailing, 12)
+                .frame(height: MiniWindowController.capsuleHeight)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(Color(nsColor: .textBackgroundColor))
+                        .shadow(color: .black.opacity(0.1), radius: 6, y: 1)
+                )
+                .padding(10)
+        }
+        .background(WindowDragArea(onDragEnd: controller.panelWasDragged))
+        .background(Color(nsColor: .windowBackgroundColor).opacity(0.72))
+        .background(VisualEffectBackground(material: .popover))
+        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+    }
+
+    private var header: some View {
+        HStack(spacing: 10) {
+            CircleIconButton(systemName: "xmark", label: "Close", filled: true) {
+                controller.handle(.closeCard)
+            }
+            Spacer()
+            CircleIconButton(systemName: "square.and.pencil", label: "New Chat", filled: true) {
+                controller.handle(.newConversation)
+            }
+        }
+        .padding(12)
+        .background(WindowDragArea(onDragEnd: controller.panelWasDragged))
+    }
+}
+
+/// The input with the model menu and, while a reply is generated, the stop button.
+struct ComposerRow: View {
+    @ObservedObject var controller: MiniWindowController
+    @ObservedObject var session: ChatSession
+    @ObservedObject var app: AppModel
 
     var body: some View {
         HStack(spacing: 6) {
@@ -31,129 +96,67 @@ struct CapsuleView: View {
                 onEscape: { controller.handle(.escape) }
             )
             .frame(height: 28)
-            if let modelName = controller.modelName {
-                ModelNameLabel(name: modelName)
+            ModelMenu(app: app, openSettings: controller.openSettings)
+            if session.isGenerating {
+                StopButton { controller.handle(.escape) }
             }
         }
-        .padding(.horizontal, 20)
-        .frame(height: MiniWindowController.capsuleHeight)
-        .background(WindowDragArea(onDragEnd: controller.panelWasDragged))
-        .background(VisualEffectBackground(material: .popover))
-        .clipShape(Capsule(style: .continuous))
     }
 }
 
-/// The expanded mini window: header buttons, conversation, input pinned to the bottom.
-struct CardView: View {
-    @ObservedObject var controller: MiniWindowController
+struct StopButton: View {
+    let action: () -> Void
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 10) {
-                CircleIconButton(systemName: "xmark", label: "Close", filled: true) {
-                    controller.handle(.closeCard)
-                }
-                Spacer()
-                CircleIconButton(systemName: "square.and.pencil", label: "New Chat", filled: true) {
-                    controller.handle(.newConversation)
-                }
-            }
-            .padding(12)
-            .background(WindowDragArea(onDragEnd: controller.panelWasDragged))
+        Button(action: action) {
+            RoundedRectangle(cornerRadius: 2)
+                .fill(Color(nsColor: .textBackgroundColor))
+                .frame(width: 11, height: 11)
+                .frame(width: 32, height: 32)
+                .background(Circle().fill(Color.primary))
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .help(Text("Stop"))
+        .accessibilityLabel(Text("Stop"))
+        .accessibilityIdentifier("stop")
+    }
+}
 
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 16) {
-                        ForEach(controller.messages) { message in
-                            MessageRow(message: message)
-                                .id(message.id)
+/// Shows the current model; picking another one applies from the next message and becomes the default.
+struct ModelMenu: View {
+    @ObservedObject var app: AppModel
+    var openSettings: () -> Void
+
+    var body: some View {
+        if let current = app.currentModel {
+            Menu {
+                ForEach(app.providers.filter { !$0.models.isEmpty }) { provider in
+                    Section(provider.name) {
+                        ForEach(provider.models) { model in
+                            Toggle(model.modelID, isOn: Binding(
+                                get: { app.currentModel?.id == model.id },
+                                set: { isOn in if isOn { app.setDefaultModel(model.id) } }
+                            ))
                         }
                     }
-                    .padding(.horizontal, 22)
-                    .padding(.vertical, 8)
                 }
-                .onChange(of: controller.scrollRequest) {
-                    scrollToBottom(proxy)
-                }
-                .onChange(of: controller.messages) {
-                    scrollToBottom(proxy)
-                }
-                .onAppear {
-                    scrollToBottom(proxy)
-                }
+            } label: {
+                Text(current.modelID)
+                    .font(.system(size: 13, weight: .semibold))
             }
-
-            HStack(spacing: 6) {
-                ComposerField(
-                    text: $controller.draft,
-                    placeholder: String(localized: "Ask Spot"),
-                    focusRequest: controller.focusRequest,
-                    onSubmit: controller.submit,
-                    onEscape: { controller.handle(.escape) }
-                )
-                .frame(height: 28)
-                if let modelName = controller.modelName {
-                    ModelNameLabel(name: modelName)
-                }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .accessibilityIdentifier("modelMenu")
+        } else {
+            Button(action: openSettings) {
+                Text("Add Model")
+                    .font(.system(size: 13, weight: .semibold))
             }
-            .padding(.horizontal, 20)
-            .frame(height: MiniWindowController.capsuleHeight)
-            .background(
-                Capsule(style: .continuous)
-                    .fill(Color(nsColor: .textBackgroundColor))
-                    .shadow(color: .black.opacity(0.1), radius: 6, y: 1)
-            )
-            .padding(10)
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("addModel")
         }
-        .background(WindowDragArea(onDragEnd: controller.panelWasDragged))
-        .background(VisualEffectBackground(material: .popover))
-        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-    }
-
-    private func scrollToBottom(_ proxy: ScrollViewProxy) {
-        guard let last = controller.messages.last?.id else { return }
-        proxy.scrollTo(last, anchor: .bottom)
-    }
-}
-
-struct MessageRow: View {
-    let message: ChatMessage
-
-    var body: some View {
-        switch message.role {
-        case .user:
-            HStack {
-                Spacer(minLength: 60)
-                Text(message.text)
-                    .font(.system(size: 15))
-                    .textSelection(.enabled)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(
-                        RoundedRectangle(cornerRadius: 20, style: .continuous)
-                            .fill(Color.primary.opacity(0.07))
-                    )
-                    .accessibilityIdentifier("message.user")
-            }
-        case .assistant:
-            Text(message.text)
-                .font(.system(size: 15))
-                .lineSpacing(4)
-                .textSelection(.enabled)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .accessibilityIdentifier("message.assistant")
-        }
-    }
-}
-
-struct ModelNameLabel: View {
-    let name: String
-
-    var body: some View {
-        Text(name)
-            .font(.system(size: 13, weight: .semibold))
-            .padding(.horizontal, 8)
-            .accessibilityIdentifier("modelName")
     }
 }
 

@@ -8,11 +8,28 @@ public enum MiniWindowMode: Equatable, Sendable {
 }
 
 /// How long a closed card stays recoverable.
-public enum RetentionPolicy: Equatable, Sendable {
+public enum RetentionPolicy: Hashable, Sendable {
     case clearImmediately
     case minutes(Int)
 
     public static let `default` = RetentionPolicy.minutes(10)
+
+    /// The choices offered in settings.
+    public static let options: [RetentionPolicy] = [
+        .clearImmediately, .minutes(1), .minutes(5), .minutes(10), .minutes(15), .minutes(30),
+    ]
+
+    /// Stored as a number of minutes, 0 meaning clear immediately.
+    public init(storedMinutes: Int) {
+        self = storedMinutes > 0 ? .minutes(min(storedMinutes, 30)) : .clearImmediately
+    }
+
+    public var storedMinutes: Int {
+        switch self {
+        case .clearImmediately: return 0
+        case .minutes(let minutes): return minutes
+        }
+    }
 
     var interval: TimeInterval? {
         switch self {
@@ -32,7 +49,7 @@ public enum MiniWindowEvent: Equatable, Sendable {
     /// The mini window lost keyboard focus.
     case resignedKey
     /// Enter in the input. `newConversationID` is used only when no conversation exists yet.
-    case send(text: String, newConversationID: UUID)
+    case send(text: String, hasAttachments: Bool = false, newConversationID: UUID)
     case closeCard
     case newConversation
     case expandToFullWindow
@@ -96,8 +113,8 @@ public struct MiniWindowState: Equatable, Sendable {
             mode = .hidden
             return [.hide]
 
-        case let .send(text, newConversationID):
-            return handleSend(text: text, newConversationID: newConversationID)
+        case let .send(text, hasAttachments, newConversationID):
+            return handleSend(text: text, hasAttachments: hasAttachments, newConversationID: newConversationID)
 
         case .closeCard:
             guard mode == .card else { return [] }
@@ -209,8 +226,8 @@ public struct MiniWindowState: Equatable, Sendable {
         }
     }
 
-    private mutating func handleSend(text: String, newConversationID: UUID) -> [MiniWindowEffect] {
-        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return [] }
+    private mutating func handleSend(text: String, hasAttachments: Bool, newConversationID: UUID) -> [MiniWindowEffect] {
+        guard hasAttachments || !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return [] }
         switch mode {
         case .hidden:
             return []

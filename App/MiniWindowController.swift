@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 import SpotCore
 
@@ -7,11 +8,8 @@ import SpotCore
 final class MiniWindowController: ObservableObject {
     static let width: CGFloat = 480
     static let capsuleHeight: CGFloat = 56
-    static let cardHeight: CGFloat = 560
 
     @Published private(set) var mode: MiniWindowMode = .hidden
-    @Published private(set) var messages: [ChatMessage] = []
-    @Published private(set) var isGenerating = false
     @Published private(set) var focusRequest = 0
     @Published private(set) var scrollRequest = 0
     /// What the user has typed but not sent. Saved on every change.
@@ -20,49 +18,80 @@ final class MiniWindowController: ObservableObject {
             if draft != oldValue { draftStorage.saveDraft(draft) }
         }
     }
+    @Published var pendingAttachments: [Attachment] = []
 
-    /// Nil until a provider is set up in stage 2.
-    let modelName: String? = nil
+    let app: AppModel
+    let session: ChatSession
+    /// Opens the full window, carrying the conversation shown in the card.
+    var openFullWindow: (UUID?) -> Void = { _ in }
+    var closeFullWindow: () -> Void = {}
+    var openSettings: () -> Void = {}
 
     private var state: MiniWindowState
     private let draftStorage: DraftStorage
     private let placementStore: PlacementStore
-    private let responder: ChatResponder
-    private var conversations: [UUID: Conversation] = [:]
     private var retentionTimer: DispatchWorkItem?
-    private var generationTask: Task<Void, Never>?
+    private var observers: Set<AnyCancellable> = []
     private var resignObserver: NSObjectProtocol?
+    /// While a file picker or menu is open the capsule must not hide.
+    private var suppressFocusLoss = 0
     private lazy var panel: MiniPanel = makePanel()
 
-    init(
-        draftStorage: DraftStorage,
-        placementStore: PlacementStore? = nil,
-        responder: ChatResponder = EchoResponder(),
-        retentionPolicy: RetentionPolicy = .default
-    ) {
+    init(app: AppModel, draftStorage: DraftStorage, placementStore: PlacementStore? = nil) {
+        self.app = app
+        self.session = ChatSession(app: app)
         self.draftStorage = draftStorage
         self.placementStore = placementStore ?? PlacementStore()
-        self.responder = responder
-        self.state = MiniWindowState(retentionPolicy: retentionPolicy)
+        self.state = MiniWindowState(retentionPolicy: app.retentionPolicy)
         self.draft = draftStorage.loadDraft()
+
+        session.$isGenerating
+            .removeDuplicates()
+            .dropFirst()
+            .sink { [weak self] generating in
+                self?.handle(generating ? .generationStarted : .generationFinished)
+            }
+            .store(in: &observers)
+        session.$messages
+            .sink { [weak self] _ in self?.scrollRequest += 1 }
+            .store(in: &observers)
+        app.$retentionPolicy
+            .sink { [weak self] policy in self?.state.retentionPolicy = policy }
+            .store(in: &observers)
+        app.$historyRevision
+            .dropFirst()
+            .sink { [weak self] _ in self?.historyDidChange() }
+            .store(in: &observers)
     }
+
+    var cardHeight: CGFloat { CGFloat(app.cardHeight) }
 
     func handle(_ event: MiniWindowEvent) {
         let effects = state.handle(event, isKey: panel.isKeyWindow)
         mode = state.mode
-        isGenerating = state.isGenerating
-        syncMessages()
         for effect in effects {
             perform(effect)
         }
     }
 
     func submit() {
-        handle(.send(text: draft, newConversationID: UUID()))
+        handle(.send(text: draft, hasAttachments: !pendingAttachments.isEmpty, newConversationID: UUID()))
     }
 
     func panelWasDragged() {
         placementStore.save(topLeft: WindowPlacement.topLeft(of: panel.frame), screen: panel.screen)
+    }
+
+    /// Runs work that shows another window (a file picker, an alert) without the capsule hiding meanwhile.
+    /// The work calls the completion when that window is gone.
+    func withFocusLossSuppressed(_ work: (@escaping () -> Void) -> Void) {
+        suppressFocusLoss += 1
+        work { [weak self] in
+            guard let self else { return }
+            self.suppressFocusLoss -= 1
+            self.panel.makeKeyAndOrderFront(nil)
+            self.focusRequest += 1
+        }
     }
 
     // MARK: Effects
@@ -72,7 +101,10 @@ final class MiniWindowController: ObservableObject {
         case .showCapsule:
             present(height: Self.capsuleHeight)
         case .showCard:
-            present(height: Self.cardHeight)
+            if session.topicID != state.conversationID {
+                session.load(state.conversationID)
+            }
+            present(height: cardHeight)
         case .scrollToBottom:
             scrollRequest += 1
         case .focusInput:
@@ -83,7 +115,9 @@ final class MiniWindowController: ObservableObject {
         case .hide:
             panel.orderOut(nil)
         case let .appendUserMessage(text, conversationID):
-            appendUserMessage(text, to: conversationID)
+            let attachments = pendingAttachments
+            pendingAttachments = []
+            session.send(text: text, attachments: attachments, newTopicID: conversationID)
         case .clearDraft:
             draft = ""
         case let .scheduleRetentionExpiry(token, interval):
@@ -91,14 +125,29 @@ final class MiniWindowController: ObservableObject {
         case .cancelRetentionExpiry:
             retentionTimer?.cancel()
             retentionTimer = nil
-        case .endConversation:
-            // Stage 2 keeps ended conversations in history.
-            syncMessages()
-        case .openFullWindow, .closeFullWindow:
-            // Stage 6.
-            break
+        case let .endConversation(id):
+            if session.topicID == id {
+                session.load(nil)
+            }
+        case let .openFullWindow(conversationID):
+            if conversationID != nil, session.topicID == conversationID {
+                session.load(nil)
+            }
+            openFullWindow(conversationID)
+        case .closeFullWindow:
+            closeFullWindow()
         case .stopGeneration:
-            generationTask?.cancel()
+            session.stop()
+        }
+    }
+
+    private func historyDidChange() {
+        // A conversation deleted from history must not come back in the card.
+        guard let id = state.conversationID, !app.topics.contains(where: { $0.id == id }) else { return }
+        if mode == .card {
+            handle(.newConversation)
+        } else {
+            session.load(nil)
         }
     }
 
@@ -141,56 +190,11 @@ final class MiniWindowController: ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + interval, execute: item)
     }
 
-    // MARK: Conversation
-
-    private func syncMessages() {
-        let current = state.conversationID.flatMap { conversations[$0]?.messages } ?? []
-        if current != messages {
-            messages = current
-        }
-    }
-
-    private func appendUserMessage(_ text: String, to conversationID: UUID) {
-        var conversation = conversations[conversationID] ?? Conversation(id: conversationID)
-        conversation.messages.append(ChatMessage(role: .user, text: text))
-        let history = conversation.messages
-        let reply = ChatMessage(role: .assistant, text: "")
-        conversation.messages.append(reply)
-        conversations[conversationID] = conversation
-        syncMessages()
-        startGeneration(history: history, conversationID: conversationID, replyID: reply.id)
-    }
-
-    private func startGeneration(history: [ChatMessage], conversationID: UUID, replyID: UUID) {
-        handle(.generationStarted)
-        let stream = responder.reply(to: history)
-        generationTask = Task { [weak self] in
-            do {
-                for try await chunk in stream {
-                    if Task.isCancelled { break }
-                    self?.appendChunk(chunk, conversationID: conversationID, replyID: replyID)
-                }
-            } catch {
-                // Stage 2 shows request errors in place of the reply.
-            }
-            self?.handle(.generationFinished)
-        }
-    }
-
-    private func appendChunk(_ chunk: String, conversationID: UUID, replyID: UUID) {
-        guard var conversation = conversations[conversationID],
-              let index = conversation.messages.firstIndex(where: { $0.id == replyID })
-        else { return }
-        conversation.messages[index].text += chunk
-        conversations[conversationID] = conversation
-        syncMessages()
-    }
-
     // MARK: Window
 
     private func makePanel() -> MiniPanel {
         let panel = MiniPanel.make(width: Self.width, height: Self.capsuleHeight)
-        let hosting = NSHostingView(rootView: MiniRootView(controller: self))
+        let hosting = NSHostingView(rootView: MiniRootView(controller: self, session: session, app: app))
         hosting.sizingOptions = []
         panel.contentView = hosting
         panel.onEscape = { [weak self] in
@@ -202,7 +206,8 @@ final class MiniWindowController: ObservableObject {
             queue: .main
         ) { [weak self] _ in
             MainActor.assumeIsolated {
-                self?.handle(.resignedKey)
+                guard let self, self.suppressFocusLoss == 0 else { return }
+                self.handle(.resignedKey)
             }
         }
         return panel

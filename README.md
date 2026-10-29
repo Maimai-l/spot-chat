@@ -20,17 +20,18 @@ The interface follows the system language: Simplified Chinese on a Chinese syste
 
 ## Build from source
 
-Requires Xcode 16 and [XcodeGen](https://github.com/yonaskolb/XcodeGen).
+Requires macOS 15, Xcode 16 and [XcodeGen](https://github.com/yonaskolb/XcodeGen).
 
 ```bash
 xcodegen generate
 open SpotChat.xcodeproj
 ```
 
-The core logic tests run without the Xcode project:
+The logic, storage and API tests run without the Xcode project. The API tests talk to a local mock server:
 
 ```bash
-swift test --package-path Packages/SpotCore
+python3 scripts/mock_openai_server.py 8765 &
+MOCK_OPENAI_BASE_URL=http://127.0.0.1:8765/v1 swift test --package-path Packages/SpotKit
 ```
 
 ## Libraries
@@ -38,4 +39,7 @@ swift test --package-path Packages/SpotCore
 | Purpose | Library |
 | --- | --- |
 | Global shortcuts and shortcut recording | [KeyboardShortcuts](https://github.com/sindresorhus/KeyboardShortcuts) |
+| OpenAI-compatible API calls and streaming | [OpenAI](https://github.com/MacPaw/OpenAI) by MacPaw |
+| Markdown rendering | [Textual](https://github.com/gonzalezreal/textual) |
+| SQLite | [GRDB.swift](https://github.com/groue/GRDB.swift) |
 | Xcode project generation | [XcodeGen](https://github.com/yonaskolb/XcodeGen) |

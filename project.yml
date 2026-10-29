@@ -3,7 +3,7 @@ options:
   bundleIdPrefix: com.maimai
   developmentLanguage: en
   deploymentTarget:
-    macOS: "14.0"
+    macOS: "15.0"
   createIntermediateGroups: true
 settings:
   base:
@@ -15,11 +15,14 @@ settings:
     DEVELOPMENT_TEAM: ""
     ENABLE_HARDENED_RUNTIME: NO
 packages:
-  SpotCore:
-    path: Packages/SpotCore
+  SpotKit:
+    path: Packages/SpotKit
   KeyboardShortcuts:
     url: https://github.com/sindresorhus/KeyboardShortcuts
     from: "2.0.0"
+  Textual:
+    url: https://github.com/gonzalezreal/textual
+    minorVersion: 0.5.0
 targets:
   SpotChat:
     type: application
@@ -27,8 +30,14 @@ targets:
     sources:
       - App
     dependencies:
-      - package: SpotCore
+      - package: SpotKit
+        product: SpotCore
+      - package: SpotKit
+        product: SpotData
+      - package: SpotKit
+        product: SpotAI
       - package: KeyboardShortcuts
+      - package: Textual
     info:
       path: App/Info.plist
       properties:
@@ -40,6 +49,8 @@ targets:
         CFBundleDevelopmentRegion: en
         CFBundleLocalizations: [en, zh-Hans]
         SpotChatReleaseChannel: alpha
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.maimai.spotchat

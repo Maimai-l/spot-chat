@@ -7,4 +7,4 @@ xcuserdata/
 .build/
 *.xcodeproj/
 App/Info.plist
-Packages/SpotCore/.build/
+Packages/SpotKit/.build/

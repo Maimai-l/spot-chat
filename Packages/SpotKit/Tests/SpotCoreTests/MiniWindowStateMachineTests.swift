@@ -119,6 +119,13 @@ import Testing
         #expect(effects.isEmpty)
     }
 
+    @Test func attachmentsAloneCanBeSent() {
+        var state = capsuleState()
+        let effects = state.handle(.send(text: "", hasAttachments: true, newConversationID: conversation), isKey: true)
+        #expect(state.mode == .card)
+        #expect(effects.contains(.appendUserMessage(text: "", conversationID: conversation)))
+    }
+
     @Test func cannotSendWhileGeneratingAndDraftIsKept() {
         var state = cardState()
         _ = state.handle(.generationStarted, isKey: true)

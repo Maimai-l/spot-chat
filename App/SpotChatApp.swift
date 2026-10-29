@@ -9,6 +9,10 @@ struct SpotChatApp: App {
             Button("Open Mini Window") {
                 appDelegate.miniController.handle(.openRequested)
             }
+            Button("Settings…") {
+                appDelegate.showSettings()
+            }
+            .keyboardShortcut(",")
             Divider()
             Button("Quit Spot Chat") {
                 NSApp.terminate(nil)

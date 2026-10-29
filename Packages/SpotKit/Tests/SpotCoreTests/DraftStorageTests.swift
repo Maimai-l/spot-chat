@@ -25,18 +25,3 @@ import Testing
         #expect(defaults.object(forKey: UserDefaultsDraftStorage.defaultKey) == nil)
     }
 }
-
-@Suite struct EchoResponderTests {
-    @Test func repliesWithLastUserMessage() async throws {
-        let messages = [
-            ChatMessage(role: .user, text: "第一条"),
-            ChatMessage(role: .assistant, text: "第一条"),
-            ChatMessage(role: .user, text: "第二条"),
-        ]
-        var reply = ""
-        for try await chunk in EchoResponder().reply(to: messages) {
-            reply += chunk
-        }
-        #expect(reply == "第二条")
-    }
-}
