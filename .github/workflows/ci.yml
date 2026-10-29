@@ -17,8 +17,9 @@ jobs:
       - uses: actions/checkout@v4
       - name: Select Xcode 16
         run: |
-          XCODE="$(ls -d /Applications/Xcode_16*.app 2>/dev/null | tail -1 || true)"
-          if [ -n "$XCODE" ]; then sudo xcode-select -s "$XCODE"; fi
+          for v in 16.4 16.3 16.2 16.1 16; do
+            if [ -d "/Applications/Xcode_$v.app" ]; then sudo xcode-select -s "/Applications/Xcode_$v.app"; break; fi
+          done
           xcodebuild -version
       - name: Run tests
         run: swift test --package-path Packages/SpotCore
@@ -30,8 +31,9 @@ jobs:
       - uses: actions/checkout@v4
       - name: Select Xcode 16
         run: |
-          XCODE="$(ls -d /Applications/Xcode_16*.app 2>/dev/null | tail -1 || true)"
-          if [ -n "$XCODE" ]; then sudo xcode-select -s "$XCODE"; fi
+          for v in 16.4 16.3 16.2 16.1 16; do
+            if [ -d "/Applications/Xcode_$v.app" ]; then sudo xcode-select -s "/Applications/Xcode_$v.app"; break; fi
+          done
           xcodebuild -version
       - name: Install XcodeGen
         run: brew install xcodegen

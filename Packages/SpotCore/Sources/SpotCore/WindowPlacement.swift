@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(CoreGraphics)
+import CoreGraphics
+#endif
 
 /// Window frame math in AppKit screen coordinates (origin at the bottom left).
 public enum WindowPlacement {
