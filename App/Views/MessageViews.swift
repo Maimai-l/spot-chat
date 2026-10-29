@@ -119,9 +119,16 @@ struct AssistantMessageView: View {
                 actions
             }
         }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("message.assistant")
-        .accessibilityValue(Text(message.text))
+        .overlay(alignment: .topLeading) {
+            // The reply's full text as one element, so tests and assistive apps can read it at once.
+            Text(message.text)
+                .font(.system(size: 1))
+                .foregroundStyle(.clear)
+                .frame(width: 1, height: 1)
+                .clipped()
+                .allowsHitTesting(false)
+                .accessibilityIdentifier("message.assistant")
+        }
     }
 
     private var actions: some View {
@@ -318,7 +325,7 @@ struct AttachmentTile: View {
                         .overlay(Circle().stroke(Color(nsColor: .textBackgroundColor), lineWidth: 2))
                 }
                 .buttonStyle(.plain)
-                .offset(x: 6, y: -6)
+                .padding(3)
                 .accessibilityLabel(Text("Remove"))
                 .accessibilityIdentifier("removeAttachment")
             }

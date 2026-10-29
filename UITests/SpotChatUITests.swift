@@ -58,7 +58,7 @@ final class SpotChatUITests: XCTestCase {
         input.typeKey(.return, modifierFlags: [])
     }
 
-    /// Waits until the reply's text satisfies the predicate, e.g. "value == 'Echo: hi'".
+    /// Waits until the reply's text satisfies the predicate, e.g. "label == 'Echo: hi'".
     func waitForReply(in app: XCUIApplication, _ format: String, _ argument: String, timeout: TimeInterval = 10) {
         let reply = element("message.assistant", in: app)
         XCTAssertTrue(reply.waitForExistence(timeout: 5))
@@ -84,7 +84,7 @@ final class SpotChatUITests: XCTestCase {
         let question = element("message.user", in: app)
         XCTAssertTrue(question.waitForExistence(timeout: 5))
         XCTAssertEqual(text(of: question), "hello spot")
-        waitForReply(in: app, "value == %@", "Echo: hello spot")
+        waitForReply(in: app, "label == %@", "Echo: hello spot")
         XCTAssertEqual(text(of: composer(in: app)), "")
         XCTAssertTrue(app.buttons["New Chat"].exists)
     }
@@ -173,7 +173,7 @@ final class SpotChatUITests: XCTestCase {
     func testMarkdownCodeBlockCanBeCopied() {
         let app = launch(resetState: true)
         send("markdown", in: app)
-        waitForReply(in: app, "value CONTAINS %@", "| WAL | concurrent |")
+        waitForReply(in: app, "label CONTAINS %@", "| WAL | concurrent |")
 
         let copy = element("copyCode", in: app)
         XCTAssertTrue(copy.waitForExistence(timeout: 5))
@@ -185,7 +185,7 @@ final class SpotChatUITests: XCTestCase {
     func testEscapeStopsGenerationAndKeepsThePartialReply() {
         let app = launch(resetState: true)
         send("slow", in: app)
-        waitForReply(in: app, "value CONTAINS %@", "tick 2")
+        waitForReply(in: app, "label CONTAINS %@", "tick 2")
         XCTAssertTrue(element("stop", in: app).exists)
 
         composer(in: app).typeKey(.escape, modifierFlags: [])
@@ -201,7 +201,7 @@ final class SpotChatUITests: XCTestCase {
     func testStopButtonStopsGeneration() {
         let app = launch(resetState: true)
         send("slow", in: app)
-        waitForReply(in: app, "value CONTAINS %@", "tick 1")
+        waitForReply(in: app, "label CONTAINS %@", "tick 1")
         element("stop", in: app).click()
         XCTAssertTrue(element("stop", in: app).waitForNonExistence(timeout: 5))
     }
@@ -223,10 +223,10 @@ final class SpotChatUITests: XCTestCase {
     func testRegenerateReplacesTheReplyAndCopyCopiesIt() {
         let app = launch(resetState: true)
         send("hello", in: app)
-        waitForReply(in: app, "value == %@", "Echo: hello")
+        waitForReply(in: app, "label == %@", "Echo: hello")
 
         element("regenerate", in: app).click()
-        waitForReply(in: app, "value == %@", "Echo: hello")
+        waitForReply(in: app, "label == %@", "Echo: hello")
         XCTAssertEqual(elements("message.assistant", in: app).count, 1)
 
         NSPasteboard.general.clearContents()
@@ -237,11 +237,11 @@ final class SpotChatUITests: XCTestCase {
     func testFollowUpQuestionsKeepTheConversation() throws {
         let app = launch(resetState: true)
         send("first", in: app)
-        waitForReply(in: app, "value == %@", "Echo: first")
+        waitForReply(in: app, "label == %@", "Echo: first")
         send("second", in: app)
         let second = elements("message.assistant", in: app).element(boundBy: 1)
         XCTAssertTrue(second.waitForExistence(timeout: 10))
-        let expectation = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "Echo: second"), object: second)
+        let expectation = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", "Echo: second"), object: second)
         XCTAssertEqual(XCTWaiter.wait(for: [expectation], timeout: 10), .completed)
 
         let messages = try lastRequest()["messages"] as? [[String: Any]] ?? []
@@ -261,7 +261,7 @@ final class SpotChatUITests: XCTestCase {
 
         XCTAssertTrue(composer(in: app).waitForExistence(timeout: 5), "Picking a model keeps the capsule open")
         send("hi", in: app)
-        waitForReply(in: app, "value == %@", "Echo: hi")
+        waitForReply(in: app, "label == %@", "Echo: hi")
         XCTAssertEqual(try lastRequest()["model"] as? String, "mock-vision")
     }
 
@@ -302,7 +302,7 @@ final class SpotChatUITests: XCTestCase {
         let menu = element("modelMenu", in: app)
         XCTAssertTrue(menu.waitForExistence(timeout: 10), "The new models are offered")
         send("saved", in: app)
-        waitForReply(in: app, "value == %@", "Echo: saved")
+        waitForReply(in: app, "label == %@", "Echo: saved")
     }
 
     // MARK: Attachments
@@ -336,7 +336,7 @@ final class SpotChatUITests: XCTestCase {
 
         composer(in: app).typeText("what is this")
         composer(in: app).typeKey(.return, modifierFlags: [])
-        waitForReply(in: app, "value == %@", "I can see 1 image(s).")
+        waitForReply(in: app, "label == %@", "I can see 1 image(s).")
         let messages = try lastRequest()["messages"] as? [[String: Any]] ?? []
         let parts = messages.last?["content"] as? [[String: Any]] ?? []
         XCTAssertTrue(parts.contains { $0["type"] as? String == "image_url" })
@@ -354,7 +354,7 @@ final class SpotChatUITests: XCTestCase {
         XCTAssertEqual(tile.label, "notes.txt")
 
         composer(in: app).typeKey(.return, modifierFlags: [])
-        waitForReply(in: app, "value == %@", "I read notes.txt.")
+        waitForReply(in: app, "label == %@", "I read notes.txt.")
         let messages = try lastRequest()["messages"] as? [[String: Any]] ?? []
         let content = messages.last?["content"]
         let text = (content as? String) ?? ((content as? [[String: Any]])?.compactMap { $0["text"] as? String }.joined() ?? "")
@@ -424,18 +424,18 @@ final class SpotChatUITests: XCTestCase {
     func testCardExpandsToTheFullWindowAndCollapsesBack() {
         let app = launch(resetState: true)
         send("carry over", in: app)
-        waitForReply(in: app, "value == %@", "Echo: carry over")
+        waitForReply(in: app, "label == %@", "Echo: carry over")
 
         app.buttons["Expand to Full Window"].click()
         let collapse = element("collapseToMini", in: app)
         XCTAssertTrue(collapse.waitForExistence(timeout: 10), "The full window opens")
         XCTAssertTrue(element("historyItem", in: app).waitForExistence(timeout: 5))
-        waitForReply(in: app, "value == %@", "Echo: carry over")
+        waitForReply(in: app, "label == %@", "Echo: carry over")
 
         collapse.click()
         XCTAssertTrue(collapse.waitForNonExistence(timeout: 5))
         XCTAssertTrue(app.buttons["New Chat"].waitForExistence(timeout: 5), "The card shows the same conversation")
-        waitForReply(in: app, "value == %@", "Echo: carry over")
+        waitForReply(in: app, "label == %@", "Echo: carry over")
     }
 
     func testCapsuleExpandsToTheFullWindowWithTheDraft() {
@@ -453,7 +453,7 @@ final class SpotChatUITests: XCTestCase {
     func testHistoryIsKeptAndCanBeRenamedAndDeleted() {
         var app = launch(resetState: true)
         send("remember me", in: app)
-        waitForReply(in: app, "value == %@", "Echo: remember me")
+        waitForReply(in: app, "label == %@", "Echo: remember me")
         app.terminate()
 
         app = launch(resetState: false, fullWindow: true)
@@ -461,7 +461,7 @@ final class SpotChatUITests: XCTestCase {
         XCTAssertTrue(item.waitForExistence(timeout: 10))
         XCTAssertEqual(text(of: item), "remember me")
         item.click()
-        waitForReply(in: app, "value == %@", "Echo: remember me")
+        waitForReply(in: app, "label == %@", "Echo: remember me")
 
         item.rightClick()
         app.menuItems["Rename…"].click()
@@ -482,7 +482,7 @@ final class SpotChatUITests: XCTestCase {
     func testFullWindowSendsAndStartsNewChats() {
         let app = launch(resetState: true, fullWindow: true)
         send("from the full window", in: app)
-        waitForReply(in: app, "value == %@", "Echo: from the full window")
+        waitForReply(in: app, "label == %@", "Echo: from the full window")
         XCTAssertTrue(element("historyItem", in: app).waitForExistence(timeout: 5))
 
         element("newChat", in: app).click()
