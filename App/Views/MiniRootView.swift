@@ -42,7 +42,7 @@ struct CapsuleView: View {
     @ObservedObject var composer: ComposerModel
 
     var body: some View {
-        ComposerView(composer: composer, session: session, app: app, actions: controller.composerActions)
+        ComposerView(composer: composer, session: session, app: app, actions: controller.capsuleActions)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(WindowDragArea(onDragEnd: controller.panelWasDragged))
             .background(VisualEffectBackground(material: .popover))

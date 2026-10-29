@@ -438,6 +438,18 @@ final class SpotChatUITests: XCTestCase {
         waitForReply(in: app, "value == %@", "Echo: carry over")
     }
 
+    func testCapsuleExpandsToTheFullWindowWithTheDraft() {
+        let app = launch(resetState: true)
+        let input = composer(in: app)
+        XCTAssertTrue(input.waitForExistence(timeout: 10))
+        input.click()
+        input.typeText("half typed")
+        app.buttons["Expand to Full Window"].click()
+
+        XCTAssertTrue(element("collapseToMini", in: app).waitForExistence(timeout: 10))
+        XCTAssertEqual(text(of: composer(in: app)), "half typed", "The draft comes along")
+    }
+
     func testHistoryIsKeptAndCanBeRenamedAndDeleted() {
         var app = launch(resetState: true)
         send("remember me", in: app)

@@ -78,6 +78,13 @@ final class MiniWindowController: ObservableObject {
         menuDidClose: { [weak self] in self?.suppressFocusLoss -= 1 }
     )
 
+    /// The capsule also offers expanding to the full window; the card has that button in its header.
+    var capsuleActions: ComposerActions {
+        var actions = composerActions
+        actions.expand = { [weak self] in self?.handle(.expandToFullWindow) }
+        return actions
+    }
+
     func handle(_ event: MiniWindowEvent) {
         let effects = state.handle(event, isKey: panel.isKeyWindow)
         mode = state.mode

@@ -55,6 +55,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.maimai.spotchat
         PRODUCT_NAME: SpotChat
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
   SpotChatUITests:
     type: bundle.ui-testing
     platform: macOS

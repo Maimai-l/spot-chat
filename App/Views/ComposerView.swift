@@ -16,6 +16,8 @@ struct ComposerActions {
     /// Called around the + menu so the capsule does not hide while it is open.
     var menuWillOpen: () -> Void
     var menuDidClose: () -> Void
+    /// Shown as the last button in the capsule.
+    var expand: (() -> Void)? = nil
 }
 
 /// The input shared by the mini window and the full window:
@@ -58,6 +60,10 @@ struct ComposerView: View {
                 ModelMenu(app: app, openSettings: actions.openSettings)
                 if session.isGenerating {
                     StopButton(action: actions.escape)
+                }
+                if let expand = actions.expand {
+                    CircleIconButton(systemName: "arrow.up.left.and.arrow.down.right", label: "Expand to Full Window", action: expand)
+                        .frame(width: 32, height: 32)
                 }
             }
             .frame(height: ComposerLayout.baseHeight - 16)
