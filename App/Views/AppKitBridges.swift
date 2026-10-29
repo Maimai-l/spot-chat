@@ -194,8 +194,4 @@ final class ComposerTextView: NSTextView {
         super.didChangeText()
         needsDisplay = true
     }
-
-    override func accessibilityPlaceholderValue() -> String? {
-        placeholder
-    }
 }

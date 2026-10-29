@@ -119,7 +119,7 @@ final class SpotChatUITests: XCTestCase {
         // A point in the capsule's left padding, outside the buttons and the input.
         let start = window.coordinate(withNormalizedOffset: CGVector(dx: 0.01, dy: 0.5))
         let end = start.withOffset(CGVector(dx: 120, dy: 80))
-        start.press(forDuration: 0.2, thenDragTo: end)
+        start.click(forDuration: 0.2, thenDragTo: end)
 
         let after = window.frame
         XCTAssertGreaterThan(abs(after.minX - before.minX), 60)
