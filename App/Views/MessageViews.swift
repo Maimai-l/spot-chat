@@ -226,7 +226,8 @@ struct SpotCodeBlockStyle: StructuredText.CodeBlockStyle {
     func makeBody(configuration: Configuration) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             // Textual's selection layer covers the reply except Overflow regions, and adds its own layer
-            // inside them unless selection is off there, so the header sits in an Overflow without selection.
+            // inside them unless selection is off there. The header sits in an Overflow without selection
+            // so clicks reach the Copy button.
             Overflow { state in
                 HStack {
                     Text(configuration.languageHint ?? "")
@@ -234,6 +235,7 @@ struct SpotCodeBlockStyle: StructuredText.CodeBlockStyle {
                         .foregroundStyle(.secondary)
                     Spacer()
                     CopyCodeButton(copy: configuration.codeBlock.copyToPasteboard)
+                        .fixedSize()
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
@@ -262,32 +264,60 @@ struct SpotCodeBlockStyle: StructuredText.CodeBlockStyle {
 }
 
 /// Copies the code block and shows Copied for a moment.
-struct CopyCodeButton: View {
+/// An AppKit button, because Textual's selection layer only lets clicks through to AppKit views.
+struct CopyCodeButton: NSViewRepresentable {
     let copy: () -> Void
-    @State private var copied = false
 
-    var body: some View {
-        Button {
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    func makeNSView(context: Context) -> NSButton {
+        let button = NSButton(title: "", target: context.coordinator, action: #selector(Coordinator.clicked(_:)))
+        button.isBordered = false
+        button.imagePosition = .imageLeading
+        button.imageHugsTitle = true
+        button.font = .systemFont(ofSize: 12)
+        button.contentTintColor = .secondaryLabelColor
+        button.setAccessibilityIdentifier("copyCode")
+        context.coordinator.button = button
+        context.coordinator.showCopied(false)
+        button.setContentHuggingPriority(.required, for: .horizontal)
+        return button
+    }
+
+    func updateNSView(_ button: NSButton, context: Context) {
+        context.coordinator.copy = copy
+    }
+
+    @MainActor
+    final class Coordinator: NSObject {
+        var copy: () -> Void = {}
+        weak var button: NSButton?
+        private var reset: DispatchWorkItem?
+
+        @objc func clicked(_ sender: NSButton) {
             copy()
-            copied = true
-            Task {
-                try? await Task.sleep(for: .seconds(1.5))
-                copied = false
+            showCopied(true)
+            reset?.cancel()
+            let item = DispatchWorkItem { [weak self] in
+                MainActor.assumeIsolated { self?.showCopied(false) }
             }
-        } label: {
-            Group {
-                if copied {
-                    Label("Copied", systemImage: "checkmark")
-                } else {
-                    Label("Copy", systemImage: "doc.on.doc")
-                }
-            }
-            .font(.system(size: 12))
-            .contentShape(Rectangle())
+            reset = item
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: item)
         }
-        .buttonStyle(.plain)
-        .foregroundStyle(.secondary)
-        .accessibilityIdentifier("copyCode")
+
+        func showCopied(_ copied: Bool) {
+            guard let button else { return }
+            let title = copied ? String(localized: "Copied") : String(localized: "Copy")
+            button.title = title
+            button.image = NSImage(systemSymbolName: copied ? "checkmark" : "doc.on.doc", accessibilityDescription: nil)?
+                .withSymbolConfiguration(.init(pointSize: 11, weight: .regular))
+            button.attributedTitle = NSAttributedString(string: title, attributes: [
+                .font: NSFont.systemFont(ofSize: 12),
+                .foregroundColor: NSColor.secondaryLabelColor,
+            ])
+        }
     }
 }
 
