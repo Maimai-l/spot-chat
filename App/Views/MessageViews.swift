@@ -108,7 +108,10 @@ struct AssistantMessageView: View {
                 StructuredText(markdown: message.text)
                     .font(.system(size: 15))
                     .textual.textSelection(.enabled)
-                    .textual.codeBlockStyle(SpotCodeBlockStyle())
+                    .chatMarkdownStyle()
+                    .overlayPreferenceValue(CodeCopyTargetsKey.self) { targets in
+                        CodeCopyButtons(targets: targets)
+                    }
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else if message.status == .pending {
                 ProgressView()
@@ -218,106 +221,6 @@ struct SpotMark: View {
         .frame(width: size * 0.75, height: size * 0.75)
         .frame(width: size, height: size)
         .accessibilityHidden(true)
-    }
-}
-
-/// Code blocks with the language on the left and a copy button on the right.
-struct SpotCodeBlockStyle: StructuredText.CodeBlockStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Textual's selection layer covers the reply except Overflow regions, and adds its own layer
-            // inside them unless selection is off there. The header sits in an Overflow without selection
-            // so clicks reach the Copy button.
-            Overflow { state in
-                HStack {
-                    Text(configuration.languageHint ?? "")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    CopyCodeButton(copy: configuration.codeBlock.copyToPasteboard)
-                        .fixedSize()
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .frame(width: state.containerWidth, alignment: .leading)
-            }
-            .textual.textSelection(.disabled)
-            Divider()
-            Overflow {
-                configuration.label
-                    .monospaced()
-                    .textual.fontScale(0.88)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(12)
-                    .background(OverlayScrollers())
-            }
-        }
-        .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
-        .background(Color.primary.opacity(0.035))
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(Color.primary.opacity(0.08))
-        )
-        .textual.blockSpacing(.init(top: 4, bottom: 12))
-    }
-}
-
-/// Copies the code block and shows Copied for a moment.
-/// An AppKit button, because Textual's selection layer only lets clicks through to AppKit views.
-struct CopyCodeButton: NSViewRepresentable {
-    let copy: () -> Void
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator()
-    }
-
-    func makeNSView(context: Context) -> NSButton {
-        let button = NSButton(title: "", target: context.coordinator, action: #selector(Coordinator.clicked(_:)))
-        button.isBordered = false
-        button.imagePosition = .imageLeading
-        button.imageHugsTitle = true
-        button.font = .systemFont(ofSize: 12)
-        button.contentTintColor = .secondaryLabelColor
-        button.setAccessibilityIdentifier("copyCode")
-        context.coordinator.button = button
-        context.coordinator.showCopied(false)
-        button.setContentHuggingPriority(.required, for: .horizontal)
-        return button
-    }
-
-    func updateNSView(_ button: NSButton, context: Context) {
-        context.coordinator.copy = copy
-    }
-
-    @MainActor
-    final class Coordinator: NSObject {
-        var copy: () -> Void = {}
-        weak var button: NSButton?
-        private var reset: DispatchWorkItem?
-
-        @objc func clicked(_ sender: NSButton) {
-            copy()
-            showCopied(true)
-            reset?.cancel()
-            let item = DispatchWorkItem { [weak self] in
-                MainActor.assumeIsolated { self?.showCopied(false) }
-            }
-            reset = item
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: item)
-        }
-
-        func showCopied(_ copied: Bool) {
-            guard let button else { return }
-            let title = copied ? String(localized: "Copied") : String(localized: "Copy")
-            button.title = title
-            button.image = NSImage(systemSymbolName: copied ? "checkmark" : "doc.on.doc", accessibilityDescription: nil)?
-                .withSymbolConfiguration(.init(pointSize: 11, weight: .regular))
-            button.attributedTitle = NSAttributedString(string: title, attributes: [
-                .font: NSFont.systemFont(ofSize: 12),
-                .foregroundColor: NSColor.secondaryLabelColor,
-            ])
-        }
     }
 }
 
