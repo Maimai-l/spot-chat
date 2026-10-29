@@ -82,6 +82,13 @@ final class SpotChatUITests: XCTestCase {
         element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
     }
 
+    func attachScreenshot(_ name: String) {
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
     func moveFocusToAnotherApp() {
         XCUIApplication(bundleIdentifier: "com.apple.finder").activate()
     }
@@ -511,5 +518,27 @@ final class SpotChatUITests: XCTestCase {
         XCTAssertTrue(gear.waitForExistence(timeout: 10))
         gear.click()
         XCTAssertTrue(element("addProvider", in: app).waitForExistence(timeout: 5))
+    }
+
+    // MARK: Layout
+
+    /// Keeps screenshots of each window state in the test results for reviewing the layout.
+    func testLayoutScreenshots() {
+        let app = launch(resetState: true)
+        XCTAssertTrue(composer(in: app).waitForExistence(timeout: 10))
+        attachScreenshot("Capsule")
+
+        send("markdown", in: app)
+        waitForReply(in: app, "SELF CONTAINS %@", "| WAL | concurrent |")
+        send("markdown", in: app)
+        let replies = elements("message.assistant", in: app)
+        let second = replies.element(boundBy: 1)
+        XCTAssertTrue(second.waitForExistence(timeout: 10))
+        waitForText(of: second, "SELF CONTAINS %@", "| WAL | concurrent |")
+        attachScreenshot("Card")
+
+        app.buttons["Expand to Full Window"].click()
+        XCTAssertTrue(element("collapseToMini", in: app).waitForExistence(timeout: 10))
+        attachScreenshot("Full window")
     }
 }

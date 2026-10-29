@@ -32,6 +32,7 @@ struct MessageList: View {
                 .padding(.horizontal, horizontalPadding)
                 .padding(.top, topInset)
                 .padding(.bottom, 8)
+                .background(OverlayScrollers())
             }
             .onChange(of: scrollRequest) {
                 proxy.scrollTo(Self.bottomID, anchor: .bottom)

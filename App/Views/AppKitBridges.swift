@@ -233,3 +233,50 @@ final class ComposerTextView: NSTextView {
         needsDisplay = true
     }
 }
+
+/// Keeps the enclosing scroll view on thin overlay scrollers with no track,
+/// also when a connected mouse makes macOS draw legacy scrollers.
+struct OverlayScrollers: NSViewRepresentable {
+    func makeNSView(context: Context) -> ProbeView {
+        ProbeView()
+    }
+
+    func updateNSView(_ view: ProbeView, context: Context) {
+        view.apply()
+    }
+
+    final class ProbeView: NSView {
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            let center = NotificationCenter.default
+            center.removeObserver(self, name: NSScroller.preferredScrollerStyleDidChangeNotification, object: nil)
+            guard window != nil else { return }
+            center.addObserver(
+                self,
+                selector: #selector(preferredStyleDidChange),
+                name: NSScroller.preferredScrollerStyleDidChangeNotification,
+                object: nil
+            )
+            apply()
+        }
+
+        override func hitTest(_ point: NSPoint) -> NSView? {
+            nil
+        }
+
+        func apply() {
+            guard let scrollView = enclosingScrollView else { return }
+            scrollView.autohidesScrollers = true
+            if scrollView.scrollerStyle != .overlay {
+                scrollView.scrollerStyle = .overlay
+            }
+        }
+
+        /// Scroll views switch to the new system style on this notification, so apply ours after them.
+        @objc private func preferredStyleDidChange() {
+            DispatchQueue.main.async { [weak self] in
+                self?.apply()
+            }
+        }
+    }
+}

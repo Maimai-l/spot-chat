@@ -58,6 +58,8 @@ struct ComposerView: View {
                 )
                 .frame(height: 28)
                 ModelMenu(app: app, openSettings: actions.openSettings)
+                    // Keeps the model name as far from the edge as the + glyph; a button after it has its own inset.
+                    .padding(.trailing, session.isGenerating || actions.expand != nil ? 0 : 8)
                 if session.isGenerating {
                     StopButton(action: actions.escape)
                 }
