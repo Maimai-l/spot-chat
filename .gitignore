@@ -8,3 +8,4 @@ xcuserdata/
 *.xcodeproj/
 App/Info.plist
 Packages/SpotKit/.build/
+__pycache__/
