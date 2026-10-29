@@ -24,7 +24,11 @@ public enum MathMarkdown {
         guard markdown.contains("$") || markdown.contains("\\(") || markdown.contains("\\[") else {
             return markdown
         }
-        // Split into prose and fenced code, keeping every line break.
+        return segments(markdown).map { $0.isCode ? $0.text : rewrite($0.text) }.joined(separator: "\n")
+    }
+
+    /// The text split into prose and fenced code, so joining the parts with line breaks restores it.
+    static func segments(_ markdown: String) -> [(isCode: Bool, text: String)] {
         var segments: [(isCode: Bool, lines: [Substring])] = []
         var fence: (marker: Character, length: Int)?
         for line in markdown.split(separator: "\n", omittingEmptySubsequences: false) {
@@ -43,10 +47,7 @@ public enum MathMarkdown {
                 segments.append((false, [line]))
             }
         }
-        return segments.map { segment in
-            let text = segment.lines.joined(separator: "\n")
-            return segment.isCode ? text : rewrite(text)
-        }.joined(separator: "\n")
+        return segments.map { ($0.isCode, $0.lines.joined(separator: "\n")) }
     }
 
     /// The fence character and its length when the line opens or closes a fenced code block.
