@@ -115,6 +115,7 @@ enum ComposerLayout {
     static let noticeRowHeight: CGFloat = 16
     static let rowSpacing: CGFloat = 6
 
+    @MainActor
     static func height(for composer: ComposerModel) -> CGFloat {
         var height = baseHeight
         if !composer.attachments.isEmpty { height += attachmentsRowHeight + rowSpacing }
