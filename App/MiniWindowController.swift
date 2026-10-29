@@ -35,12 +35,12 @@ final class MiniWindowController: ObservableObject {
 
     init(
         draftStorage: DraftStorage,
-        placementStore: PlacementStore = PlacementStore(),
+        placementStore: PlacementStore? = nil,
         responder: ChatResponder = EchoResponder(),
         retentionPolicy: RetentionPolicy = .default
     ) {
         self.draftStorage = draftStorage
-        self.placementStore = placementStore
+        self.placementStore = placementStore ?? PlacementStore()
         self.responder = responder
         self.state = MiniWindowState(retentionPolicy: retentionPolicy)
         self.draft = draftStorage.loadDraft()
