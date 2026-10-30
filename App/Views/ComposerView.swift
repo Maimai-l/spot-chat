@@ -105,10 +105,7 @@ struct ComposerView: View {
             } else if composer.hasContent {
                 CircleIconButton(
                     label: "Send",
-                    // The stroke rounds the corners slightly, as in Gemini's arrow.
-                    icon: SendIcon().fill()
-                        .overlay(SendIcon().stroke(style: StrokeStyle(lineWidth: 1.5, lineJoin: .round)))
-                        .frame(width: 17, height: 15).offset(x: 1),
+                    icon: SendIcon().fill().frame(width: 18, height: 16).offset(x: 1),
                     action: actions.submit
                 )
                 .frame(width: 32, height: 32)
@@ -208,18 +205,21 @@ enum ComposerTextMetrics {
 
 /// The filled paper plane used for sending.
 struct SendIcon: Shape {
+    /// Gemini's send arrow: straight left edges, a notch reaching almost halfway in, softly rounded outer
+    /// corners and a nearly sharp notch. Each corner is (x, y, radius), relative to the height.
+    private static let corners: [(CGFloat, CGFloat, CGFloat)] = [
+        (0, 0, 0.05), (1, 0.5, 0.05), (0, 1, 0.05), (0, 0.635, 0.01), (0.46, 0.5, 0.02), (0, 0.365, 0.01),
+    ]
+
     func path(in rect: CGRect) -> Path {
+        let points = Self.corners.map { CGPoint(x: rect.minX + $0.0 * rect.width, y: rect.minY + $0.1 * rect.height) }
+        let last = points[points.count - 1]
         var path = Path()
-        func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
-            CGPoint(x: rect.minX + x * rect.width, y: rect.minY + y * rect.height)
+        path.move(to: CGPoint(x: (last.x + points[0].x) / 2, y: (last.y + points[0].y) / 2))
+        for index in points.indices {
+            let next = points[(index + 1) % points.count]
+            path.addArc(tangent1End: points[index], tangent2End: next, radius: Self.corners[index].2 * rect.height)
         }
-        // Gemini's send arrow: straight left edges and a notch reaching almost halfway in.
-        path.move(to: point(0, 0))
-        path.addLine(to: point(1, 0.5))
-        path.addLine(to: point(0, 1))
-        path.addLine(to: point(0, 0.635))
-        path.addLine(to: point(0.46, 0.5))
-        path.addLine(to: point(0, 0.365))
         path.closeSubpath()
         return path
     }
