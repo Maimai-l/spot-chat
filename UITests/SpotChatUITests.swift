@@ -244,6 +244,45 @@ final class SpotChatUITests: XCTestCase {
         XCTAssertTrue(element("stop", in: app).waitForNonExistence(timeout: 5))
     }
 
+    func testThinkingIsFoldedUnderOneLine() {
+        let app = launch(resetState: true)
+        send("think", in: app)
+        let thinking = element("thinking", in: app)
+        XCTAssertTrue(thinking.waitForExistence(timeout: 10))
+        waitForReply(in: app, "SELF == %@", "Two plus two is four.")
+        XCTAssertFalse(element("thinking.text", in: app).exists, "The thinking starts folded")
+        waitForText(of: thinking, "SELF CONTAINS %@", "Thought for")
+
+        thinking.click()
+        let thoughts = element("thinking.text", in: app)
+        XCTAssertTrue(thoughts.waitForExistence(timeout: 5))
+        XCTAssertTrue(text(of: thoughts).hasPrefix("The user asks"), text(of: thoughts))
+        RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        attachScreenshot("Thinking")
+    }
+
+    func testScrollingUpDuringAReplyStopsFollowingIt() {
+        let app = launch(resetState: true)
+        send("markdown", in: app)
+        waitForReply(in: app, "SELF CONTAINS %@", "| WAL | concurrent |")
+        send("slow", in: app)
+        waitForReply(in: app, "SELF CONTAINS %@", "tick 1")
+        XCTAssertFalse(element("jumpToLatest", in: app).exists)
+
+        let conversation = composer(in: app).coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0))
+            .withOffset(CGVector(dx: 0, dy: -150))
+        conversation.scroll(byDeltaX: 0, deltaY: 300)
+        let jump = element("jumpToLatest", in: app)
+        XCTAssertTrue(jump.waitForExistence(timeout: 5))
+        // The reply keeps growing, but the conversation stays where the reader put it.
+        RunLoop.current.run(until: Date().addingTimeInterval(1.5))
+        XCTAssertTrue(jump.exists, "The conversation doesn't follow the reply while the reader is reading above it")
+
+        jump.click()
+        XCTAssertTrue(jump.waitForNonExistence(timeout: 5))
+        element("stop", in: app).click()
+    }
+
     func testErrorShowsTheServiceMessageWithRetry() {
         let app = launch(resetState: true)
         send("fail", in: app)

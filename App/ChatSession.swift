@@ -111,25 +111,53 @@ final class ChatSession: ObservableObject {
         isGenerating = true
         generation = Task { [weak self] in
             var text = ""
+            var reasoning = ""
+            var thinkingStarted: Date?
+            var thinkingTook: TimeInterval?
+            var lastSave = Date()
             var failure: String?
             do {
-                for try await chunk in responder.reply(to: request) {
+                for try await chunk in responder.stream(request) {
                     if Task.isCancelled { break }
-                    text += chunk
-                    self?.updateReply(replyID) { $0.text = text }
+                    switch chunk {
+                    case let .reasoning(part):
+                        if thinkingStarted == nil { thinkingStarted = Date() }
+                        reasoning += part
+                    case let .text(part):
+                        if let thinkingStarted, thinkingTook == nil { thinkingTook = Date().timeIntervalSince(thinkingStarted) }
+                        text += part
+                    }
+                    self?.updateReply(replyID) { reply in
+                        reply.text = text
+                        reply.reasoning = reasoning
+                        reply.reasoningDuration = thinkingTook
+                    }
+                    // Saved as it streams, so a quit or crash keeps what has arrived.
+                    if Date().timeIntervalSince(lastSave) > 1 {
+                        lastSave = Date()
+                        self?.saveReply(replyID)
+                    }
                 }
             } catch is CancellationError {
             } catch {
                 failure = ErrorText.describe(error)
             }
+            if let thinkingStarted, thinkingTook == nil { thinkingTook = Date().timeIntervalSince(thinkingStarted) }
             let cancelled = Task.isCancelled
-            self?.finishReply(replyID, text: text, failure: failure, cancelled: cancelled)
+            self?.finishReply(replyID, text: text, reasoningDuration: thinkingTook, failure: failure, cancelled: cancelled)
         }
     }
 
-    private func finishReply(_ id: UUID, text: String, failure: String?, cancelled: Bool) {
+    private func saveReply(_ id: UUID) {
+        if let reply = messages.first(where: { $0.id == id }) {
+            try? app.messageService.update(reply)
+        }
+    }
+
+    private func finishReply(_ id: UUID, text: String, reasoningDuration: TimeInterval?, failure: String?, cancelled: Bool) {
         updateReply(id) { reply in
             reply.text = text
+            reply.reasoningDuration = reasoningDuration
             if let failure {
                 reply.status = .error
                 reply.errorMessage = failure

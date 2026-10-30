@@ -18,6 +18,9 @@ struct MessageList: View {
     @State private var readerScrolls = 0
     /// Scrolling until this moment follows a reply and doesn't show the scroll bar.
     @State private var followingUntil = Date.distantPast
+    /// Whether a growing reply keeps the conversation scrolled to the end. Scrolling up turns it off until
+    /// the reader returns to the end, as in Claude and ChatGPT.
+    @State private var pinnedToBottom = true
 
     var body: some View {
         ScrollView {
@@ -55,6 +58,12 @@ struct MessageList: View {
             if abs(new.offset - old.offset) > 0.5, Date() > followingUntil {
                 readerScrolls += 1
             }
+            // Following a reply only ever scrolls down, so a move up is the reader's.
+            if new.isNearBottom {
+                pinnedToBottom = true
+            } else if new.offset < old.offset - 0.5 {
+                pinnedToBottom = false
+            }
         }
         // Only the reader's own scrolling shows the bar, not the conversation following a reply.
         .onScrollPhaseChange { _, phase in
@@ -69,12 +78,27 @@ struct MessageList: View {
                 scrollTo: { position.scrollTo(y: $0) }
             )
         }
+        .overlay(alignment: .bottom) {
+            let showsJump = !pinnedToBottom && metrics.maxOffset - metrics.offset > 80
+            ZStack {
+                if showsJump {
+                    JumpToLatestButton {
+                        pinnedToBottom = true
+                        followBottom(animated: true)
+                    }
+                    .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                }
+            }
+            .padding(.bottom, 10)
+            .animation(.easeOut(duration: 0.15), value: showsJump)
+        }
         .onChange(of: scrollRequest) {
+            pinnedToBottom = true
             followBottom(animated: true)
         }
         // A reply's height is known only once its page has rendered, after the message changed.
         .environment(\.replyDidResize) { id in
-            if id == session.messages.last?.id {
+            if id == session.messages.last?.id, pinnedToBottom {
                 followBottom(animated: true)
             }
         }
@@ -100,6 +124,31 @@ struct ScrollMetrics: Equatable {
     var visible: CGFloat = 0
 
     var maxOffset: CGFloat { max(content - visible, 0) }
+    var isNearBottom: Bool { offset >= maxOffset - 24 }
+}
+
+/// Shown when the reader has scrolled up from the end of the conversation.
+struct JumpToLatestButton: View {
+    let action: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "arrow.down")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: 32, height: 32)
+                .background(Circle().fill(Color(nsColor: .textBackgroundColor)))
+                .overlay(Circle().strokeBorder(Color.primary.opacity(hovering ? 0.16 : 0.1), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.12), radius: 6, y: 2)
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .help(Text("Jump to Latest"))
+        .accessibilityLabel(Text("Jump to Latest"))
+        .accessibilityIdentifier("jumpToLatest")
+    }
 }
 
 /// A thin scroll bar drawn over the conversation's trailing edge. It appears while the reader scrolls
@@ -341,9 +390,16 @@ struct AssistantMessageView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             SpotMark(size: 22)
+            if !message.reasoning.isEmpty {
+                ThinkingView(
+                    reasoning: message.reasoning,
+                    duration: message.reasoningDuration,
+                    isThinking: message.status == .pending && message.reasoningDuration == nil
+                )
+            }
             if !message.text.isEmpty {
                 ReplyView(id: message.id, markdown: message.text, isStreaming: message.status == .pending)
-            } else if message.status == .pending {
+            } else if message.status == .pending, message.reasoning.isEmpty {
                 ProgressView()
                     .controlSize(.small)
             }
@@ -376,6 +432,96 @@ struct AssistantMessageView: View {
             }
         }
         .padding(.leading, -6)
+    }
+}
+
+/// A reasoning model's thinking, folded away under one line as in Claude: "Thinking" while it thinks,
+/// then how long it took. Opening it shows the thinking, live while it streams.
+struct ThinkingView: View {
+    let reasoning: String
+    let duration: TimeInterval?
+    let isThinking: Bool
+    @State private var isOpen = false
+    @State private var hovering = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Button {
+                withAnimation(.easeOut(duration: 0.18)) { isOpen.toggle() }
+            } label: {
+                HStack(spacing: 4) {
+                    title
+                        .font(.system(size: 14))
+                        .foregroundStyle(hovering ? .primary : .secondary)
+                        .shimmering(isThinking)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.tertiary)
+                        .rotationEffect(.degrees(isOpen ? 90 : 0))
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .onHover { hovering = $0 }
+            .accessibilityIdentifier("thinking")
+
+            if isOpen {
+                Text(reasoning)
+                    .font(.system(size: 13))
+                    .lineSpacing(3)
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.leading, 12)
+                    .overlay(alignment: .leading) {
+                        Rectangle().fill(Color.primary.opacity(0.12)).frame(width: 2)
+                    }
+                    .transition(.opacity)
+                    .accessibilityIdentifier("thinking.text")
+            }
+        }
+    }
+
+    private var title: Text {
+        if isThinking {
+            return Text("Thinking")
+        }
+        let seconds = Duration.seconds(max(1, (duration ?? 0).rounded()))
+        return Text("Thought for \(seconds.formatted(.units(allowed: [.minutes, .seconds], width: .narrow)))")
+    }
+}
+
+extension View {
+    /// A soft highlight sweeping across, for text that stands for work in progress.
+    func shimmering(_ active: Bool) -> some View {
+        modifier(Shimmer(active: active))
+    }
+}
+
+private struct Shimmer: ViewModifier {
+    let active: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if active, !reduceMotion {
+            content.overlay {
+                TimelineView(.animation) { context in
+                    let period = 1.6
+                    let phase = context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: period) / period
+                    GeometryReader { geometry in
+                        let band = max(geometry.size.width * 0.5, 30)
+                        LinearGradient(colors: [.clear, .primary, .clear], startPoint: .leading, endPoint: .trailing)
+                            .frame(width: band)
+                            .offset(x: -band + (geometry.size.width + band) * phase)
+                    }
+                }
+                .mask { content }
+                .allowsHitTesting(false)
+            }
+        } else {
+            content
+        }
     }
 }
 

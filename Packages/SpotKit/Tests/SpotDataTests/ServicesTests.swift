@@ -100,6 +100,24 @@ struct TestStore {
         #expect(saved.errorMessage == "Incorrect API key provided.")
     }
 
+    @Test func thinkingIsKeptWithTheReply() throws {
+        let store = try TestStore()
+        let topic = try store.topics.create()
+        var reply = ChatMessage(role: .assistant, text: "", status: .pending)
+        try store.messages.append(reply, to: topic.id)
+        #expect(try store.messages.list(topicID: topic.id)[0].reasoning == "")
+
+        reply.text = "Four."
+        reply.reasoning = "Two plus two is four."
+        reply.reasoningDuration = 3.5
+        reply.status = .success
+        try store.messages.update(reply)
+
+        let saved = try store.messages.list(topicID: topic.id)[0]
+        #expect(saved.reasoning == "Two plus two is four.")
+        #expect(saved.reasoningDuration == 3.5)
+    }
+
     @Test func attachmentsAreCopiedAndLinked() throws {
         let store = try TestStore()
         let topic = try store.topics.create()

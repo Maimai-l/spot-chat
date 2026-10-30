@@ -371,6 +371,16 @@
         }
       }
     },
+    "Jump to Latest": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "回到最新"
+          }
+        }
+      }
+    },
     "Keep Conversation After Closing": {
       "localizations": {
         "zh-Hans": {
@@ -760,6 +770,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "分享的窗口已关闭。"
+          }
+        }
+      }
+    },
+    "Thinking": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "思考中"
+          }
+        }
+      }
+    },
+    "Thought for %@": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已思考 %@"
           }
         }
       }

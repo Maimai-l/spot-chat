@@ -157,7 +157,7 @@ public struct MessageService: Sendable {
     public func update(_ message: ChatMessage) throws {
         try database.writer.write { db in
             guard var record = try MessageRecord.fetchOne(db, key: message.id.uuidString) else { throw DataError.notFound }
-            record.data = .init(content: message.text, error: message.errorMessage)
+            record.data = Self.payload(message)
             record.searchableText = message.text
             record.status = message.status.rawValue
             record.modelId = message.modelID
@@ -176,8 +176,15 @@ public struct MessageService: Sendable {
         let created = Timestamp.milliseconds(message.createdAt)
         return MessageRecord(
             id: message.id.uuidString, parentId: parentID, topicId: topicID, role: message.role.rawValue,
-            data: .init(content: message.text, error: message.errorMessage), searchableText: message.text,
+            data: payload(message), searchableText: message.text,
             status: message.status.rawValue, modelId: message.modelID, createdAt: created, updatedAt: created
+        )
+    }
+
+    static func payload(_ message: ChatMessage) -> MessageRecord.Payload {
+        .init(
+            content: message.text, error: message.errorMessage,
+            reasoning: message.reasoning.isEmpty ? nil : message.reasoning, reasoningDuration: message.reasoningDuration
         )
     }
 
@@ -188,7 +195,8 @@ public struct MessageService: Sendable {
         else { return nil }
         return ChatMessage(
             id: id, role: role, text: record.data.content, status: status, errorMessage: record.data.error,
-            attachments: attachments, modelID: record.modelId, createdAt: Timestamp.date(record.createdAt)
+            attachments: attachments, modelID: record.modelId, createdAt: Timestamp.date(record.createdAt),
+            reasoning: record.data.reasoning ?? "", reasoningDuration: record.data.reasoningDuration
         )
     }
 }

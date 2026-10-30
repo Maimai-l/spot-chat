@@ -17,14 +17,31 @@ export const labels = {
 const escapeHtml = (text) =>
   text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
-// A formula KaTeX can't parse yet, often because it is still streaming, is shown as its source.
+// A streaming reply is rendered again for every frame, so finished formulas and code are kept.
+function memoize(compute, limit = 400) {
+  const cache = new Map()
+  return (key, ...args) => {
+    if (cache.has(key)) return cache.get(key)
+    const value = compute(...args)
+    if (cache.size >= limit) cache.delete(cache.keys().next().value)
+    cache.set(key, value)
+    return value
+  }
+}
+
+const renderMath = memoize((latex, displayMode) => {
+  try {
+    return katex.renderToString(latex, { displayMode, throwOnError: true })
+  } catch {
+    // A formula KaTeX can't parse yet, often because it is still streaming, is shown as its source.
+    return `<code class="math-source">${escapeHtml(latex)}</code>`
+  }
+})
+
 const forgivingKatex = {
   renderToString(latex, options) {
-    try {
-      return katex.renderToString(latex, { ...options, throwOnError: true })
-    } catch {
-      return `<code class="math-source">${escapeHtml(latex)}</code>`
-    }
+    const displayMode = Boolean(options?.displayMode)
+    return renderMath(`${displayMode ? 'D' : 'I'}${latex}`, latex, displayMode)
   },
 }
 
@@ -32,7 +49,9 @@ const COPY_ICON =
   '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="5.25" y="5.25" width="8" height="8" rx="1.75"/>' +
   '<path d="M10.75 3.5V3.25a1.5 1.5 0 0 0-1.5-1.5h-5a1.5 1.5 0 0 0-1.5 1.5v5a1.5 1.5 0 0 0 1.5 1.5h.25"/></svg>'
 
-function highlight(code, language) {
+const highlight = memoize((code, language) => highlightNow(code, language))
+
+function highlightNow(code, language) {
   if (language && hljs.getLanguage(language)) {
     try {
       return hljs.highlight(code, { language, ignoreIllegals: true }).value
@@ -65,7 +84,7 @@ export function createRenderer() {
       `<button class="copy-code" type="button" aria-label="${escapeHtml(labels.copyCode)}">` +
       `${COPY_ICON}<span class="copy-label">${escapeHtml(labels.copy)}</span></button>` +
       '</div>' +
-      `<pre><code class="hljs${language ? ` language-${escapeHtml(language)}` : ''}">${highlight(code, language)}</code></pre>` +
+      `<pre><code class="hljs${language ? ` language-${escapeHtml(language)}` : ''}">${highlight(`${language}\n${code}`, code, language)}</code></pre>` +
       '</div>\n'
     )
   }

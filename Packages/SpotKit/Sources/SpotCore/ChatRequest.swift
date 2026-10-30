@@ -26,22 +26,48 @@ public struct ChatRequestMessage: Equatable, Sendable {
     }
 }
 
-/// Produces the assistant's reply as a stream of text chunks.
+/// A piece of a streamed reply: the model's thinking, which reasoning models send first, or the reply itself.
+public enum ReplyChunk: Equatable, Sendable {
+    case reasoning(String)
+    case text(String)
+}
+
+/// Produces the assistant's reply as a stream of chunks.
 public protocol ChatResponder: Sendable {
-    func reply(to request: ChatRequest) -> AsyncThrowingStream<String, Error>
+    func stream(_ request: ChatRequest) -> AsyncThrowingStream<ReplyChunk, Error>
+}
+
+extension ChatResponder {
+    /// The reply's text alone, without the thinking.
+    public func reply(to request: ChatRequest) -> AsyncThrowingStream<String, Error> {
+        let upstream = stream(request)
+        return AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    for try await chunk in upstream {
+                        if case let .text(text) = chunk { continuation.yield(text) }
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
 }
 
 /// Replies with the user's last message unchanged. Used in tests.
 public struct EchoResponder: ChatResponder {
     public init() {}
 
-    public func reply(to request: ChatRequest) -> AsyncThrowingStream<String, Error> {
+    public func stream(_ request: ChatRequest) -> AsyncThrowingStream<ReplyChunk, Error> {
         let text = request.messages.last(where: { $0.role == .user })?.parts.compactMap { part -> String? in
             if case let .text(text) = part { return text }
             return nil
         }.joined(separator: "\n") ?? ""
         return AsyncThrowingStream { continuation in
-            continuation.yield(text)
+            continuation.yield(.text(text))
             continuation.finish()
         }
     }

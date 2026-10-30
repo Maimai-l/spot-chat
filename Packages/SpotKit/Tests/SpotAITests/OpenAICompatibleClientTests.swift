@@ -28,6 +28,27 @@ struct OpenAICompatibleClientTests {
         #expect(try await ask("hello", client: client()) == "Echo: hello")
     }
 
+    @Test func streamsThinkingBeforeTheReply() async throws {
+        let request = ChatRequest(model: "mock-fast", messages: [ChatRequestMessage(role: .user, parts: [.text("think")])])
+        var chunks: [ReplyChunk] = []
+        for try await chunk in try client().stream(request) {
+            chunks.append(chunk)
+        }
+        let reasoning = chunks.compactMap { chunk -> String? in
+            if case let .reasoning(text) = chunk { return text }
+            return nil
+        }
+        let text = chunks.compactMap { chunk -> String? in
+            if case let .text(text) = chunk { return text }
+            return nil
+        }
+        #expect(reasoning.joined().hasPrefix("The user asks"))
+        #expect(text.joined() == "Two plus two is four.")
+        if case .reasoning = chunks.first {} else { Issue.record("Thinking comes first") }
+        // The text alone leaves the thinking out.
+        #expect(try await ask("think", client: client()) == "Two plus two is four.")
+    }
+
     @Test func listsModels() async throws {
         #expect(try await client().listModels() == ["mock-fast", "mock-vision"])
     }

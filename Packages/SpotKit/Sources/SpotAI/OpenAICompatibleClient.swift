@@ -63,8 +63,9 @@ public struct OpenAICompatibleClient: ChatResponder {
         ))
     }
 
-    /// Streams the reply text. Cancelling the consuming task cancels the request.
-    public func reply(to request: ChatRequest) -> AsyncThrowingStream<String, Error> {
+    /// Streams the reply, with the thinking of reasoning models (DeepSeek's `reasoning_content`, or `reasoning`).
+    /// Cancelling the consuming task cancels the request.
+    public func stream(_ request: ChatRequest) -> AsyncThrowingStream<ReplyChunk, Error> {
         let query = ChatQuery(
             messages: request.messages.compactMap(Self.messageParam),
             model: request.model,
@@ -76,8 +77,11 @@ public struct OpenAICompatibleClient: ChatResponder {
                 do {
                     for try await result in upstream {
                         for choice in result.choices {
+                            if let reasoning = choice.delta.reasoning, !reasoning.isEmpty {
+                                continuation.yield(.reasoning(reasoning))
+                            }
                             if let content = choice.delta.content, !content.isEmpty {
-                                continuation.yield(content)
+                                continuation.yield(.text(content))
                             }
                         }
                     }

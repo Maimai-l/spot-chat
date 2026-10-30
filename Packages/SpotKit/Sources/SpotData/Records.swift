@@ -19,6 +19,9 @@ struct MessageRecord: Codable, FetchableRecord, PersistableRecord, Sendable {
     struct Payload: Codable, Equatable, Sendable {
         var content: String
         var error: String?
+        var reasoning: String?
+        /// Seconds.
+        var reasoningDuration: Double?
     }
 
     var id: String
