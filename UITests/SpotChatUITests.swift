@@ -442,6 +442,64 @@ final class SpotChatUITests: XCTestCase {
         XCTAssertTrue(done.waitForNonExistence(timeout: 5))
     }
 
+    // MARK: Composer
+
+    func testSendButtonAppearsOnlyWithText() {
+        let app = launch(resetState: true)
+        let input = composer(in: app)
+        XCTAssertTrue(input.waitForExistence(timeout: 10))
+        XCTAssertFalse(element("send", in: app).exists, "Nothing to send yet")
+        input.click()
+        input.typeText("via the button")
+        let send = element("send", in: app)
+        XCTAssertTrue(send.waitForExistence(timeout: 5))
+        send.click()
+        waitForReply(in: app, "SELF == %@", "Echo: via the button")
+    }
+
+    func testLongTextMovesAboveTheButtons() {
+        let app = launch(resetState: true)
+        let input = composer(in: app)
+        XCTAssertTrue(input.waitForExistence(timeout: 10))
+        let plus = element("plusMenu", in: app)
+        let oneLine = input.frame
+        XCTAssertEqual(oneLine.midY, plus.frame.midY, accuracy: 3, "One line sits beside the +")
+        input.click()
+        input.typeText("first line")
+        input.typeKey(.return, modifierFlags: .shift)
+        input.typeText("second line")
+        input.typeKey(.return, modifierFlags: .shift)
+        input.typeText("third line")
+
+        let deadline = Date().addingTimeInterval(5)
+        while input.frame.height <= oneLine.height + 20, Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+        }
+        XCTAssertGreaterThan(input.frame.height, oneLine.height + 20, "The text grows")
+        XCTAssertLessThan(input.frame.maxY, plus.frame.minY + 2, "The text sits above the buttons")
+        XCTAssertEqual(text(of: input), "first line\nsecond line\nthird line")
+    }
+
+    func testEditingAQuestionReplacesTheReply() {
+        let app = launch(resetState: true)
+        send("first question", in: app)
+        waitForReply(in: app, "SELF == %@", "Echo: first question")
+
+        let question = element("message.user", in: app)
+        question.hover()
+        element("editMessage", in: app).click()
+        let field = element("editField", in: app)
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        XCTAssertFalse(element("updateEdit", in: app).isEnabled, "Update waits for a change")
+        field.typeKey("a", modifierFlags: .command)
+        field.typeText("second question")
+        element("updateEdit", in: app).click()
+
+        waitForReply(in: app, "SELF == %@", "Echo: second question")
+        XCTAssertEqual(elements("message.user", in: app).count, 1)
+        XCTAssertEqual(text(of: element("message.user", in: app)), "second question")
+    }
+
     // MARK: Full window
 
     func testCardExpandsToTheFullWindowAndCollapsesBack() {

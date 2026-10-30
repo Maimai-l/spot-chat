@@ -42,7 +42,10 @@ struct CapsuleView: View {
     @ObservedObject var composer: ComposerModel
 
     var body: some View {
-        ComposerView(composer: composer, session: session, app: app, actions: controller.capsuleActions)
+        ComposerView(
+            composer: composer, session: session, app: app, actions: controller.capsuleActions,
+            onTextHeightChange: controller.composerTextHeightChanged
+        )
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(WindowDragArea(onDragEnd: controller.panelWasDragged))
             .background(VisualEffectBackground(material: .popover))
@@ -75,8 +78,10 @@ struct CardView: View {
                     }
                 header
             }
-            ComposerView(composer: composer, session: session, app: app, actions: controller.composerActions)
-                .frame(height: ComposerLayout.height(for: composer))
+            ComposerView(
+                composer: composer, session: session, app: app, actions: controller.composerActions,
+                onTextHeightChange: controller.composerTextHeightChanged
+            )
                 .background(
                     RoundedRectangle(cornerRadius: 28, style: .continuous)
                         .fill(Color(nsColor: .textBackgroundColor))
@@ -128,39 +133,56 @@ struct StopButton: View {
 }
 
 /// Shows the current model; picking another one applies from the next message and becomes the default.
+/// A light rounded background shows under the pointer, as in Gemini.
 struct ModelMenu: View {
     @ObservedObject var app: AppModel
     var openSettings: () -> Void
+    @State private var hovering = false
 
     var body: some View {
-        if let current = app.currentModel {
-            Menu {
-                ForEach(app.providers.filter { !$0.models.isEmpty }) { provider in
-                    Section(provider.name) {
-                        ForEach(provider.models) { model in
-                            Toggle(model.modelID, isOn: Binding(
-                                get: { app.currentModel?.id == model.id },
-                                set: { isOn in if isOn { app.setDefaultModel(model.id) } }
-                            ))
+        Group {
+            if let current = app.currentModel {
+                Menu {
+                    ForEach(app.providers.filter { !$0.models.isEmpty }) { provider in
+                        Section(provider.name) {
+                            ForEach(provider.models) { model in
+                                Toggle(model.modelID, isOn: Binding(
+                                    get: { app.currentModel?.id == model.id },
+                                    set: { isOn in if isOn { app.setDefaultModel(model.id) } }
+                                ))
+                            }
                         }
                     }
+                } label: {
+                    pill(current.modelID)
                 }
-            } label: {
-                Text(current.modelID)
-                    .font(.system(size: 15, weight: .semibold))
+                .menuStyle(.button)
+                .buttonStyle(.plain)
+                .menuIndicator(.hidden)
+                .fixedSize()
+                .accessibilityIdentifier("modelMenu")
+            } else {
+                Button(action: openSettings) {
+                    pill(String(localized: "Add Model"))
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("addModel")
             }
-            .menuStyle(.borderlessButton)
-            .menuIndicator(.hidden)
-            .fixedSize()
-            .accessibilityIdentifier("modelMenu")
-        } else {
-            Button(action: openSettings) {
-                Text("Add Model")
-                    .font(.system(size: 15, weight: .semibold))
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("addModel")
         }
+        .onHover { hovering = $0 }
+    }
+
+    private func pill(_ title: String) -> some View {
+        Text(title)
+            .font(.system(size: 15, weight: .semibold))
+            .lineLimit(1)
+            .padding(.horizontal, 8)
+            .frame(height: 30)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Color.primary.opacity(hovering ? 0.07 : 0))
+            )
+            .contentShape(Rectangle())
     }
 }
 

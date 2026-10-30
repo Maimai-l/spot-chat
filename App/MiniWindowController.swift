@@ -67,7 +67,16 @@ final class MiniWindowController: ObservableObject {
 
     var cardHeight: CGFloat { CGFloat(app.cardHeight) }
 
-    var capsuleHeight: CGFloat { ComposerLayout.height(for: composer) }
+    var capsuleHeight: CGFloat { ComposerLayout.height(for: composer, textHeight: composerTextHeight) }
+
+    /// The height of text that moved above the input's buttons, or 0.
+    private(set) var composerTextHeight: CGFloat = 0
+
+    func composerTextHeightChanged(_ height: CGFloat) {
+        guard abs(height - composerTextHeight) > 0.5 else { return }
+        composerTextHeight = height
+        composerDidResize()
+    }
 
     lazy var composerActions: ComposerActions = inputActions.makeActions(
         submit: { [weak self] in self?.submit() },

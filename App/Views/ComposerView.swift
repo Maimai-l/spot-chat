@@ -22,13 +22,24 @@ struct ComposerActions {
 
 /// The input shared by the mini window and the full window:
 /// attachments above, the text with + and the model in the middle, the sharing tag below.
+/// Text that no longer fits on one line moves above the buttons, and the input grows with it.
 struct ComposerView: View {
     @ObservedObject var composer: ComposerModel
     @ObservedObject var session: ChatSession
     @ObservedObject var app: AppModel
     let actions: ComposerActions
+    /// Reports the height of the text above the buttons, or 0 while the text fits next to them.
+    var onTextHeightChange: (CGFloat) -> Void = { _ in }
+
+    @State private var width: CGFloat = 0
+    @State private var trailingWidth: CGFloat = 120
 
     var body: some View {
+        let textHeight = ComposerTextMetrics.expandedHeight(
+            for: composer.draft,
+            rowWidth: width,
+            trailingWidth: trailingWidth
+        )
         VStack(alignment: .leading, spacing: ComposerLayout.rowSpacing) {
             if !composer.attachments.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -44,11 +55,10 @@ struct ComposerView: View {
                 }
                 .frame(height: ComposerLayout.attachmentsRowHeight)
             }
-            HStack(spacing: 6) {
+            ComposerRowLayout(textHeight: textHeight) {
                 PlusMenuButton(actions: actions)
                     .frame(width: 32, height: 32)
                     .modifier(HoverCircle())
-                    .padding(.trailing, 3)
                 ComposerField(
                     text: $composer.draft,
                     placeholder: String(localized: "Ask Spot"),
@@ -58,21 +68,10 @@ struct ComposerView: View {
                     onPasteFiles: { composer.add(fileURLs: $0) },
                     onPasteImage: { composer.add(imageData: $0, fileName: String(localized: "Pasted Image") + ".png") }
                 )
-                .frame(height: 28)
-                ModelMenu(app: app, openSettings: actions.openSettings)
-                    .offset(y: -ComposerLayout.trailingLift)
-                    // As far from the edge, or from the button after it, as the + glyph is from the start.
-                    .padding(.trailing, 10)
-                if session.isGenerating {
-                    StopButton(action: actions.escape)
-                }
-                if let expand = actions.expand {
-                    CircleIconButton.expand(action: expand)
-                        .frame(width: 32, height: 32)
-                        .offset(y: -ComposerLayout.trailingLift)
-                }
+                trailingControls
+                    .onGeometryChange(for: CGFloat.self, of: \.size.width) { trailingWidth = $0 }
             }
-            .frame(height: ComposerLayout.baseHeight - 16)
+            .onGeometryChange(for: CGFloat.self, of: \.size.width) { width = $0 }
             if let shared = composer.sharedWindow {
                 ShareTag(window: shared) {
                     composer.sharedWindow = nil
@@ -92,6 +91,129 @@ struct ComposerView: View {
         .padding(.vertical, 8)
         // Puts the centers of the + and of the last button half the bar's height from its ends, as Gemini does.
         .padding(.horizontal, 12)
+        .onChange(of: textHeight, initial: true) { onTextHeightChange(textHeight) }
+    }
+
+    private var trailingControls: some View {
+        HStack(spacing: 6) {
+            ModelMenu(app: app, openSettings: actions.openSettings)
+                .offset(y: -ComposerLayout.trailingLift)
+            if session.isGenerating {
+                StopButton(action: actions.escape)
+            } else if composer.hasContent {
+                CircleIconButton(
+                    label: "Send",
+                    icon: SendIcon().fill().frame(width: 18, height: 16).offset(x: 1),
+                    action: actions.submit
+                )
+                .frame(width: 32, height: 32)
+                .offset(y: -ComposerLayout.trailingLift)
+                .accessibilityIdentifier("send")
+            }
+            if let expand = actions.expand {
+                CircleIconButton.expand(action: expand)
+                    .frame(width: 32, height: 32)
+                    .offset(y: -ComposerLayout.trailingLift)
+            }
+        }
+        .fixedSize()
+    }
+}
+
+/// Places the +, the text and the buttons on one row, or the text above a row of buttons once it needs
+/// more than a line. The same three views are moved rather than rebuilt, so typing and input methods are
+/// never interrupted.
+struct ComposerRowLayout: Layout {
+    /// 0 keeps everything on one row.
+    var textHeight: CGFloat
+
+    static let rowHeight = ComposerLayout.baseHeight - 16
+    static let fieldHeight: CGFloat = 28
+    static let gap: CGFloat = 6
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let height = textHeight > 0 ? textHeight + ComposerLayout.rowSpacing + Self.rowHeight : Self.rowHeight
+        return CGSize(width: proposal.width ?? 400, height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        guard subviews.count == 3 else { return }
+        let plus = subviews[0], field = subviews[1], trailing = subviews[2]
+        let plusSize = plus.sizeThatFits(.unspecified)
+        let trailingSize = trailing.sizeThatFits(.unspecified)
+        let rowMidY = (textHeight > 0 ? bounds.maxY - Self.rowHeight : bounds.minY) + Self.rowHeight / 2
+        plus.place(at: CGPoint(x: bounds.minX, y: rowMidY), anchor: .leading, proposal: ProposedViewSize(plusSize))
+        trailing.place(at: CGPoint(x: bounds.maxX, y: rowMidY), anchor: .trailing, proposal: ProposedViewSize(trailingSize))
+        if textHeight > 0 {
+            // Above the buttons the text starts where the + glyph does.
+            let inset = ComposerTextMetrics.expandedInset
+            field.place(
+                at: CGPoint(x: bounds.minX + inset, y: bounds.minY),
+                anchor: .topLeading,
+                proposal: ProposedViewSize(width: bounds.width - inset * 2, height: textHeight)
+            )
+        } else {
+            let x = bounds.minX + plusSize.width + Self.gap + 3
+            let width = max(bounds.maxX - trailingSize.width - Self.gap - x, 40)
+            field.place(at: CGPoint(x: x, y: rowMidY), anchor: .leading, proposal: ProposedViewSize(width: width, height: Self.fieldHeight))
+        }
+    }
+}
+
+/// Works out when the text no longer fits on the row and how tall it is above the buttons.
+enum ComposerTextMetrics {
+    static let font = NSFont.systemFont(ofSize: 16)
+    /// The text view's line fragment padding on each side.
+    static let linePadding: CGFloat = 4
+    /// The text view's inset above and below the text.
+    static let verticalInset: CGFloat = 4
+    static let expandedInset: CGFloat = 4
+    static let maxLines: CGFloat = 8
+
+    static var lineHeight: CGFloat {
+        NSLayoutManager().defaultLineHeight(for: font)
+    }
+
+    /// The text's height above the buttons, or 0 while it fits on one line next to them.
+    static func expandedHeight(for text: String, rowWidth: CGFloat, trailingWidth: CGFloat) -> CGFloat {
+        guard rowWidth > 0, !text.isEmpty else { return 0 }
+        let rowTextWidth = rowWidth - 35 - ComposerRowLayout.gap - 3 - trailingWidth - ComposerRowLayout.gap - linePadding * 2
+        let fitsOnRow = !text.contains("\n") && width(of: text) <= rowTextWidth
+        guard !fitsOnRow else { return 0 }
+        let textWidth = rowWidth - expandedInset * 2 - linePadding * 2
+        let lines = min(max(height(of: text, width: textWidth) / lineHeight, 1), maxLines)
+        return (lines * lineHeight).rounded(.up) + verticalInset * 2
+    }
+
+    static func width(of text: String) -> CGFloat {
+        (text as NSString).size(withAttributes: [.font: font]).width
+    }
+
+    static func height(of text: String, width: CGFloat) -> CGFloat {
+        // A trailing line break starts a new, still empty line.
+        let measured = text.hasSuffix("\n") ? text + " " : text
+        let rect = (measured as NSString).boundingRect(
+            with: NSSize(width: max(width, 1), height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: [.font: font]
+        )
+        return ceil(rect.height)
+    }
+}
+
+/// The filled paper plane used for sending.
+struct SendIcon: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+            CGPoint(x: rect.minX + x * rect.width, y: rect.minY + y * rect.height)
+        }
+        path.move(to: point(0.04, 0.04))
+        path.addLine(to: point(1, 0.5))
+        path.addLine(to: point(0.04, 0.96))
+        path.addLine(to: point(0.18, 0.5))
+        path.closeSubpath()
+        return path
     }
 }
 

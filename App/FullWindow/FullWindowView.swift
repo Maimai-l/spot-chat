@@ -26,7 +26,6 @@ struct FullWindowView: View {
                     )
                 }
                 ComposerView(composer: composer, session: session, app: app, actions: actions)
-                    .frame(height: ComposerLayout.height(for: composer))
                     .background(
                         RoundedRectangle(cornerRadius: 28, style: .continuous)
                             .fill(Color(nsColor: .textBackgroundColor))

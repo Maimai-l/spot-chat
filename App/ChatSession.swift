@@ -156,6 +156,23 @@ final class ChatSession: ObservableObject {
         messages.append(message)
     }
 
+    /// Replaces a question with new text: everything after it is removed and a new reply is generated.
+    func edit(_ messageID: UUID, text: String) {
+        let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !isGenerating, !text.isEmpty,
+              let index = messages.firstIndex(where: { $0.id == messageID }),
+              messages[index].role == .user
+        else { return }
+        let attachments = messages[index].attachments
+        for message in messages[index...] {
+            try? app.messageService.delete(message.id)
+        }
+        messages.removeSubrange(index...)
+        store(ChatMessage(role: .user, text: text, attachments: attachments))
+        app.historyDidChange()
+        generateReply()
+    }
+
     private func removeLastReply() {
         guard let last = messages.last, last.role == .assistant else { return }
         try? app.messageService.delete(last.id)

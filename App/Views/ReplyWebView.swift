@@ -178,6 +178,7 @@ struct ReplyWebView: NSViewRepresentable {
 }
 
 /// Keeps WebKit from holding the coordinator, which would keep every reply's view alive.
+@MainActor
 private final class WeakScriptHandler: NSObject, WKScriptMessageHandler {
     weak var target: WKScriptMessageHandler?
 

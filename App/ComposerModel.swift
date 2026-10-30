@@ -118,9 +118,11 @@ enum ComposerLayout {
     static let noticeRowHeight: CGFloat = 16
     static let rowSpacing: CGFloat = 6
 
+    /// `textHeight` is the height of text that moved above the buttons, or 0.
     @MainActor
-    static func height(for composer: ComposerModel) -> CGFloat {
+    static func height(for composer: ComposerModel, textHeight: CGFloat = 0) -> CGFloat {
         var height = baseHeight
+        if textHeight > 0 { height += textHeight + rowSpacing }
         if !composer.attachments.isEmpty { height += attachmentsRowHeight + rowSpacing }
         if composer.sharedWindow != nil { height += tagRowHeight + rowSpacing }
         if composer.notice != nil { height += noticeRowHeight + rowSpacing }

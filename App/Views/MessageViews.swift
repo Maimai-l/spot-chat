@@ -20,7 +20,8 @@ struct MessageList: View {
                             isLast: message.id == session.messages.last?.id,
                             isGenerating: session.isGenerating,
                             retry: { session.retry(message.id) },
-                            regenerate: { session.regenerateLastReply() }
+                            regenerate: { session.regenerateLastReply() },
+                            edit: { session.edit(message.id, text: $0) }
                         )
                         .id(message.id)
                     }
@@ -57,11 +58,12 @@ struct MessageRow: View {
     let isGenerating: Bool
     let retry: () -> Void
     let regenerate: () -> Void
+    let edit: (String) -> Void
 
     var body: some View {
         switch message.role {
         case .user:
-            UserMessageView(message: message)
+            UserMessageView(message: message, canEdit: !isGenerating, onEdit: edit)
         case .assistant:
             AssistantMessageView(
                 message: message,
@@ -73,31 +75,124 @@ struct MessageRow: View {
     }
 }
 
+/// The question, with Copy and Edit beside it under the pointer. Editing turns it into a field;
+/// Update replaces the question and the replies after it.
 struct UserMessageView: View {
     let message: ChatMessage
+    let canEdit: Bool
+    let onEdit: (String) -> Void
+
+    @State private var hovering = false
+    @State private var editing = false
+    @State private var editText = ""
+    @FocusState private var editFocused: Bool
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 6) {
             if !message.attachments.isEmpty {
                 AttachmentStrip(attachments: message.attachments)
             }
-            if !message.text.isEmpty {
-                Text(message.text)
-                    .font(.system(size: 15))
-                    .lineSpacing(3)
-                    .textSelection(.enabled)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(
-                        RoundedRectangle(cornerRadius: 20, style: .continuous)
-                            .fill(Color.primary.opacity(0.07))
-                    )
-                    .accessibilityIdentifier("message.user")
+            if editing {
+                editor
+            } else if !message.text.isEmpty {
+                HStack(alignment: .center, spacing: 2) {
+                    SmallIconButton(systemName: "doc.on.doc", label: "Copy", identifier: "copyMessage") {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(message.text, forType: .string)
+                    }
+                    if canEdit {
+                        SmallIconButton(systemName: "pencil", label: "Edit", identifier: "editMessage") {
+                            editText = message.text
+                            editing = true
+                            editFocused = true
+                        }
+                    }
+                    bubble
+                        .padding(.leading, 6)
+                }
+                // The buttons stay clickable while hidden, so keyboard and test clicks reach them too.
+                .environment(\.showsMessageActions, hovering)
             }
         }
-        .padding(.leading, 60)
+        .padding(.leading, editing ? 0 : 60)
         .frame(maxWidth: .infinity, alignment: .trailing)
+        .contentShape(Rectangle())
+        .onHover { hovering = $0 }
     }
+
+    private var bubble: some View {
+        Text(message.text)
+            .font(.system(size: 16))
+            .lineSpacing(3)
+            .textSelection(.enabled)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(
+                UnevenRoundedRectangle(
+                    topLeadingRadius: 20, bottomLeadingRadius: 20, bottomTrailingRadius: 20, topTrailingRadius: 6,
+                    style: .continuous
+                )
+                .fill(Color.primary.opacity(0.07))
+            )
+            .accessibilityIdentifier("message.user")
+    }
+
+    private var isChanged: Bool {
+        let trimmed = editText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !trimmed.isEmpty && trimmed != message.text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var editor: some View {
+        VStack(alignment: .trailing, spacing: 8) {
+            TextField("", text: $editText, axis: .vertical)
+                .textFieldStyle(.plain)
+                .font(.system(size: 16))
+                .lineLimit(1...10)
+                .focused($editFocused)
+                .onAppear { editFocused = true }
+                .onSubmit(update)
+                .onExitCommand(perform: cancel)
+                .accessibilityIdentifier("editField")
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(Color(nsColor: .textBackgroundColor))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .strokeBorder(Color.accentColor, lineWidth: 1.5)
+                )
+            HStack(spacing: 8) {
+                Button("Cancel", action: cancel)
+                    .buttonStyle(.plain)
+                    .font(.system(size: 13, weight: .medium))
+                    .padding(.horizontal, 10)
+                    .frame(height: 28)
+                    .accessibilityIdentifier("cancelEdit")
+                Button("Update", action: update)
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.regular)
+                    .disabled(!isChanged)
+                    .accessibilityIdentifier("updateEdit")
+            }
+        }
+    }
+
+    private func cancel() {
+        editing = false
+    }
+
+    private func update() {
+        guard isChanged else { return }
+        editing = false
+        onEdit(editText)
+    }
+}
+
+extension EnvironmentValues {
+    /// Whether the pointer is over the message, which shows its Copy and Edit buttons.
+    @Entry var showsMessageActions = true
 }
 
 struct AssistantMessageView: View {
@@ -183,6 +278,7 @@ struct ErrorBox: View {
 }
 
 struct SmallIconButton: View {
+    @Environment(\.showsMessageActions) private var showsActions
     let systemName: String
     let label: LocalizedStringKey
     let identifier: String
@@ -197,6 +293,8 @@ struct SmallIconButton: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .opacity(showsActions ? 1 : 0)
+        .animation(.easeOut(duration: 0.12), value: showsActions)
         .help(label)
         .accessibilityLabel(Text(label))
         .accessibilityIdentifier(identifier)
