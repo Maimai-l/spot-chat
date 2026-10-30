@@ -222,12 +222,18 @@ tbody tr:last-child td {
   font-size: 1.05em;
 }
 .katex-block {
+  display: block;
   margin: 0;
+  /* Room for limits and denominators, which KaTeX draws a little outside its box. */
+  padding: 4px 0;
   overflow-x: auto;
   overflow-y: hidden;
 }
 .katex-display {
   margin: 0;
+}
+p > .katex-block {
+  margin: 4px 0;
 }
 .math-source {
   font-family: ui-monospace, "SF Mono", Menlo, monospace;

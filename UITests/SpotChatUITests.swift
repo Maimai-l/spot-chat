@@ -653,6 +653,8 @@ final class SpotChatUITests: XCTestCase {
 
         app.buttons["Expand to Full Window"].click()
         XCTAssertTrue(element("collapseToMini", in: app).waitForExistence(timeout: 10))
+        // The replies render again at the new width.
+        RunLoop.current.run(until: Date().addingTimeInterval(1.5))
         attachScreenshot("Full window")
     }
 }

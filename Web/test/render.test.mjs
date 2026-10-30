@@ -92,3 +92,10 @@ test('streaming leaves an open code fence alone', () => {
 test('tables scroll in their own box', () => {
   assert.match(render('| a | b |\n| --- | --- |\n| 1 | 2 |'), /<div class="table-scroll"><table>/)
 })
+
+test('display math inside a paragraph does not nest paragraphs', () => {
+  const html = render('With dollars: $$\\sum_{k=1}^{n} k$$')
+  assert.match(html, /<p>With dollars: <span class="katex-block">/)
+  assert.doesNotMatch(html, /<p class="katex-block">/)
+  assert.match(render('$$x^2$$'), /^<div class="katex-block">/)
+})

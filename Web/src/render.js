@@ -70,6 +70,17 @@ export function createRenderer() {
     )
   }
 
+  // Display math gets its own scrolling box. One written inside a paragraph stays a span, since a
+  // paragraph can't hold another paragraph.
+  const displayMath = (tokens, index) => {
+    // A formula written inside a line has no source lines of its own.
+    const tag = tokens[index].map ? 'div' : 'span'
+    return `<${tag} class="katex-block">${forgivingKatex.renderToString(tokens[index].content, { displayMode: true })}</${tag}>\n`
+  }
+  md.renderer.rules.math_block = displayMath
+  md.renderer.rules.math_inline_block = displayMath
+  md.renderer.rules.math_inline_bare_block = displayMath
+
   // Wide tables scroll inside their own box instead of stretching the reply.
   md.renderer.rules.table_open = () => '<div class="table-scroll"><table>\n'
   md.renderer.rules.table_close = () => '</table></div>\n'
