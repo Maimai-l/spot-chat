@@ -159,8 +159,10 @@ struct ComposerRowLayout: Layout {
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
         guard subviews.count == 3 else { return }
         let plus = subviews[0], field = subviews[1], trailing = subviews[2]
-        let plusSize = plus.sizeThatFits(.unspecified)
         let trailingSize = trailing.sizeThatFits(.unspecified)
+        // The + and the folder chip get what the buttons at the end leave; the chip's name shortens first.
+        let leadingRoom = ProposedViewSize(width: max(bounds.width - trailingSize.width - Self.gap * 2, 32), height: nil)
+        let plusSize = plus.sizeThatFits(leadingRoom)
         let rowMidY = (textHeight > 0 ? bounds.maxY - Self.rowHeight : bounds.minY) + Self.rowHeight / 2
         plus.place(at: CGPoint(x: bounds.minX, y: rowMidY), anchor: .leading, proposal: ProposedViewSize(plusSize))
         trailing.place(at: CGPoint(x: bounds.maxX, y: rowMidY), anchor: .trailing, proposal: ProposedViewSize(trailingSize))

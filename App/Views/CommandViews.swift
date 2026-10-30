@@ -309,6 +309,7 @@ struct CommandFolderChip: View {
                 Text("Run Commands \(folder.lastPathComponent)")
                     .font(.system(size: 13))
                     .lineLimit(1)
+                    .truncationMode(.middle)
             }
             .foregroundStyle(Color.accentColor)
             .padding(.horizontal, 10)
@@ -319,7 +320,7 @@ struct CommandFolderChip: View {
         .menuStyle(.button)
         .buttonStyle(.plain)
         .menuIndicator(.hidden)
-        .fixedSize()
+        .fixedSize(horizontal: false, vertical: true)
         .help(PathTile.shortPath(of: folder))
         .accessibilityIdentifier("commandFolder")
     }
