@@ -394,15 +394,13 @@ final class SpotChatUITests: XCTestCase {
         XCTAssertEqual(try lastRequest()["model"] as? String, "mock-vision")
     }
 
-    func testThinkingLevelIsChosenInTheModelMenu() throws {
+    func testEffortIsChosenBesideTheModel() throws {
         let app = launch(resetState: true)
-        let menu = element("modelMenu", in: app)
-        XCTAssertTrue(menu.waitForExistence(timeout: 10))
-        menu.click()
-        let effort = app.menuItems["Effort"]
-        XCTAssertTrue(effort.waitForExistence(timeout: 5))
-        effort.hover()
-        let high = app.menuItems.matching(NSPredicate(format: "title BEGINSWITH %@", "High")).firstMatch
+        // As in Codex, the effort is its own chip beside the model, with a flat list of levels.
+        let effort = element("effortMenu", in: app)
+        XCTAssertTrue(effort.waitForExistence(timeout: 10))
+        effort.click()
+        let high = app.menuItems["High"]
         XCTAssertTrue(high.waitForExistence(timeout: 5))
         attachScreenshot("Model menu")
         high.click()

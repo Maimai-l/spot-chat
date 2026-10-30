@@ -139,72 +139,114 @@ struct StopButton: View {
 
 /// Shows the current model; picking another one applies from the next message and becomes the default.
 /// A light rounded background shows under the pointer, as in Gemini.
+/// The model, as a light chip with a chevron like Codex's composer. Its menu lists only models.
 struct ModelMenu: View {
     @ObservedObject var app: AppModel
     var openSettings: () -> Void
-    @State private var hovering = false
 
     var body: some View {
-        Group {
-            if let current = app.currentModel {
-                Menu {
-                    ForEach(app.providers.filter { $0.isEnabled && !$0.models.isEmpty }) { provider in
-                        Section(provider.name) {
-                            ForEach(provider.models) { model in
-                                Toggle(model.modelID, isOn: Binding(
-                                    get: { app.currentModel?.id == model.id },
-                                    set: { isOn in if isOn { app.setDefaultModel(model.id) } }
-                                ))
-                            }
-                        }
+        if let current = app.currentModel {
+            let providers = app.providers.filter { $0.isEnabled && !$0.models.isEmpty }
+            Menu {
+                ForEach(providers) { provider in
+                    // One provider needs no heading, so the list stays short.
+                    if providers.count > 1 {
+                        Section(provider.name) { modelItems(provider) }
+                    } else {
+                        modelItems(provider)
                     }
-                    Divider()
-                    // Worded as in DeepSeek's harness (dsh); each model keeps its own level, as in Cherry Studio.
-                    Menu {
-                        ForEach(ThinkingLevel.choices(isDeepSeek: app.isDeepSeek(current)), id: \.self) { level in
-                            // dsh's description shows as the item's tooltip; a second line renders as a blank gap.
-                            Toggle(level.label, isOn: Binding(
-                                get: { app.thinking(for: current) == level },
-                                set: { isOn in if isOn { app.setThinking(level, for: current) } }
-                            ))
-                            .help(level.detail ?? "")
-                        }
-                    } label: {
-                        Label("Effort", systemImage: "brain")
-                    }
-                } label: {
-                    pill(current.modelID, effort: app.thinking(for: current))
                 }
-                .menuStyle(.button)
-                .buttonStyle(.plain)
-                .menuIndicator(.hidden)
-                .fixedSize()
-                .accessibilityIdentifier("modelMenu")
-            } else {
-                Button(action: openSettings) {
-                    pill(String(localized: "Add Model"))
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("addModel")
+            } label: {
+                ComposerChip(verbatim: current.modelID)
             }
+            .menuStyle(.button)
+            .buttonStyle(.plain)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .accessibilityIdentifier("modelMenu")
+        } else {
+            Button(action: openSettings) {
+                ComposerChip("Add Model", chevron: false)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("addModel")
         }
-        .onHover { hovering = $0 }
     }
 
-    /// The model name, followed by its effort in a lighter tone when one is chosen, as dsh shows it.
-    private func pill(_ title: String, effort: ThinkingLevel = .automatic) -> some View {
-        HStack(spacing: 6) {
-            Text(title)
+    private func modelItems(_ provider: Provider) -> some View {
+        ForEach(provider.models) { model in
+            Toggle(model.modelID, isOn: Binding(
+                get: { app.currentModel?.id == model.id },
+                set: { isOn in if isOn { app.setDefaultModel(model.id) } }
+            ))
+        }
+    }
+}
+
+/// The current model's reasoning effort, as its own chip beside the model, as Codex shows it.
+/// Levels and descriptions are dsh's; each model keeps its own, as in Cherry Studio.
+struct EffortMenu: View {
+    @ObservedObject var app: AppModel
+
+    var body: some View {
+        if let current = app.currentModel {
+            let level = app.thinking(for: current)
+            Menu {
+                ForEach(ThinkingLevel.choices(isDeepSeek: app.isDeepSeek(current)), id: \.self) { choice in
+                    Toggle(choice.label, isOn: Binding(
+                        get: { level == choice },
+                        set: { isOn in if isOn { app.setThinking(choice, for: current) } }
+                    ))
+                    .help(choice.detail ?? "")
+                }
+            } label: {
+                ComposerChip(level.label, secondary: true)
+            }
+            .menuStyle(.button)
+            .buttonStyle(.plain)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .help(Text("Effort"))
+            .accessibilityLabel(Text("Effort"))
+            .accessibilityIdentifier("effortMenu")
+        }
+    }
+}
+
+/// A chip in the input's trailing row: a label and a small chevron, with a pill on hover.
+struct ComposerChip: View {
+    private let text: Text
+    private let secondary: Bool
+    private let chevron: Bool
+    @State private var hovering = false
+
+    /// A model id is shown as it is, never looked up as a translation.
+    init(verbatim: String, secondary: Bool = false, chevron: Bool = true) {
+        self.init(text: Text(verbatim: verbatim), secondary: secondary, chevron: chevron)
+    }
+
+    init(_ key: LocalizedStringKey, secondary: Bool = false, chevron: Bool = true) {
+        self.init(text: Text(key), secondary: secondary, chevron: chevron)
+    }
+
+    private init(text: Text, secondary: Bool, chevron: Bool) {
+        self.text = text
+        self.secondary = secondary
+        self.chevron = chevron
+    }
+
+    var body: some View {
+        HStack(spacing: 4) {
+            text
+                .font(.system(size: 15, weight: secondary ? .medium : .semibold))
+                .foregroundStyle(secondary ? .secondary : .primary)
                 .lineLimit(1)
-            if effort != .automatic {
-                Text(effort.label)
-                    .fontWeight(.regular)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .accessibilityIdentifier("effortLabel")
+            if chevron {
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.tertiary)
             }
         }
-        .font(.system(size: 15, weight: .semibold))
         .padding(.horizontal, 8)
         .frame(height: 30)
         .background(
@@ -212,6 +254,7 @@ struct ModelMenu: View {
                 .fill(Color.primary.opacity(hovering ? 0.07 : 0))
         )
         .contentShape(Rectangle())
+        .onHover { hovering = $0 }
     }
 }
 

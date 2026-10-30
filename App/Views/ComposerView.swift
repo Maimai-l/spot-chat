@@ -98,6 +98,8 @@ struct ComposerView: View {
         HStack(spacing: 6) {
             ModelMenu(app: app, openSettings: actions.openSettings)
                 .offset(y: -ComposerLayout.trailingLift)
+            EffortMenu(app: app)
+                .offset(y: -ComposerLayout.trailingLift)
             if session.isGenerating {
                 StopButton(action: actions.escape)
             } else if composer.hasContent {
