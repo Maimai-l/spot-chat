@@ -76,6 +76,10 @@ public struct ChatMessage: Identifiable, Equatable, Sendable {
     public var reasoningDuration: TimeInterval?
     /// Tokens the reply used, when the service reported them.
     public var usage: TokenUsage?
+    /// What ran while the reply was made, in a conversation that runs commands.
+    public var commands: [CommandRun]
+    /// Files and folders the question points to by path, without sending their contents.
+    public var paths: [String]
 
     public init(
         id: UUID = UUID(),
@@ -88,7 +92,9 @@ public struct ChatMessage: Identifiable, Equatable, Sendable {
         createdAt: Date = Date(),
         reasoning: String = "",
         reasoningDuration: TimeInterval? = nil,
-        usage: TokenUsage? = nil
+        usage: TokenUsage? = nil,
+        commands: [CommandRun] = [],
+        paths: [String] = []
     ) {
         self.id = id
         self.role = role
@@ -101,6 +107,8 @@ public struct ChatMessage: Identifiable, Equatable, Sendable {
         self.reasoning = reasoning
         self.reasoningDuration = reasoningDuration
         self.usage = usage
+        self.commands = commands
+        self.paths = paths
     }
 }
 

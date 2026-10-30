@@ -19,6 +19,11 @@
   disabled: true
 - id: session-telemetry-otel
   disabled: true
+# The list of dsh's plugins added to every model request, and the feedback command.
+- id: plugin-package-inventory-deepseek
+  disabled: true
+- id: command-feedback
+  disabled: true
 
 # Everything else the coding agent carries.
 - id: tool-plugin-manager

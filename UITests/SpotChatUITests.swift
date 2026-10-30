@@ -108,6 +108,80 @@ final class SpotChatUITests: XCTestCase {
         return try JSONSerialization.jsonObject(with: data) as? [String: Any] ?? [:]
     }
 
+    // MARK: Running commands
+
+    /// A conversation that runs commands with dsh, against the mock's stand-in for DeepSeek's Messages API.
+    func launchRunningCommands() -> XCUIApplication {
+        launch(resetState: true, arguments: [
+            "-SpotChatCommandFolder", dataDirectory + "/Work",
+            "-SpotChatAgentBaseURL", "http://127.0.0.1:8765/anthropic",
+        ])
+    }
+
+    func testCommandsRunInTheChosenFolder() {
+        let app = launchRunningCommands()
+        let chip = element("commandFolder", in: app)
+        XCTAssertTrue(chip.waitForExistence(timeout: 10))
+        XCTAssertTrue(text(of: chip).contains("Work") || chip.buttons.firstMatch.label.contains("Work"))
+        send("Please list the files", in: app)
+        XCTAssertTrue(reply(containing: "Listed the folder.", in: app).waitForExistence(timeout: 40))
+        XCTAssertTrue(element("commands", in: app).exists)
+        let run = element("command.succeeded", in: app)
+        XCTAssertTrue(run.waitForExistence(timeout: 5))
+        XCTAssertTrue(element("commandText", in: app).exists)
+        RunLoop.current.run(until: Date().addingTimeInterval(1))
+        attachScreenshot("Commands")
+    }
+
+    func testCommandOutsideTheFolderAsksFirstAndRunsOnceAllowed() {
+        let app = launchRunningCommands()
+        send("Write outside the folder", in: app)
+        let card = element("commandApproval", in: app)
+        XCTAssertTrue(card.waitForExistence(timeout: 40))
+        XCTAssertTrue(element("command.blocked", in: app).exists, "The sandbox stopped the first try")
+        RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        attachScreenshot("Command approval")
+        tap(element("allowCommand", in: app))
+        XCTAssertTrue(reply(containing: "Finished.", in: app).waitForExistence(timeout: 30))
+        XCTAssertFalse(card.exists)
+        XCTAssertTrue(element("command.succeeded", in: app).waitForExistence(timeout: 5))
+        let notes = elements("commandNote", in: app).allElementsBoundByIndex.map { text(of: $0) }
+        XCTAssertTrue(notes.contains("Ran outside the folder"), "\(notes)")
+    }
+
+    func testDeniedCommandDoesNotRun() {
+        let app = launchRunningCommands()
+        send("Write outside the folder", in: app)
+        XCTAssertTrue(element("commandApproval", in: app).waitForExistence(timeout: 40))
+        tap(element("denyCommand", in: app))
+        XCTAssertTrue(reply(containing: "Finished.", in: app).waitForExistence(timeout: 30))
+        XCTAssertTrue(element("command.denied", in: app).waitForExistence(timeout: 5))
+        XCTAssertFalse(element("command.succeeded", in: app).exists)
+    }
+
+    func testStoppingEndsARunningCommand() {
+        let app = launchRunningCommands()
+        send("Run something slow", in: app)
+        XCTAssertTrue(element("command.running", in: app).waitForExistence(timeout: 40))
+        element("stop", in: app).click()
+        XCTAssertTrue(element("command.stopped", in: app).waitForExistence(timeout: 15))
+        XCTAssertTrue(element("stop", in: app).waitForNonExistence(timeout: 10))
+    }
+
+    func testRunCommandsIsTurnedOffFromThePlusMenu() {
+        let app = launchRunningCommands()
+        XCTAssertTrue(element("commandFolder", in: app).waitForExistence(timeout: 10))
+        element("plusMenu", in: app).click()
+        XCTAssertTrue(app.menuItems["Add File Path…"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.menuItems["Upload Image…"].exists, "Files go in by path while commands run")
+        app.menuItems["Run Commands"].click()
+        XCTAssertTrue(element("commandFolder", in: app).waitForNonExistence(timeout: 5))
+        element("plusMenu", in: app).click()
+        XCTAssertTrue(app.menuItems["Upload Image…"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.menuItems["Run Commands"].exists)
+        app.typeKey(.escape, modifierFlags: [])
+    }
+
     // MARK: Mini window
 
     func testSendingStreamsTheReplyInTheCard() {

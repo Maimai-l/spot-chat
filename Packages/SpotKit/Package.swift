@@ -8,10 +8,13 @@ let package = Package(
         .library(name: "SpotCore", targets: ["SpotCore"]),
         .library(name: "SpotData", targets: ["SpotData"]),
         .library(name: "SpotAI", targets: ["SpotAI"]),
+        .library(name: "SpotAgent", targets: ["SpotAgent"]),
     ],
     dependencies: [
         .package(url: "https://github.com/groue/GRDB.swift", from: "7.0.0"),
         .package(url: "https://github.com/MacPaw/OpenAI", .upToNextMinor(from: "0.5.3")),
+        // The Agent Client Protocol (a Swift port of the official Kotlin SDK), for talking to dsh.
+        .package(url: "https://github.com/aptove/swift-sdk", .upToNextMinor(from: "0.2.2")),
     ],
     targets: [
         .target(name: "SpotCore"),
@@ -22,6 +25,14 @@ let package = Package(
         .target(
             name: "SpotAI",
             dependencies: ["SpotCore", .product(name: "OpenAI", package: "OpenAI")]
+        ),
+        .target(
+            name: "SpotAgent",
+            dependencies: [
+                "SpotCore",
+                .product(name: "ACP", package: "swift-sdk"),
+                .product(name: "ACPModel", package: "swift-sdk"),
+            ]
         ),
         .testTarget(name: "SpotCoreTests", dependencies: ["SpotCore"]),
         .testTarget(name: "SpotDataTests", dependencies: ["SpotData"]),

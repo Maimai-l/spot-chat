@@ -24,7 +24,7 @@ struct MiniRootView: View {
         // Closing the card is immediate, as in Gemini.
         .animation(controller.mode == .card ? .easeOut(duration: 0.18) : nil, value: controller.mode)
         .onDrop(of: [.fileURL], isTargeted: nil) { providers in
-            Self.loadFileURLs(from: providers) { composer.add(fileURLs: $0) }
+            Self.loadFileURLs(from: providers) { composer.add(fileURLs: $0, asPaths: session.commandFolder != nil) }
             return true
         }
     }

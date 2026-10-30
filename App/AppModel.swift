@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import SpotAgent
 import SpotAI
 import SpotCore
 import SpotData
@@ -118,6 +119,44 @@ final class AppModel: ObservableObject {
             return .success((client, model.modelID))
         } catch {
             return .failure(ChatServiceError(error))
+        }
+    }
+
+    // MARK: Commands
+
+    /// dsh, when this build bundles it.
+    let commandRuntime = CommandRuntime.bundled()
+
+    /// How dsh starts for the current model, or why it can't. dsh talks to DeepSeek only,
+    /// so it takes the key of the DeepSeek provider; another model there stays on dsh's default.
+    func commandOptions() -> Result<CommandAgentOptions, CommandUnavailable> {
+        guard commandRuntime != nil else { return .failure(.notBundled) }
+        let override = UserDefaults.standard.string(forKey: AppDelegate.LaunchOption.agentBaseURL).flatMap { $0.isEmpty ? nil : $0 }
+        let model = currentModel
+        let modelIsDeepSeek = model.map { isDeepSeek($0) || override != nil } ?? false
+        let provider = modelIsDeepSeek ? model.flatMap { self.provider(for: $0) } : providers.first { provider in
+            provider.isEnabled && (ProviderEndpoint(baseURL: provider.baseURL)?.isDeepSeek ?? false)
+        }
+        guard let provider, !provider.apiKey.isEmpty else { return .failure(.noDeepSeekKey) }
+        var options = CommandAgentOptions(
+            apiKey: provider.apiKey, baseURL: override,
+            home: AppStorageLocation.dataDirectory().appendingPathComponent("Agent", isDirectory: true)
+        )
+        if modelIsDeepSeek, let model {
+            options.model = model.modelID
+            options.effort = Self.commandEffort(requestThinking(for: model))
+        }
+        return .success(options)
+    }
+
+    /// dsh's names for the levels: off, low, high and max.
+    private static func commandEffort(_ level: ThinkingLevel) -> String? {
+        switch level {
+        case .automatic: return nil
+        case .off: return "off"
+        case .low: return "low"
+        case .medium, .high: return "high"
+        case .max: return "max"
         }
     }
 
@@ -260,6 +299,18 @@ final class AppModel: ObservableObject {
 
     func historyDidChange() {
         reloadTopics()
+    }
+}
+
+enum CommandUnavailable: LocalizedError {
+    case notBundled
+    case noDeepSeekKey
+
+    var errorDescription: String? {
+        switch self {
+        case .notBundled: return String(localized: "This build can't run commands.")
+        case .noDeepSeekKey: return String(localized: "Running commands needs a DeepSeek API key. Add one in Settings.")
+        }
     }
 }
 

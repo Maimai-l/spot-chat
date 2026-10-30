@@ -120,6 +120,13 @@ public final class AppDatabase: Sendable {
                 ALTER TABLE topic ADD COLUMN assistantId TEXT REFERENCES assistant(id) ON DELETE SET NULL;
                 """)
         }
+        // A conversation can run commands in a folder through dsh.
+        migrator.registerMigration("v3-commands") { db in
+            try db.execute(sql: """
+                ALTER TABLE topic ADD COLUMN commandFolder TEXT;
+                ALTER TABLE topic ADD COLUMN agentSessionId TEXT;
+                """)
+        }
         return migrator
     }
 }

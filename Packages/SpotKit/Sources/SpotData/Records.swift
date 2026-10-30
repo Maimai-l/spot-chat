@@ -12,6 +12,10 @@ struct TopicRecord: Codable, FetchableRecord, PersistableRecord, Sendable {
     var createdAt: Int64
     var updatedAt: Int64
     var assistantId: String?
+    /// The folder the conversation runs commands in; nil when it doesn't.
+    var commandFolder: String?
+    /// dsh's session for those commands.
+    var agentSessionId: String?
 }
 
 struct AssistantRecord: Codable, FetchableRecord, PersistableRecord, Sendable {
@@ -44,6 +48,9 @@ struct MessageRecord: Codable, FetchableRecord, PersistableRecord, Sendable {
         /// Seconds.
         var reasoningDuration: Double?
         var usage: TokenUsage?
+        var commands: [CommandRun]?
+        /// Paths a question points to without their contents.
+        var paths: [String]?
     }
 
     var id: String

@@ -125,6 +125,39 @@ def reply_chunks(body):
     return [reply[:third], reply[third:2 * third], reply[2 * third:]], 0.05
 
 
+# Stand-in for DeepSeek's Anthropic-format Messages API, which dsh uses to run commands.
+# The question picks the script: "outside" writes outside the folder (stopped by the sandbox, then asked
+# for), "slow" runs a long command, "list" runs a short one; anything else gets a plain answer.
+ESCAPE = 'echo out > "$HOME/.spot-chat-ui-test-escape" && rm "$HOME/.spot-chat-ui-test-escape"'
+last_messages_request = {}
+
+
+def messages_steps(body):
+    """The next tool call as (description, command, escalate), or the final text."""
+    texts, results = [], []
+    for message in body.get("messages", []):
+        content = message.get("content")
+        if isinstance(content, str):
+            content = [{"type": "text", "text": content}]
+        for block in content or []:
+            if block.get("type") == "tool_result":
+                results.append(json.dumps(block))
+            elif message.get("role") == "user" and block.get("type") == "text":
+                texts.append(block.get("text", ""))
+    question = " ".join(t for t in texts if not t.startswith("Current runtime context"))
+    if "outside" in question:
+        if not results:
+            return ("Write a note in your home folder", ESCAPE, False)
+        if len(results) == 1 and "sandbox" in results[0]:
+            return ("Write a note in your home folder", ESCAPE, True)
+        return "Finished."
+    if "slow" in question:
+        return ("Wait a minute", "sleep 60", False) if not results else "Stopped."
+    if "list" in question:
+        return ("List the folder", "ls -a", False) if not results else "Listed the folder."
+    return "Hello from dsh."
+
+
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.0"
 
@@ -149,6 +182,10 @@ class Handler(BaseHTTPRequestHandler):
         return False
 
     def do_GET(self):
+        if self.path.endswith("/last-messages-request"):
+            with lock:
+                self.send_json(200, last_messages_request)
+            return
         if self.path.endswith("/last-request"):
             with lock:
                 self.send_json(200, last_request)
@@ -166,6 +203,9 @@ class Handler(BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length", "0"))
         raw = self.rfile.read(length) or b"{}"
         body = json.loads(raw)
+        if self.path.endswith("/v1/messages"):
+            self.messages(body)
+            return
         if not self.path.endswith("/chat/completions"):
             self.send_json(404, {"error": {"message": "Not found", "type": "invalid_request_error"}})
             return
@@ -223,6 +263,46 @@ class Handler(BaseHTTPRequestHandler):
                                   "model": model, "choices": [], "usage": usage})
             self.wfile.write(b"data: [DONE]\n\n")
             self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+
+    def messages(self, body):
+        with lock:
+            last_messages_request.clear()
+            last_messages_request.update({k: v for k, v in body.items() if k in ("model", "thinking", "output_config")})
+        step = messages_steps(body)
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.end_headers()
+
+        def event(name, data):
+            self.wfile.write(f"event: {name}\ndata: {json.dumps(data)}\n\n".encode())
+            self.wfile.flush()
+
+        try:
+            event("message_start", {"type": "message_start", "message": {
+                "id": "msg_mock", "type": "message", "role": "assistant", "model": body.get("model"), "content": [],
+                "stop_reason": None, "stop_sequence": None, "usage": {"input_tokens": 10, "output_tokens": 0}}})
+            if isinstance(step, str):
+                event("content_block_start", {"type": "content_block_start", "index": 0, "content_block": {"type": "text", "text": ""}})
+                event("content_block_delta", {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": step}})
+                stop = "end_turn"
+            else:
+                description, command, escalate = step
+                tool_input = {"description": description, "command": command}
+                if escalate:
+                    tool_input.update({"sandbox_permissions": "danger-full-access",
+                                       "justification": "The note goes in your home folder, outside this one."})
+                calls = sum(1 for m in body.get("messages", []) if m.get("role") == "assistant")
+                event("content_block_start", {"type": "content_block_start", "index": 0, "content_block": {
+                    "type": "tool_use", "id": f"toolu_{calls + 1}", "name": "bash", "input": {}}})
+                event("content_block_delta", {"type": "content_block_delta", "index": 0, "delta": {
+                    "type": "input_json_delta", "partial_json": json.dumps(tool_input)}})
+                stop = "tool_use"
+            event("content_block_stop", {"type": "content_block_stop", "index": 0})
+            event("message_delta", {"type": "message_delta", "delta": {"stop_reason": stop, "stop_sequence": None},
+                                    "usage": {"output_tokens": 5}})
+            event("message_stop", {"type": "message_stop"})
         except (BrokenPipeError, ConnectionResetError):
             pass
 

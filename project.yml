@@ -41,6 +41,8 @@ targets:
         product: SpotData
       - package: SpotKit
         product: SpotAI
+      - package: SpotKit
+        product: SpotAgent
       - package: KeyboardShortcuts
     postBuildScripts:
       # The dsh runtime for running commands, built into build/AgentRuntime by

@@ -18,6 +18,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         static let testProviderKey = "SpotChatTestProviderKey"
         /// Opens the mini window as if this text had been selected and asked about.
         static let askAbout = "SpotChatAskAbout"
+        /// Points dsh at a stand-in for DeepSeek's API.
+        static let agentBaseURL = "SpotChatAgentBaseURL"
+        /// Starts the mini window's conversation running commands in this folder.
+        static let commandFolder = "SpotChatCommandFolder"
     }
 
     private(set) lazy var app = makeAppModel()
@@ -33,6 +37,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if defaults.bool(forKey: LaunchOption.resetState) {
             UserDefaultsDraftStorage().saveDraft("")
             defaults.removeObject(forKey: "SpotChat.pendingAttachments")
+            defaults.removeObject(forKey: ComposerModel.pathsKey)
             PlacementStore().reset()
             try? FileManager.default.removeItem(at: AppStorageLocation.dataDirectory())
         }
@@ -64,6 +69,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.servicesProvider = selectionService
         NSUpdateDynamicServices()
 
+        if let folder = defaults.string(forKey: LaunchOption.commandFolder), !folder.isEmpty {
+            try? FileManager.default.createDirectory(atPath: folder, withIntermediateDirectories: true)
+            miniController.session.setCommandFolder(URL(fileURLWithPath: folder, isDirectory: true))
+        }
         if let selection = defaults.string(forKey: LaunchOption.askAbout) {
             miniController.ask(about: selection)
         } else if defaults.bool(forKey: LaunchOption.showFullWindow) {

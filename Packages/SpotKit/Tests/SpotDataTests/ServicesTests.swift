@@ -305,3 +305,39 @@ struct TestStore {
         #expect(try store.files.attachments(withIDs: [attachment.id]).isEmpty)
     }
 }
+
+@Suite struct CommandStorageTests {
+    @Test func commandsAndPathsAreSavedWithMessages() throws {
+        let store = try TestStore()
+        let topic = try store.topics.create()
+        let question = ChatMessage(role: .user, text: "Shrink it", paths: ["/Users/me/Movies/trip.mov"])
+        var reply = ChatMessage(role: .assistant, text: "Done.")
+        reply.commands = [CommandRun(
+            id: "toolu_1", tool: .shell, summary: "Compress the video", detail: "ffmpeg -i trip.mov out.mp4",
+            output: "frame= 10", exitCode: 0, state: .succeeded, duration: 1.5
+        )]
+        try store.messages.append(question, to: topic.id)
+        try store.messages.append(reply, to: topic.id)
+
+        let saved = try store.messages.list(topicID: topic.id)
+        #expect(saved[0].paths == ["/Users/me/Movies/trip.mov"])
+        #expect(saved[1].commands == reply.commands)
+    }
+
+    @Test func aNewFolderStartsANewSession() throws {
+        let store = try TestStore()
+        let topic = try store.topics.create()
+        #expect(try store.topics.commandSetup(of: topic.id) == nil)
+
+        let movies = URL(fileURLWithPath: "/Users/me/Movies")
+        try store.topics.setCommandFolder(movies, for: topic.id)
+        try store.topics.setAgentSession("session-1", for: topic.id)
+        #expect(try store.topics.commandSetup(of: topic.id) == CommandSetup(folder: movies, sessionID: "session-1"))
+
+        try store.topics.setCommandFolder(URL(fileURLWithPath: "/Users/me/Desktop"), for: topic.id)
+        #expect(try store.topics.commandSetup(of: topic.id)?.sessionID == nil)
+
+        try store.topics.setCommandFolder(nil, for: topic.id)
+        #expect(try store.topics.commandSetup(of: topic.id) == nil)
+    }
+}

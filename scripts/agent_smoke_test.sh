@@ -13,6 +13,8 @@ outside="$HOME/.spot-chat-agent-test-$$"
 mkdir -p "$work/home/profiles" "$work/session" "$outside"
 trap 'kill $(jobs -p) 2>/dev/null || true; rm -rf "$work" "$outside"' EXIT
 cp -R "$runtime/profile" "$work/home/profiles/spot"
+# As the app does: the same id for everyone, so requests carry nothing that tells users apart.
+echo 00000000-0000-0000-0000-000000000000 > "$work/home/.anonymous-user-id"
 
 status=0
 port=18930
@@ -42,4 +44,14 @@ done
 tools=$(python3 -c "import json,sys; print(' '.join(sorted(t['name'] for t in json.loads(open(sys.argv[1]).readline())['body']['tools'])))" "$work/requests-allow.log")
 echo "tools: $tools"
 [ "$tools" = "bash read_image web_fetch web_search working_directory" ] || { echo "  FAILED: unexpected tools"; status=1; }
+# Nothing beyond the conversation goes with model requests.
+extras=$(python3 -c "
+import json, sys
+for line in open(sys.argv[1]):
+    r = json.loads(line)
+    if 'dsh_plugin_packages' in r['body']: print('plugin list')
+    if r['headers'].get('x-deepseek-harness-user-id', '').strip('0-'): print('user id')
+" "$work/requests-allow.log" | sort -u | tr '\n' ' ')
+echo "request extras: ${extras:-none}"
+[ -z "$extras" ] || { echo "  FAILED: requests carry $extras"; status=1; }
 exit $status

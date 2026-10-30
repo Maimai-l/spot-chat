@@ -145,8 +145,15 @@ final class FullWindowController: NSObject, ObservableObject, NSWindowDelegate {
 
     private func makeWindow() -> NSWindow {
         let actions = inputActions.makeActions(
+            session: session,
             submit: { [weak self] in self?.submit() },
-            escape: { [weak self] in self?.session.stop() },
+            escape: { [weak self] in
+                if self?.session.pendingApproval != nil {
+                    self?.session.answerApproval(.deny)
+                } else {
+                    self?.session.stop()
+                }
+            },
             openSettings: { [weak self] in self?.openSettings() },
             presenting: { work in work {} }
         )

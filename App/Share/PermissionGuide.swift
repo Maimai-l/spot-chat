@@ -149,3 +149,22 @@ enum AttachmentPicker {
         }
     }
 }
+
+/// Picks files and folders that commands work on, or the folder they run in.
+enum FolderPicker {
+    @MainActor
+    static func pick(files: Bool, completion: @escaping ([URL]) -> Void) {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = files
+        panel.allowsMultipleSelection = files
+        panel.prompt = files ? String(localized: "Add") : String(localized: "Choose")
+        if !files {
+            panel.message = String(localized: "Commands run in this folder and ask before going outside it.")
+        }
+        NSApp.activate()
+        panel.begin { response in
+            completion(response == .OK ? panel.urls : [])
+        }
+    }
+}

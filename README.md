@@ -27,6 +27,12 @@ xcodegen generate
 open SpotChat.xcodeproj
 ```
 
+Running commands uses a bundled copy of dsh. Build it once with Node 24 before building the app; without it the app builds but can't run commands:
+
+```bash
+python3 scripts/build_agent_runtime.py --node "$(dirname "$(dirname "$(which node)")")" --out build/AgentRuntime
+```
+
 Replies are rendered by a small web page in `App/Reply`, built from `Web/`. After changing anything in `Web/src`, rebuild it and run its tests:
 
 ```bash
@@ -52,4 +58,6 @@ MOCK_OPENAI_BASE_URL=http://127.0.0.1:8765/v1 swift test --package-path Packages
 | Updating a streaming reply in place | [morphdom](https://github.com/patrick-steele-idem/morphdom) |
 | Diagrams in replies | [Mermaid](https://github.com/mermaid-js/mermaid) |
 | SQLite | [GRDB.swift](https://github.com/groue/GRDB.swift) |
+| Running commands: the agent, its sandbox and approvals | [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (dsh), bundled with [Node.js](https://nodejs.org) |
+| Talking to dsh over the Agent Client Protocol | [ACP Swift SDK](https://github.com/aptove/swift-sdk) |
 | Xcode project generation | [XcodeGen](https://github.com/yonaskolb/XcodeGen) |

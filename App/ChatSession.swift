@@ -1,5 +1,6 @@
 import AppKit
 import PDFKit
+import SpotAgent
 import SpotAI
 import SpotCore
 
@@ -10,9 +11,15 @@ final class ChatSession: ObservableObject {
     @Published private(set) var topicID: UUID?
     @Published private(set) var messages: [ChatMessage] = []
     @Published private(set) var isGenerating = false
+    /// The folder this conversation runs commands in; nil when it only chats.
+    @Published private(set) var commandFolder: URL?
+    /// A command dsh wants to run outside the folder, waiting for the user.
+    @Published var pendingApproval: CommandRun?
 
-    private let app: AppModel
-    private var generation: Task<Void, Never>?
+    let app: AppModel
+    var generation: Task<Void, Never>?
+    var agent: CommandAgent?
+    var approvalAnswer: CheckedContinuation<CommandApproval, Never>?
 
     init(app: AppModel, topicID: UUID? = nil) {
         self.app = app
@@ -25,6 +32,10 @@ final class ChatSession: ObservableObject {
         stop()
         self.topicID = topicID
         messages = Self.stored(topicID.flatMap { try? app.messageService.list(topicID: $0) } ?? [])
+        // A new conversation keeps running commands where the last one did.
+        if let topicID {
+            setCommandFolderShown((try? app.topicService.commandSetup(of: topicID))?.folder)
+        }
     }
 
     /// A reply left pending by a quit or crash is shown as stopped.
@@ -33,9 +44,17 @@ final class ChatSession: ObservableObject {
             var message = message
             if message.status == .pending {
                 message.status = .paused
+                for index in message.commands.indices where !message.commands[index].isFinished {
+                    message.commands[index].state = .stopped
+                }
             }
             return message
         }
+    }
+
+    func setCommandFolderShown(_ folder: URL?) {
+        if folder != commandFolder { endAgent() }
+        commandFolder = folder
     }
 
     func reload() {
@@ -44,15 +63,16 @@ final class ChatSession: ObservableObject {
     }
 
     /// Adds the user's message and starts the reply. Starts a conversation with `newTopicID` when there is none.
-    func send(text: String, attachments: [Attachment], newTopicID: UUID) {
+    func send(text: String, attachments: [Attachment], paths: [URL] = [], newTopicID: UUID) {
         guard !isGenerating else { return }
         let topicID = self.topicID ?? newTopicID
         // The mini window shows a new conversation before its first message, so the topic may not be stored yet.
         if (try? app.topicService.get(topicID)) == nil {
-            try? app.topicService.create(id: topicID, name: TopicName.make(fromFirstMessage: text.isEmpty ? (attachments.first?.displayName ?? "") : text))
+            try? app.topicService.create(id: topicID, name: TopicName.make(fromFirstMessage: text.isEmpty ? (attachments.first?.displayName ?? paths.first?.lastPathComponent ?? "") : text))
+            if let commandFolder { try? app.topicService.setCommandFolder(commandFolder, for: topicID) }
         }
         self.topicID = topicID
-        let message = ChatMessage(role: .user, text: text, attachments: attachments)
+        let message = ChatMessage(role: .user, text: text, attachments: attachments, paths: paths.map(\.path))
         store(message)
         app.historyDidChange()
         generateReply()
@@ -60,6 +80,7 @@ final class ChatSession: ObservableObject {
 
     func stop() {
         generation?.cancel()
+        answerApproval(.cancel)
     }
 
     /// Replaces a failed reply with a new attempt.
@@ -79,6 +100,10 @@ final class ChatSession: ObservableObject {
     // MARK: Generation
 
     private func generateReply() {
+        if commandFolder != nil {
+            generateCommandReply()
+            return
+        }
         // A conversation tied to an assistant preset uses its model, prompt and effort.
         let preset = app.preset(forTopic: topicID)
         let model = preset?.modelID.flatMap { id in app.allModels.first { $0.id == id } } ?? app.currentModel
@@ -171,13 +196,13 @@ final class ChatSession: ObservableObject {
         }
     }
 
-    private func saveReply(_ id: UUID) {
+    func saveReply(_ id: UUID) {
         if let reply = messages.first(where: { $0.id == id }) {
             try? app.messageService.update(reply)
         }
     }
 
-    private func finishReply(_ id: UUID, text: String, reasoningDuration: TimeInterval?, failure: String?, cancelled: Bool) {
+    func finishReply(_ id: UUID, text: String, reasoningDuration: TimeInterval?, failure: String?, cancelled: Bool) {
         updateReply(id) { reply in
             reply.text = text
             reply.reasoningDuration = reasoningDuration
@@ -224,12 +249,12 @@ final class ChatSession: ObservableObject {
         }
     }
 
-    private func updateReply(_ id: UUID, _ change: (inout ChatMessage) -> Void) {
+    func updateReply(_ id: UUID, _ change: (inout ChatMessage) -> Void) {
         guard let index = messages.firstIndex(where: { $0.id == id }) else { return }
         change(&messages[index])
     }
 
-    private func store(_ message: ChatMessage) {
+    func store(_ message: ChatMessage) {
         guard let topicID else { return }
         try? app.messageService.append(message, to: topicID)
         messages.append(message)
@@ -243,11 +268,12 @@ final class ChatSession: ObservableObject {
               messages[index].role == .user
         else { return }
         let attachments = messages[index].attachments
+        let paths = messages[index].paths
         for message in messages[index...] {
             try? app.messageService.delete(message.id)
         }
         messages.removeSubrange(index...)
-        store(ChatMessage(role: .user, text: text, attachments: attachments))
+        store(ChatMessage(role: .user, text: text, attachments: attachments, paths: paths))
         app.historyDidChange()
         generateReply()
     }

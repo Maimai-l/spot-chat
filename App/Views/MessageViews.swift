@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import SpotAgent
 import SpotCore
 
 /// The conversation, scrolled to the newest message. The system scroll bar is replaced by a thin one
@@ -32,7 +33,11 @@ struct MessageList: View {
                         isGenerating: session.isGenerating,
                         retry: { session.retry(message.id) },
                         regenerate: { session.regenerateLastReply() },
-                        edit: { session.edit(message.id, text: $0) }
+                        edit: { session.edit(message.id, text: $0) },
+                        approval: message.commands.contains(where: { $0.id == session.pendingApproval?.id }) ? session.pendingApproval : nil,
+                        folderName: session.commandFolder?.lastPathComponent ?? "",
+                        answer: { session.answerApproval($0) },
+                        stop: { session.stop() }
                     )
                     .id(message.id)
                     .transition(.opacity)
@@ -238,6 +243,10 @@ struct MessageRow: View {
     let retry: () -> Void
     let regenerate: () -> Void
     let edit: (String) -> Void
+    var approval: CommandRun?
+    var folderName = ""
+    var answer: (CommandApproval) -> Void = { _ in }
+    var stop: () -> Void = {}
 
     var body: some View {
         switch message.role {
@@ -248,7 +257,11 @@ struct MessageRow: View {
                 message: message,
                 canRegenerate: isLast && !isGenerating,
                 retry: retry,
-                regenerate: regenerate
+                regenerate: regenerate,
+                approval: approval,
+                folderName: folderName,
+                answer: answer,
+                stop: stop
             )
         }
     }
@@ -270,6 +283,13 @@ struct UserMessageView: View {
         VStack(alignment: .trailing, spacing: 4) {
             if !message.attachments.isEmpty {
                 AttachmentStrip(attachments: message.attachments)
+            }
+            if !message.paths.isEmpty {
+                HStack(spacing: 8) {
+                    ForEach(message.paths, id: \.self) { path in
+                        PathTile(url: URL(fileURLWithPath: path), onRemove: nil)
+                    }
+                }
             }
             if editing {
                 editor
@@ -390,6 +410,10 @@ struct AssistantMessageView: View {
     let canRegenerate: Bool
     let retry: () -> Void
     let regenerate: () -> Void
+    var approval: CommandRun?
+    var folderName = ""
+    var answer: (CommandApproval) -> Void = { _ in }
+    var stop: () -> Void = {}
     @State private var hovering = false
 
     var body: some View {
@@ -404,9 +428,15 @@ struct AssistantMessageView: View {
             }
             if !message.text.isEmpty {
                 ReplyView(id: message.id, markdown: message.text, isStreaming: message.status == .pending)
-            } else if message.status == .pending, message.reasoning.isEmpty {
+            } else if message.status == .pending, message.reasoning.isEmpty, message.commands.isEmpty {
                 ProgressView()
                     .controlSize(.small)
+            }
+            if !message.commands.isEmpty {
+                CommandRunsView(runs: message.commands, isLive: message.status == .pending, stop: stop)
+            }
+            if let approval {
+                CommandApprovalCard(run: approval, folderName: folderName, answer: answer)
             }
             if message.status == .error {
                 ErrorBox(message: message.errorMessage ?? "", retry: retry)

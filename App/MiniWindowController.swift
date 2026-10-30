@@ -85,8 +85,16 @@ final class MiniWindowController: ObservableObject {
     }
 
     lazy var composerActions: ComposerActions = inputActions.makeActions(
+        session: session,
         submit: { [weak self] in self?.submit() },
-        escape: { [weak self] in self?.handle(.escape) },
+        escape: { [weak self] in
+            // Esc answers a pending approval first: no.
+            if self?.session.pendingApproval != nil {
+                self?.session.answerApproval(.deny)
+            } else {
+                self?.handle(.escape)
+            }
+        },
         openSettings: { [weak self] in self?.openSettings() },
         presenting: { [weak self] work in self?.withFocusLossSuppressed(work) },
         menuWillOpen: { [weak self] in self?.suppressFocusLoss += 1 },

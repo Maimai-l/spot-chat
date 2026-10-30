@@ -23,7 +23,8 @@ public struct TopicService: Sendable {
         let now = Timestamp.milliseconds(date)
         let record = TopicRecord(
             id: id.uuidString, name: name, isNameManuallyEdited: false,
-            lastActivityAt: now, createdAt: now, updatedAt: now, assistantId: nil
+            lastActivityAt: now, createdAt: now, updatedAt: now, assistantId: nil,
+            commandFolder: nil, agentSessionId: nil
         )
         try database.writer.write { db in try record.insert(db) }
         return TopicSummary(id: id, name: name, lastActivityAt: date)
@@ -70,6 +71,29 @@ public struct TopicService: Sendable {
     public func setAssistant(_ assistantID: UUID?, for id: UUID) throws {
         try update(id) { record in
             record.assistantId = assistantID?.uuidString
+        }
+    }
+
+    /// The folder the conversation runs commands in, and dsh's session for it.
+    public func commandSetup(of id: UUID) throws -> CommandSetup? {
+        try database.writer.read { db in
+            try TopicRecord.fetchOne(db, key: id.uuidString)
+        }.flatMap { record in
+            record.commandFolder.map { CommandSetup(folder: URL(fileURLWithPath: $0), sessionID: record.agentSessionId) }
+        }
+    }
+
+    /// Turns commands on in `folder`, or off with nil. A new folder starts a new dsh session.
+    public func setCommandFolder(_ folder: URL?, for id: UUID) throws {
+        try update(id) { record in
+            if record.commandFolder != folder?.path { record.agentSessionId = nil }
+            record.commandFolder = folder?.path
+        }
+    }
+
+    public func setAgentSession(_ sessionID: String?, for id: UUID) throws {
+        try update(id) { record in
+            record.agentSessionId = sessionID
         }
     }
 
@@ -279,7 +303,9 @@ public struct MessageService: Sendable {
         .init(
             content: message.text, error: message.errorMessage,
             reasoning: message.reasoning.isEmpty ? nil : message.reasoning, reasoningDuration: message.reasoningDuration,
-            usage: message.usage
+            usage: message.usage,
+            commands: message.commands.isEmpty ? nil : message.commands,
+            paths: message.paths.isEmpty ? nil : message.paths
         )
     }
 
@@ -292,7 +318,7 @@ public struct MessageService: Sendable {
             id: id, role: role, text: record.data.content, status: status, errorMessage: record.data.error,
             attachments: attachments, modelID: record.modelId, createdAt: Timestamp.date(record.createdAt),
             reasoning: record.data.reasoning ?? "", reasoningDuration: record.data.reasoningDuration,
-            usage: record.data.usage
+            usage: record.data.usage, commands: record.data.commands ?? [], paths: record.data.paths ?? []
         )
     }
 }

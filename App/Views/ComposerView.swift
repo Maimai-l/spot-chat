@@ -18,6 +18,11 @@ struct ComposerActions {
     var menuDidClose: () -> Void
     /// Shown as the last button in the capsule.
     var expand: (() -> Void)? = nil
+    /// Turns running commands on, asking for a folder, or off.
+    var toggleCommands: () -> Void = {}
+    var chooseCommandFolder: () -> Void = {}
+    /// Picks files and folders to point to by path.
+    var addPaths: () -> Void = {}
 }
 
 /// The input shared by the mini window and the full window:
@@ -35,15 +40,22 @@ struct ComposerView: View {
     @State private var trailingWidth: CGFloat = 120
 
     var body: some View {
-        let textHeight = ComposerTextMetrics.expandedHeight(
+        let measured = ComposerTextMetrics.expandedHeight(
             for: composer.draft,
             rowWidth: width,
             trailingWidth: trailingWidth
         )
+        // The folder chip takes the row's space, so the text sits above the buttons.
+        let textHeight = session.commandFolder != nil ? max(measured, ComposerTextMetrics.oneLineHeight) : measured
         VStack(alignment: .leading, spacing: ComposerLayout.rowSpacing) {
-            if !composer.attachments.isEmpty {
+            if !composer.attachments.isEmpty || !composer.paths.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
+                        ForEach(composer.paths, id: \.self) { path in
+                            PathTile(url: path) {
+                                composer.remove(path: path)
+                            }
+                        }
                         ForEach(composer.attachments) { attachment in
                             AttachmentTile(attachment: attachment) {
                                 composer.remove(attachment)
@@ -56,16 +68,22 @@ struct ComposerView: View {
                 .frame(height: ComposerLayout.attachmentsRowHeight)
             }
             ComposerRowLayout(textHeight: textHeight) {
-                PlusMenuButton(actions: actions)
-                    .frame(width: 32, height: 32)
-                    .modifier(HoverCircle())
+                HStack(spacing: 6) {
+                    PlusMenuButton(actions: actions, commandsOn: session.commandFolder != nil)
+                        .frame(width: 32, height: 32)
+                        .modifier(HoverCircle())
+                    if let folder = session.commandFolder {
+                        CommandFolderChip(folder: folder, chooseFolder: actions.chooseCommandFolder, turnOff: actions.toggleCommands)
+                            .offset(y: -ComposerLayout.trailingLift)
+                    }
+                }
                 ComposerField(
                     text: $composer.draft,
                     placeholder: String(localized: "Ask Spot"),
                     focusRequest: composer.focusRequest,
                     onSubmit: actions.submit,
                     onEscape: actions.escape,
-                    onPasteFiles: { composer.add(fileURLs: $0) },
+                    onPasteFiles: { composer.add(fileURLs: $0, asPaths: session.commandFolder != nil) },
                     onPasteImage: { composer.add(imageData: $0, fileName: String(localized: "Pasted Image") + ".png") }
                 )
                 trailingControls
@@ -176,6 +194,10 @@ enum ComposerTextMetrics {
         NSLayoutManager().defaultLineHeight(for: font)
     }
 
+    static var oneLineHeight: CGFloat {
+        lineHeight.rounded(.up) + verticalInset * 2
+    }
+
     /// The text's height above the buttons, or 0 while it fits on one line next to them.
     static func expandedHeight(for text: String, rowWidth: CGFloat, trailingWidth: CGFloat) -> CGFloat {
         guard rowWidth > 0, !text.isEmpty else { return 0 }
@@ -262,6 +284,7 @@ struct ShareTag: View {
 /// The + button. Its native menu offers uploads and the windows that can be shared.
 struct PlusMenuButton: NSViewRepresentable {
     let actions: ComposerActions
+    var commandsOn = false
 
     func makeCoordinator() -> Coordinator {
         Coordinator(actions: actions)
@@ -284,11 +307,13 @@ struct PlusMenuButton: NSViewRepresentable {
 
     func updateNSView(_ button: NSButton, context: Context) {
         context.coordinator.actions = actions
+        context.coordinator.commandsOn = commandsOn
     }
 
     @MainActor
     final class Coordinator: NSObject {
         var actions: ComposerActions
+        var commandsOn = false
 
         init(actions: ComposerActions) {
             self.actions = actions
@@ -308,6 +333,16 @@ struct PlusMenuButton: NSViewRepresentable {
         private func makeMenu(windows: [SharableWindow]?) -> NSMenu {
             let menu = NSMenu()
             menu.autoenablesItems = false
+            let commands = ClosureMenuItem(title: String(localized: "Run Commands"), symbol: "apple.terminal", handler: actions.toggleCommands)
+            commands.subtitle = String(localized: "Runs in a folder you choose and asks before going outside it")
+            commands.state = commandsOn ? .on : .off
+            if commandsOn {
+                // dsh reads files where they are, so they go in by path.
+                menu.addItem(ClosureMenuItem(title: String(localized: "Add File Path…"), symbol: "paperclip", handler: actions.addPaths))
+                menu.addItem(.separator())
+                menu.addItem(commands)
+                return menu
+            }
             menu.addItem(ClosureMenuItem(title: String(localized: "Upload Image…"), symbol: "photo", handler: actions.uploadImages))
             menu.addItem(ClosureMenuItem(title: String(localized: "Upload File…"), symbol: "paperclip", handler: actions.uploadFiles))
             menu.addItem(.separator())
@@ -331,6 +366,8 @@ struct PlusMenuButton: NSViewRepresentable {
             } else {
                 menu.addItem(ClosureMenuItem(title: share, symbol: "macwindow.on.rectangle", handler: actions.showPermissionGuide))
             }
+            menu.addItem(.separator())
+            menu.addItem(commands)
             return menu
         }
 

@@ -15,6 +15,10 @@ final class ComposerModel: ObservableObject {
     @Published private(set) var attachments: [Attachment] {
         didSet { saveAttachmentIDs() }
     }
+    /// Files and folders for running commands: only their paths are sent.
+    @Published private(set) var paths: [URL] {
+        didSet { defaults.set(paths.map(\.path), forKey: Self.pathsKey) }
+    }
     /// Captured again each time a message is sent, so follow-up questions see the window as it is.
     @Published var sharedWindow: SharableWindow?
     @Published private(set) var focusRequest = 0
@@ -26,6 +30,7 @@ final class ComposerModel: ObservableObject {
     private let defaults: UserDefaults
     private var noticeTimer: DispatchWorkItem?
     private static let attachmentsKey = "SpotChat.pendingAttachments"
+    static let pathsKey = "SpotChat.pendingPaths"
 
     init(app: AppModel, draftStorage: DraftStorage, defaults: UserDefaults = .standard) {
         self.app = app
@@ -34,14 +39,15 @@ final class ComposerModel: ObservableObject {
         self.draft = draftStorage.loadDraft()
         let ids = (defaults.stringArray(forKey: Self.attachmentsKey) ?? []).compactMap(UUID.init(uuidString:))
         self.attachments = (try? app.fileService.attachments(withIDs: ids)) ?? []
+        self.paths = (defaults.stringArray(forKey: Self.pathsKey) ?? []).map { URL(fileURLWithPath: $0) }
     }
 
     var hasContent: Bool {
-        !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !attachments.isEmpty || sharedWindow != nil
+        !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || hasExtras
     }
 
     var hasExtras: Bool {
-        !attachments.isEmpty || sharedWindow != nil
+        !attachments.isEmpty || !paths.isEmpty || sharedWindow != nil
     }
 
     func requestFocus() {
@@ -59,8 +65,25 @@ final class ComposerModel: ObservableObject {
         attachments.removeAll { $0.id == attachment.id }
     }
 
-    /// Adds images, PDFs and text files. Anything else is refused with a notice.
-    func add(fileURLs: [URL]) {
+    func takePaths() -> [URL] {
+        let taken = paths
+        paths = []
+        return taken
+    }
+
+    func remove(path: URL) {
+        paths.removeAll { $0 == path }
+    }
+
+    /// Adds files. For running commands any file or folder goes in by its path; otherwise images,
+    /// PDFs and text files are copied in and anything else is refused with a notice.
+    func add(fileURLs: [URL], asPaths: Bool = false) {
+        if asPaths {
+            for url in fileURLs where !paths.contains(url) {
+                paths.append(url.standardizedFileURL)
+            }
+            return
+        }
         for url in fileURLs {
             let attachmentName = url.lastPathComponent
             guard Self.canSend(url) else {
@@ -123,7 +146,7 @@ enum ComposerLayout {
     static func height(for composer: ComposerModel, textHeight: CGFloat = 0) -> CGFloat {
         var height = baseHeight
         if textHeight > 0 { height += textHeight + rowSpacing }
-        if !composer.attachments.isEmpty { height += attachmentsRowHeight + rowSpacing }
+        if !composer.attachments.isEmpty || !composer.paths.isEmpty { height += attachmentsRowHeight + rowSpacing }
         if composer.sharedWindow != nil { height += tagRowHeight + rowSpacing }
         if composer.notice != nil { height += noticeRowHeight + rowSpacing }
         return height
