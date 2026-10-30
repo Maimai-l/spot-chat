@@ -2,7 +2,8 @@ import AppKit
 import SwiftUI
 import SpotCore
 
-/// The conversation, scrolled to the newest message.
+/// The conversation, scrolled to the newest message. The system scroll bar is replaced by a thin one
+/// that shows only while the reader scrolls, so no scroll bar track ever borders the conversation.
 struct MessageList: View {
     @ObservedObject var session: ChatSession
     var scrollRequest: Int
@@ -10,46 +11,145 @@ struct MessageList: View {
     var horizontalPadding: CGFloat
     var maxContentWidth: CGFloat = .infinity
 
+    @State private var position = ScrollPosition(edge: .bottom)
+    @State private var metrics = ScrollMetrics()
+    @State private var scrolling = false
+
     var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 18) {
-                    ForEach(session.messages) { message in
-                        MessageRow(
-                            message: message,
-                            isLast: message.id == session.messages.last?.id,
-                            isGenerating: session.isGenerating,
-                            retry: { session.retry(message.id) },
-                            regenerate: { session.regenerateLastReply() },
-                            edit: { session.edit(message.id, text: $0) }
-                        )
-                        .id(message.id)
-                    }
-                    Color.clear.frame(height: 1).id(Self.bottomID)
-                }
-                .frame(maxWidth: maxContentWidth)
-                .frame(maxWidth: .infinity)
-                .padding(.horizontal, horizontalPadding)
-                .padding(.top, topInset)
-                .padding(.bottom, 8)
-                .background(OverlayScrollers())
-            }
-            .onChange(of: scrollRequest) {
-                proxy.scrollTo(Self.bottomID, anchor: .bottom)
-            }
-            // A reply's height is known only once its page has rendered, after the message changed.
-            .environment(\.replyDidResize) { id in
-                if id == session.messages.last?.id {
-                    proxy.scrollTo(Self.bottomID, anchor: .bottom)
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 18) {
+                ForEach(session.messages) { message in
+                    MessageRow(
+                        message: message,
+                        isLast: message.id == session.messages.last?.id,
+                        isGenerating: session.isGenerating,
+                        retry: { session.retry(message.id) },
+                        regenerate: { session.regenerateLastReply() },
+                        edit: { session.edit(message.id, text: $0) }
+                    )
+                    .id(message.id)
                 }
             }
-            .onAppear {
-                proxy.scrollTo(Self.bottomID, anchor: .bottom)
+            .frame(maxWidth: maxContentWidth)
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, horizontalPadding)
+            .padding(.top, topInset)
+            .padding(.bottom, 8)
+        }
+        .scrollIndicators(.never)
+        .scrollPosition($position)
+        .onScrollGeometryChange(for: ScrollMetrics.self) { geometry in
+            ScrollMetrics(
+                offset: geometry.contentOffset.y,
+                content: geometry.contentSize.height,
+                visible: geometry.containerSize.height
+            )
+        } action: { _, new in
+            metrics = new
+        }
+        // Only the reader's own scrolling shows the bar, not the conversation following a reply.
+        .onScrollPhaseChange { _, phase in
+            scrolling = phase == .interacting || phase == .tracking || phase == .decelerating
+        }
+        .overlay(alignment: .topTrailing) {
+            ScrollIndicator(
+                metrics: metrics,
+                isScrolling: scrolling,
+                topInset: max(topInset - 16, 8),
+                scrollTo: { position.scrollTo(y: $0) }
+            )
+        }
+        .onChange(of: scrollRequest) {
+            position.scrollTo(edge: .bottom)
+        }
+        // A reply's height is known only once its page has rendered, after the message changed.
+        .environment(\.replyDidResize) { id in
+            if id == session.messages.last?.id {
+                position.scrollTo(edge: .bottom)
             }
+        }
+        .onAppear {
+            position.scrollTo(edge: .bottom)
+        }
+    }
+}
+
+struct ScrollMetrics: Equatable {
+    var offset: CGFloat = 0
+    var content: CGFloat = 0
+    var visible: CGFloat = 0
+
+    var maxOffset: CGFloat { max(content - visible, 0) }
+}
+
+/// A thin scroll bar drawn over the conversation's trailing edge. It appears while the reader scrolls
+/// or points at it, fades out a moment after, and can be dragged.
+struct ScrollIndicator: View {
+    let metrics: ScrollMetrics
+    let isScrolling: Bool
+    var topInset: CGFloat = 8
+    var bottomInset: CGFloat = 8
+    let scrollTo: (CGFloat) -> Void
+
+    @State private var shown = false
+    @State private var hovering = false
+    @State private var dragStartOffset: CGFloat?
+    @State private var hideTask: Task<Void, Never>?
+
+    private var active: Bool { hovering || dragStartOffset != nil }
+
+    var body: some View {
+        GeometryReader { geometry in
+            let track = max(geometry.size.height - topInset - bottomInset, 1)
+            let thumb = min(max(track * metrics.visible / max(metrics.content, 1), 32), track)
+            let travel = max(track - thumb, 1)
+            let progress = metrics.maxOffset > 0 ? min(max(metrics.offset / metrics.maxOffset, 0), 1) : 0
+            Capsule()
+                .fill(Color.primary.opacity(active ? 0.45 : 0.3))
+                .frame(width: active ? 8 : 6, height: thumb)
+                .frame(width: 14, height: thumb)
+                .contentShape(Rectangle())
+                .onHover { hovering = $0 }
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { value in
+                            let start = dragStartOffset ?? metrics.offset
+                            dragStartOffset = start
+                            let offset = start + value.translation.height * metrics.maxOffset / travel
+                            scrollTo(min(max(offset, 0), metrics.maxOffset))
+                        }
+                        .onEnded { _ in
+                            dragStartOffset = nil
+                            scheduleHide()
+                        }
+                )
+                .offset(x: geometry.size.width - 14 - 2, y: topInset + travel * progress)
+                .opacity(shown || active ? 1 : 0)
+                .allowsHitTesting(shown || active)
+                .animation(.easeOut(duration: 0.12), value: active)
+        }
+        .opacity(metrics.maxOffset > 1 ? 1 : 0)
+        .onChange(of: isScrolling) {
+            if isScrolling {
+                hideTask?.cancel()
+                withAnimation(.easeOut(duration: 0.12)) { shown = true }
+            } else {
+                scheduleHide()
+            }
+        }
+        .onChange(of: hovering) {
+            if !hovering { scheduleHide() }
         }
     }
 
-    private static let bottomID = "bottom"
+    private func scheduleHide() {
+        hideTask?.cancel()
+        hideTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(1))
+            guard !Task.isCancelled, !isScrolling, !active else { return }
+            withAnimation(.easeOut(duration: 0.3)) { shown = false }
+        }
+    }
 }
 
 struct MessageRow: View {
