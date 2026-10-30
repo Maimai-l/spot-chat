@@ -508,6 +508,10 @@ public enum PreferenceKey {
     public static let miniRetentionMinutes = "mini_window.retention_minutes"
     /// Height of the expanded card in points.
     public static let cardHeight = "mini_window.card_height"
+    /// Whether opening the mini window brings the selected text.
+    public static let bringSelection = "mini_window.bring_selection"
+    /// Set once macOS has been asked for Accessibility access, so it is asked only once.
+    public static let selectionAccessRequested = "mini_window.selection_access_requested"
     /// The system prompt sent before every conversation.
     public static let systemPrompt = "chat.system_prompt"
     /// Thinking level by `user_model` id.

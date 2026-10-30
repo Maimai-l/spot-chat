@@ -1,7 +1,7 @@
 import AppKit
 import ApplicationServices
 
-/// Reads the text selected in the app in front, for asking about it in the mini window.
+/// Reads the text selected in the app in front, so Option-Space brings it into the mini window.
 /// Cherry Studio's selection assistant does the same with a native helper; here it is the
 /// Accessibility API, with a simulated Copy for apps that don't expose their selection.
 /// Both need Accessibility access, which macOS asks the user for once.
@@ -13,24 +13,42 @@ enum SelectionReader {
         AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": prompt] as CFDictionary)
     }
 
-    static func selectedText() async -> String? {
-        guard hasAccess(prompt: true) else { return nil }
-        if let text = accessibilitySelection(), !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return text
+    /// The text selected in the app in front, or nil when there is none or access isn't granted.
+    /// `askForAccess` shows macOS's request for Accessibility access when it hasn't been granted.
+    static func selectedText(askForAccess: Bool) async -> String? {
+        guard NSWorkspace.shared.frontmostApplication?.processIdentifier != ProcessInfo.processInfo.processIdentifier,
+              hasAccess(prompt: askForAccess)
+        else { return nil }
+        switch accessibilitySelection() {
+        case let .text(text):
+            return text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : text
+        case .none:
+            return nil
+        case .unknown:
+            // Only for apps that don't say what is selected, so nothing is copied when nothing is selected.
+            return await copiedSelection()
         }
-        return await copiedSelection()
     }
 
-    private static func accessibilitySelection() -> String? {
+    private enum Selection {
+        case text(String)
+        /// The app says nothing is selected.
+        case none
+        /// The app doesn't expose its selection.
+        case unknown
+    }
+
+    private static func accessibilitySelection() -> Selection {
         let system = AXUIElementCreateSystemWide()
         var focused: CFTypeRef?
         guard AXUIElementCopyAttributeValue(system, kAXFocusedUIElementAttribute as CFString, &focused) == .success,
               let focused, CFGetTypeID(focused) == AXUIElementGetTypeID()
-        else { return nil }
+        else { return .unknown }
         var selected: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(focused as! AXUIElement, kAXSelectedTextAttribute as CFString, &selected) == .success
-        else { return nil }
-        return selected as? String
+        guard AXUIElementCopyAttributeValue(focused as! AXUIElement, kAXSelectedTextAttribute as CFString, &selected) == .success,
+              let text = selected as? String
+        else { return .unknown }
+        return text.isEmpty ? .none : .text(text)
     }
 
     /// Presses Command-C in the app in front and reads the pasteboard, then puts back what was there.
@@ -48,7 +66,7 @@ enum SelectionReader {
             event?.flags = .maskCommand
             event?.post(tap: .cghidEventTap)
         }
-        for _ in 0..<15 where pasteboard.changeCount == before {
+        for _ in 0..<8 where pasteboard.changeCount == before {
             try? await Task.sleep(for: .milliseconds(20))
         }
         guard pasteboard.changeCount != before else { return nil }

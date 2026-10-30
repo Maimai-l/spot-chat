@@ -19,6 +19,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var cardHeight = AppModel.defaultCardHeight
     @Published private(set) var topics: [TopicSummary] = []
     @Published private(set) var systemPrompt = AppModel.defaultSystemPrompt
+    @Published private(set) var bringsSelection = true
+    private(set) var askedForSelectionAccess = false
     /// Thinking level by model; a model not listed thinks as its service decides.
     @Published private(set) var thinkingLevels: [String: ThinkingLevel] = [:]
     /// Models whose service turned down an effort level.
@@ -184,8 +186,42 @@ final class AppModel: ObservableObject {
             cardHeight = height.clamped(to: Self.cardHeightRange)
         }
         systemPrompt = (try? preferenceService.value(PreferenceKey.systemPrompt, as: String.self)) ?? Self.defaultSystemPrompt
+        bringsSelection = (try? preferenceService.value(PreferenceKey.bringSelection, as: Bool.self)) ?? true
+        askedForSelectionAccess = (try? preferenceService.value(PreferenceKey.selectionAccessRequested, as: Bool.self)) ?? false
         thinkingLevels = (try? preferenceService.value(PreferenceKey.thinkingLevels, as: [String: ThinkingLevel].self)) ?? [:]
         modelsWithoutEffort = Set((try? preferenceService.value(PreferenceKey.modelsWithoutEffort, as: [String].self)) ?? [])
+    }
+
+    /// What the system prompt's placeholders become for a conversation that started at `start`.
+    func promptContext(start: Date, modelName: String) -> PromptVariables.Context {
+        let version = ProcessInfo.processInfo.operatingSystemVersion
+        let language = Locale.preferredLanguages.first ?? "en"
+        #if arch(arm64)
+        let architecture = "arm64"
+        #else
+        let architecture = "x86_64"
+        #endif
+        return PromptVariables.Context(
+            start: start,
+            modelName: modelName,
+            userName: NSFullUserName(),
+            systemName: "macOS \(version.majorVersion).\(version.minorVersion).\(version.patchVersion)",
+            languageName: Locale(identifier: "en").localizedString(forIdentifier: language) ?? language,
+            architecture: architecture
+        )
+    }
+
+    func setBringsSelection(_ on: Bool) {
+        bringsSelection = on
+        try? preferenceService.set(PreferenceKey.bringSelection, to: on)
+        // Turning it on asks macOS for access again, since the first request may have been dismissed.
+        if on { _ = SelectionReader.hasAccess(prompt: true) }
+    }
+
+    func noteAskedForSelectionAccess() {
+        guard !askedForSelectionAccess else { return }
+        askedForSelectionAccess = true
+        try? preferenceService.set(PreferenceKey.selectionAccessRequested, to: true)
     }
 
     func setSystemPrompt(_ prompt: String) {

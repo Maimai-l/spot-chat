@@ -259,13 +259,18 @@ struct GeneralSettingsView: View {
                         )
                         .accessibilityIdentifier("systemPrompt")
                 }
-            } footer: {
-                HStack {
-                    Text("Sent at the start of every conversation.")
-                        .foregroundStyle(.secondary)
+                // Cherry Studio's placeholders, added at the end; the tooltip shows the placeholder.
+                HStack(spacing: 6) {
+                    ForEach(Self.promptVariables, id: \.variable) { item in
+                        Button(item.label) { app.setSystemPrompt(Self.appending(item.variable.placeholder, to: app.systemPrompt)) }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                            .help(Text(verbatim: item.variable.placeholder))
+                    }
                     Spacer()
                     if app.systemPrompt != AppModel.defaultSystemPrompt {
                         Button("Restore Default") { app.setSystemPrompt(AppModel.defaultSystemPrompt) }
+                            .controlSize(.small)
                             .accessibilityIdentifier("restoreSystemPrompt")
                     }
                 }
@@ -274,7 +279,8 @@ struct GeneralSettingsView: View {
             Section("Shortcuts") {
                 KeyboardShortcuts.Recorder("Open Mini Window", name: .toggleMiniWindow)
                 KeyboardShortcuts.Recorder("Open Full Window", name: .openFullWindow)
-                KeyboardShortcuts.Recorder("Ask About Selection", name: .askAboutSelection)
+                Toggle("Bring Selected Text", isOn: Binding(get: { app.bringsSelection }, set: { app.setBringsSelection($0) }))
+                    .accessibilityIdentifier("bringSelection")
             }
 
             Section("Mini Window") {
@@ -287,20 +293,39 @@ struct GeneralSettingsView: View {
                     }
                 }
                 .accessibilityIdentifier("retention")
-                Stepper(
-                    value: Binding(get: { app.cardHeight }, set: { app.setCardHeight($0) }),
-                    in: AppModel.cardHeightRange,
-                    step: 20
-                ) {
-                    LabeledContent("Card Height") {
-                        Text("\(app.cardHeight) pt")
-                            .monospacedDigit()
+                // A slider between "Small" and "Large", as System Settings sizes the Dock.
+                LabeledContent("Card Height") {
+                    Slider(
+                        value: Binding(
+                            get: { Double(app.cardHeight) },
+                            set: { app.setCardHeight(Int(($0 / 20).rounded()) * 20) }
+                        ),
+                        in: Double(AppModel.cardHeightRange.lowerBound)...Double(AppModel.cardHeightRange.upperBound)
+                    ) {
+                        Text("Card Height")
+                    } minimumValueLabel: {
+                        Text("Small")
+                    } maximumValueLabel: {
+                        Text("Large")
                     }
+                    .labelsHidden()
+                    .frame(maxWidth: 260)
                 }
                 .accessibilityIdentifier("cardHeight")
             }
         }
         .formStyle(.grouped)
+    }
+
+    static let promptVariables: [(variable: PromptVariable, label: LocalizedStringKey)] = [
+        (.date, "Date"), (.time, "Time"), (.username, "User Name"), (.system, "System"),
+        (.language, "Language"), (.modelName, "Model"),
+    ]
+
+    static func appending(_ placeholder: String, to prompt: String) -> String {
+        guard !prompt.isEmpty else { return placeholder }
+        let separator = prompt.hasSuffix(" ") || prompt.hasSuffix("\n") ? "" : " "
+        return prompt + separator + placeholder
     }
 
     static func label(for option: RetentionPolicy) -> String {

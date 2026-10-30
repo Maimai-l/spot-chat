@@ -98,8 +98,11 @@ final class ChatSession: ObservableObject {
                 request = ChatRequest(
                     model: modelName,
                     messages: try ChatRequestBuilder.messages(from: history, loadAttachment: AttachmentLoader.load),
-                    systemPrompt: (preset?.prompt.isEmpty == false ? preset?.prompt ?? "" : app.systemPrompt)
-                        .trimmingCharacters(in: .whitespacesAndNewlines),
+                    systemPrompt: PromptVariables.resolve(
+                        (preset?.prompt.isEmpty == false ? preset?.prompt ?? "" : app.systemPrompt)
+                            .trimmingCharacters(in: .whitespacesAndNewlines),
+                        in: app.promptContext(start: history.first?.createdAt ?? Date(), modelName: modelName)
+                    ),
                     thinking: preset?.thinking ?? model.map { app.requestThinking(for: $0) } ?? .automatic
                 )
             } catch {

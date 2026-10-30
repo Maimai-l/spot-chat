@@ -432,6 +432,8 @@ final class SpotChatUITests: XCTestCase {
         prompt.click()
         prompt.typeKey("a", modifierFlags: .command)
         prompt.typeText("Answer in one line.")
+        app.buttons["Date"].click()
+        waitForText(of: prompt, "SELF == %@", "Answer in one line. {{date}}")
         attachScreenshot("General settings")
         app.typeKey("w", modifierFlags: .command)
 
@@ -439,7 +441,9 @@ final class SpotChatUITests: XCTestCase {
         waitForReply(in: app, "SELF == %@", "Echo: hi")
         let messages = try lastRequest()["messages"] as? [[String: Any]] ?? []
         XCTAssertEqual(messages.first?["role"] as? String, "system")
-        XCTAssertEqual(messages.first?["content"] as? String, "Answer in one line.")
+        let system = messages.first?["content"] as? String ?? ""
+        XCTAssertTrue(system.hasPrefix("Answer in one line. "), system)
+        XCTAssertFalse(system.contains("{{"), "The date is filled in: \(system)")
         XCTAssertEqual(try lastRequest()["reasoning_effort"] as? String, "medium", "The level shown is the level sent")
     }
 

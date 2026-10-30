@@ -244,3 +244,29 @@ struct ConversationExportTests {
         #expect(SelectionQuote.draft(quoting: " \n ") == nil)
     }
 }
+
+struct PromptVariablesTests {
+    let context = PromptVariables.Context(
+        start: Date(timeIntervalSince1970: 1_798_000_000), modelName: "deepseek-chat", userName: "Mai",
+        systemName: "macOS 15.4", languageName: "English", architecture: "arm64",
+        locale: Locale(identifier: "en_US"), timeZone: TimeZone(identifier: "UTC")!
+    )
+
+    @Test func placeholdersAreFilledIn() {
+        let prompt = "Today is {{date}} at {{time}}. User {{username}} on {{system}} ({{arch}}), {{language}}, via {{model_name}}."
+        let resolved = PromptVariables.resolve(prompt, in: context)
+        #expect(!resolved.contains("{{"), "\(resolved)")
+        #expect(resolved.contains("User Mai on macOS 15.4 (arm64), English, via deepseek-chat."))
+        #expect(resolved.contains("2026"), "\(resolved)")
+    }
+
+    @Test func theSameConversationGetsTheSamePrompt() {
+        let prompt = "Now: {{datetime}}"
+        #expect(PromptVariables.resolve(prompt, in: context) == PromptVariables.resolve(prompt, in: context))
+    }
+
+    @Test func promptsWithoutPlaceholdersAreUntouched() {
+        #expect(PromptVariables.resolve("You are a helpful assistant.", in: context) == "You are a helpful assistant.")
+        #expect(PromptVariables.resolve("Keep {{unknown}} as is", in: context) == "Keep {{unknown}} as is")
+    }
+}

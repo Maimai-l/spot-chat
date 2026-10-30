@@ -40,19 +40,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             seedTestProvider(baseURL: url, apiKey: defaults.string(forKey: LaunchOption.testProviderKey) ?? "")
         }
 
+        // Opening the mini window brings the text selected in the app in front, quoted in the input.
         KeyboardShortcuts.onKeyDown(for: .toggleMiniWindow) { [weak self] in
-            self?.miniController.handle(.toggleShortcut)
+            guard let self else { return }
+            guard miniController.mode == .hidden, app.bringsSelection else {
+                miniController.handle(.toggleShortcut)
+                return
+            }
+            let askForAccess = !app.askedForSelectionAccess
+            app.noteAskedForSelectionAccess()
+            Task { @MainActor in
+                if let text = await SelectionReader.selectedText(askForAccess: askForAccess) {
+                    self.miniController.ask(about: text)
+                } else {
+                    self.miniController.handle(.toggleShortcut)
+                }
+            }
         }
         KeyboardShortcuts.onKeyDown(for: .openFullWindow) { [weak self] in
             self?.openFullWindow()
-        }
-        // On release, so the shortcut's own keys aren't held while the selection is copied.
-        KeyboardShortcuts.onKeyUp(for: .askAboutSelection) { [weak self] in
-            guard let self else { return }
-            Task { @MainActor in
-                let text = await SelectionReader.selectedText()
-                self.miniController.ask(about: text)
-            }
         }
         selectionService.onText = { [weak self] text in self?.miniController.ask(about: text) }
         NSApp.servicesProvider = selectionService
