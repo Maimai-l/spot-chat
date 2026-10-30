@@ -293,7 +293,7 @@ struct PlusMenuButton: NSViewRepresentable {
     }
 
     func makeNSView(context: Context) -> NSButton {
-        let label = String(localized: "Add Attachment or Share Window")
+        let label = String(localized: "Add")
         let button = NSButton(
             image: NSImage(systemSymbolName: "plus", accessibilityDescription: label) ?? NSImage(),
             target: context.coordinator,

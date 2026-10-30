@@ -76,7 +76,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "API key"
+            "value": "API 密钥"
           }
         }
       }
@@ -87,16 +87,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "辅助功能"
-          }
-        }
-      }
-    },
-    "Add Attachment or Share Window": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "添加附件或分享窗口"
           }
         }
       }
@@ -136,7 +126,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "添加一个服务商即可开始对话。"
+            "value": "添加服务商后即可开始对话"
           }
         }
       }
@@ -356,7 +346,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "隐藏 API key"
+            "value": "隐藏 API 密钥"
           }
         }
       }
@@ -606,7 +596,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "选择一个服务商。"
+            "value": "选择服务商"
           }
         }
       }
@@ -686,7 +676,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "显示 API key"
+            "value": "显示 API 密钥"
           }
         }
       }
@@ -969,7 +959,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "适合不需要推理的简单任务。"
+            "value": "适合不需要推理的简单任务"
           }
         }
       }
@@ -979,7 +969,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "适合日常或对延迟敏感的任务。"
+            "value": "适合日常或对延迟敏感的任务"
           }
         }
       }
@@ -989,7 +979,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "大多数任务的默认平衡。"
+            "value": "适合大多数任务"
           }
         }
       }
@@ -999,7 +989,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "留给最难、质量优先的任务。"
+            "value": "适合最难、最看重质量的任务"
           }
         }
       }
@@ -1119,7 +1109,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "带入选中的文本"
+            "value": "带入所选文本"
           }
         }
       }
@@ -1189,7 +1179,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "命令在这个文件夹里运行，越界时会先问你。"
+            "value": "命令将在此文件夹中运行，超出时先询问"
           }
         }
       }
@@ -1257,7 +1247,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "在文件夹之外运行"
+            "value": "已在文件夹之外运行"
           }
         }
       }
@@ -1297,7 +1287,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "运行命令需要 DeepSeek API 密钥，请在设置里添加。"
+            "value": "运行命令需要 DeepSeek API 密钥，请在设置中添加。"
           }
         }
       }
@@ -1307,7 +1297,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "在所选文件夹里执行，越界时问你"
+            "value": "在所选文件夹中运行，超出时先询问"
           }
         }
       }
@@ -1347,7 +1337,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "已被沙盒拦下"
+            "value": "已被沙盒阻止"
           }
         }
       }
@@ -1357,7 +1347,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "这个版本不能运行命令。"
+            "value": "此版本不支持运行命令。"
           }
         }
       }
@@ -1368,36 +1358,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "使用工具"
-          }
-        }
-      }
-    },
-    "dsh didn't start a session.": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "dsh 没能开始会话。"
-          }
-        }
-      }
-    },
-    "dsh stopped unexpectedly.": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "dsh 意外退出了。"
-          }
-        }
-      }
-    },
-    "dsh stopped unexpectedly: %@": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "dsh 意外退出：%@"
           }
         }
       }
@@ -1467,7 +1427,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "这一次不受限制"
+            "value": "本次关闭"
           }
         }
       }
@@ -1487,7 +1447,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "需要你确认"
+            "value": "等待确认"
           }
         }
       }
@@ -1517,7 +1477,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "重新启动 Spot Chat 后使用新的语言。"
+            "value": "重新启动 Spot Chat 后生效"
           }
         }
       }
@@ -1528,6 +1488,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "重新启动"
+          }
+        }
+      }
+    },
+    "Commands stopped unexpectedly.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "运行命令意外中断。"
+          }
+        }
+      }
+    },
+    "Commands stopped unexpectedly: %@": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "运行命令意外中断：%@"
+          }
+        }
+      }
+    },
+    "Couldn't start running commands.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法开始运行命令。"
           }
         }
       }

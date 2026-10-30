@@ -66,9 +66,9 @@ public enum CommandAgentError: LocalizedError {
     public var errorDescription: String? {
         switch self {
         case let .exited(detail):
-            return detail.isEmpty ? String(localized: "dsh stopped unexpectedly.") : String(localized: "dsh stopped unexpectedly: \(detail)")
+            return detail.isEmpty ? String(localized: "Commands stopped unexpectedly.") : String(localized: "Commands stopped unexpectedly: \(detail)")
         case .noSession:
-            return String(localized: "dsh didn't start a session.")
+            return String(localized: "Couldn't start running commands.")
         }
     }
 }
