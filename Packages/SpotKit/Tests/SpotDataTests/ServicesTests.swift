@@ -247,7 +247,7 @@ struct TestStore {
         #expect(listed.map(\.id) == ["deepseek", "openai", "ollama", "lmstudio", own.id])
         #expect(listed[0].baseURL == "https://api.deepseek.com/v1")
         #expect(listed[0].isBuiltIn)
-        #expect(!listed[2].isBuiltIn)
+        #expect(!listed[4].isBuiltIn)
     }
 
     @Test func builtInProvidersCanBeTurnedOffButNotDeleted() throws {

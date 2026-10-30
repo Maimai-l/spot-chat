@@ -92,7 +92,9 @@ import Testing
             == ProviderEndpoint(scheme: "https", host: "api.deepseek.com", port: 443, basePath: "/v1"))
         #expect(ProviderEndpoint(baseURL: ProviderTemplate.openAI.baseURL)
             == ProviderEndpoint(scheme: "https", host: "api.openai.com", port: 443, basePath: "/v1"))
-        #expect(ProviderTemplate.all.map(\.name) == ["DeepSeek", "OpenAI"])
+        #expect(ProviderTemplate.all.map(\.name) == ["DeepSeek", "OpenAI", "Ollama", "LM Studio"])
+        #expect(ProviderEndpoint(baseURL: ProviderTemplate.ollama.baseURL)
+            == ProviderEndpoint(scheme: "http", host: "localhost", port: 11434, basePath: "/v1"))
     }
 
     @Test func parsesALocalServerWithPort() {
