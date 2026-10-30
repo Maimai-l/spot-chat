@@ -10,7 +10,7 @@ import SpotCore
 final class ChatSession: ObservableObject {
     @Published private(set) var topicID: UUID?
     @Published private(set) var messages: [ChatMessage] = []
-    @Published private(set) var isGenerating = false
+    @Published var isGenerating = false
     /// The folder this conversation runs commands in; nil when it only chats.
     @Published private(set) var commandFolder: URL?
     /// A command dsh wants to run outside the folder, waiting for the user.
@@ -68,7 +68,7 @@ final class ChatSession: ObservableObject {
         let topicID = self.topicID ?? newTopicID
         // The mini window shows a new conversation before its first message, so the topic may not be stored yet.
         if (try? app.topicService.get(topicID)) == nil {
-            try? app.topicService.create(id: topicID, name: TopicName.make(fromFirstMessage: text.isEmpty ? (attachments.first?.displayName ?? paths.first?.lastPathComponent ?? "") : text))
+            _ = try? app.topicService.create(id: topicID, name: TopicName.make(fromFirstMessage: text.isEmpty ? (attachments.first?.displayName ?? paths.first?.lastPathComponent ?? "") : text))
             if let commandFolder { try? app.topicService.setCommandFolder(commandFolder, for: topicID) }
         }
         self.topicID = topicID
