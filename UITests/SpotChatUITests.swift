@@ -290,18 +290,24 @@ final class SpotChatUITests: XCTestCase {
         let app = launch(resetState: true)
         send("markdown", in: app)
         waitForReply(in: app, "SELF CONTAINS %@", "| WAL | concurrent |")
-        send("hello", in: app)
-        XCTAssertTrue(reply(containing: "Echo: hello", in: app).waitForExistence(timeout: 10))
+        send("markdown", in: app)
+        XCTAssertTrue(elements("message.assistant", in: app).element(boundBy: 1).waitForExistence(timeout: 10))
+        waitForText(of: elements("message.assistant", in: app).element(boundBy: 1), "SELF CONTAINS %@", "| WAL | concurrent |")
         send("again", in: app)
         XCTAssertTrue(reply(containing: "Echo: again", in: app).waitForExistence(timeout: 10))
 
-        // The third request starts with the second one's bytes, so most of it comes from the cache.
-        let usage = elements("usage", in: app).element(boundBy: 2)
-        XCTAssertTrue(usage.waitForExistence(timeout: 10))
-        let numbers = text(of: usage).split(whereSeparator: { !$0.isNumber }).compactMap { Int($0) }
-        XCTAssertGreaterThanOrEqual(numbers.count, 3, text(of: usage))
-        guard numbers.count >= 3 else { return }
-        XCTAssertGreaterThan(numbers[1], numbers[0] / 2, text(of: usage))
+        // The third request starts with the second one's bytes, so the cache covers nearly all of the
+        // second request's input.
+        func numbers(_ index: Int) -> [Int] {
+            let usage = elements("usage", in: app).element(boundBy: index)
+            XCTAssertTrue(usage.waitForExistence(timeout: 10))
+            return text(of: usage).split(whereSeparator: { !$0.isNumber }).compactMap { Int($0) }
+        }
+        let second = numbers(1), third = numbers(2)
+        XCTAssertGreaterThanOrEqual(second.count, 3)
+        XCTAssertGreaterThanOrEqual(third.count, 3)
+        guard second.count >= 3, third.count >= 3 else { return }
+        XCTAssertGreaterThanOrEqual(third[1], second[0] - 16, "Cached \(third[1]) of the earlier \(second[0])")
     }
 
     func testSelectedTextIsQuotedInTheInput() {

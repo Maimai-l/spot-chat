@@ -22,7 +22,7 @@ GET /v1/last-request returns the body of the last chat request.
 Streams look like DeepSeek's: a keep-alive comment first, a chunk with no choices partway, and, when
 stream_options.include_usage is set, a final usage chunk. Its prompt_cache_hit_tokens counts the bytes
 the request shares with the start of the previous chat request (a quarter token per byte, in blocks
-of 64 tokens), the way a prefix cache would.
+of 16 tokens), the way a prefix cache would.
 """
 
 import json
@@ -67,7 +67,8 @@ def cache_usage(raw, prompt_text_bytes):
             break
         shared += 1
     prompt = max(1, prompt_text_bytes // 4)
-    hit = min(prompt, (shared // 4) // 64 * 64)
+    # DeepSeek caches in larger blocks; small ones let short test conversations show a hit.
+    hit = min(prompt, (shared // 4) // 16 * 16)
     return {"prompt_cache_hit_tokens": hit, "prompt_cache_miss_tokens": prompt - hit, "prompt_tokens": prompt}
 
 
@@ -189,7 +190,8 @@ class Handler(BaseHTTPRequestHandler):
         if (body.get("stream_options") or {}).get("include_usage"):
             usage = {"prompt_tokens": 0, "completion_tokens": 0}
             if not is_title_request(body):
-                usage.update(cache_usage(raw.decode("utf-8", "replace"), len(json.dumps(body.get("messages", [])))))
+                messages_text = json.dumps(body.get("messages", []), ensure_ascii=False, separators=(",", ":"))
+                usage.update(cache_usage(raw.decode("utf-8", "replace"), len(messages_text)))
             usage["completion_tokens"] = sum(len(c if isinstance(c, str) else c[1]) for c in chunks) // 4
             usage["total_tokens"] = usage["prompt_tokens"] + usage["completion_tokens"]
         self.send_response(200)

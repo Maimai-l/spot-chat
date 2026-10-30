@@ -98,8 +98,10 @@ struct MessageList: View {
         }
         // A reply's height is known only once its page has rendered, after the message changed.
         .environment(\.replyDidResize) { id in
+            // Without animation, as Claude and ChatGPT keep a growing reply in view: an animated scroll
+            // still under way would carry the conversation back down after the reader scrolls up.
             if id == session.messages.last?.id, pinnedToBottom {
-                followBottom(animated: true)
+                followBottom(animated: false)
             }
         }
         .onAppear {
