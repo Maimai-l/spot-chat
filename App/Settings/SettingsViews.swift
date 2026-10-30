@@ -1,3 +1,4 @@
+import AppKit
 import KeyboardShortcuts
 import SwiftUI
 import SpotCore
@@ -217,9 +218,30 @@ struct ProviderDetailView: View {
 
 struct GeneralSettingsView: View {
     @ObservedObject var app: AppModel
+    @State private var language = InterfaceLanguage.chosen
 
     var body: some View {
         Form {
+            Section {
+                Picker("Language", selection: $language) {
+                    Text("System Default").tag(InterfaceLanguage.system)
+                    // Each language in its own words, as System Settings lists them.
+                    Text(verbatim: "English").tag(InterfaceLanguage.english)
+                    Text(verbatim: "简体中文").tag(InterfaceLanguage.simplifiedChinese)
+                }
+                .onChange(of: language) { InterfaceLanguage.choose(language) }
+                .accessibilityIdentifier("interfaceLanguage")
+                if language != InterfaceLanguage.atLaunch {
+                    HStack {
+                        Text("Restart Spot Chat to use the new language.")
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Button("Restart", action: InterfaceLanguage.relaunch)
+                            .accessibilityIdentifier("restartForLanguage")
+                    }
+                }
+            }
+
             Section {
                 Picker("Default Model", selection: Binding(
                     get: { app.currentModel?.id ?? "" },
@@ -334,6 +356,42 @@ struct GeneralSettingsView: View {
             return String(localized: "Clear Immediately")
         case let .minutes(minutes):
             return String(localized: "\(minutes) min")
+        }
+    }
+}
+
+/// The language of the interface: the system's, or one chosen in Settings. macOS reads it when the app
+/// starts, so a change takes effect after a restart.
+enum InterfaceLanguage: String {
+    case system
+    case english = "en"
+    case simplifiedChinese = "zh-Hans"
+
+    private static let key = "AppleLanguages"
+
+    /// What is chosen in Settings, ignoring a language given on the command line for a test.
+    static var chosen: InterfaceLanguage {
+        let domain = Bundle.main.bundleIdentifier.flatMap { UserDefaults.standard.persistentDomain(forName: $0) }
+        guard let first = (domain?[key] as? [String])?.first else { return .system }
+        return InterfaceLanguage(rawValue: first) ?? .system
+    }
+
+    static let atLaunch = chosen
+
+    static func choose(_ language: InterfaceLanguage) {
+        if language == .system {
+            UserDefaults.standard.removeObject(forKey: key)
+        } else {
+            UserDefaults.standard.set([language.rawValue], forKey: key)
+        }
+    }
+
+    @MainActor
+    static func relaunch() {
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.createsNewApplicationInstance = true
+        NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: configuration) { _, _ in
+            DispatchQueue.main.async { NSApp.terminate(nil) }
         }
     }
 }

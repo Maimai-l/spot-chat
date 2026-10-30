@@ -283,6 +283,45 @@ final class SpotChatUITests: XCTestCase {
         XCTAssertTrue(app.buttons["关闭"].exists)
     }
 
+    /// Screenshots of every screen in Chinese, with commands on, for reviewing the design as a user sees it.
+    func testChineseScreenshotTour() {
+        let app = launch(resetState: true, language: "zh-Hans", arguments: [
+            "-SpotChatCommandFolder", dataDirectory + "/Movies",
+            "-SpotChatAgentBaseURL", "http://127.0.0.1:8765/anthropic",
+        ])
+        XCTAssertTrue(element("commandFolder", in: app).waitForExistence(timeout: 10))
+        attachScreenshot("zh Capsule")
+
+        element("plusMenu", in: app).click()
+        XCTAssertTrue(app.menuItems["运行命令"].waitForExistence(timeout: 5))
+        attachScreenshot("zh Plus menu")
+        app.typeKey(.escape, modifierFlags: [])
+
+        send("Please list the files", in: app)
+        XCTAssertTrue(reply(containing: "Listed the folder.", in: app).waitForExistence(timeout: 40))
+        RunLoop.current.run(until: Date().addingTimeInterval(1))
+        attachScreenshot("zh Commands")
+
+        send("Write outside the folder", in: app)
+        XCTAssertTrue(element("commandApproval", in: app).waitForExistence(timeout: 40))
+        RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        attachScreenshot("zh Approval")
+        element("allowCommand", in: app).click()
+        XCTAssertTrue(reply(containing: "Finished.", in: app).waitForExistence(timeout: 30))
+
+        app.buttons["展开为完整窗口"].click()
+        XCTAssertTrue(element("collapseToMini", in: app).waitForExistence(timeout: 10))
+        RunLoop.current.run(until: Date().addingTimeInterval(1.5))
+        attachScreenshot("zh Full window")
+
+        element("openSettings", in: app).click()
+        let general = app.toolbars.buttons["通用"]
+        XCTAssertTrue(general.waitForExistence(timeout: 5))
+        general.click()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        attachScreenshot("zh General settings")
+    }
+
     // MARK: Replies
 
     func testMarkdownCodeBlockCanBeCopied() {
