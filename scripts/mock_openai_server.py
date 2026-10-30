@@ -154,12 +154,6 @@ class Handler(BaseHTTPRequestHandler):
             return
         if not self.authorized():
             return
-        if body.get("model") == "mock-vision" and "reasoning_effort" in body:
-            self.send_json(400, {"error": {
-                "message": "Unsupported parameter: 'reasoning_effort' is not supported with this model.",
-                "type": "invalid_request_error", "param": "reasoning_effort", "code": "unsupported_parameter",
-            }})
-            return
         if self.path.endswith("/models"):
             self.send_json(200, {"object": "list", "data": [
                 {"id": m, "object": "model", "created": 0, "owned_by": "mock"} for m in MODELS
@@ -179,6 +173,12 @@ class Handler(BaseHTTPRequestHandler):
                 last_request.clear()
                 last_request.update(body)
         if not self.authorized():
+            return
+        if body.get("model") == "mock-vision" and "reasoning_effort" in body:
+            self.send_json(400, {"error": {
+                "message": "Unsupported parameter: 'reasoning_effort' is not supported with this model.",
+                "type": "invalid_request_error", "param": "reasoning_effort", "code": "unsupported_parameter",
+            }})
             return
         if "fail" in "\n".join(p.get("text", "") for p in last_user_parts(body)).split():
             self.send_json(500, {"error": {"message": "The server had an error.", "type": "server_error"}})
