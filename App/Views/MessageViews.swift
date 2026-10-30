@@ -58,11 +58,13 @@ struct MessageList: View {
             if abs(new.offset - old.offset) > 0.5, Date() > followingUntil {
                 readerScrolls += 1
             }
-            // Following a reply only ever scrolls down, so a move up is the reader's.
-            if new.isNearBottom {
-                pinnedToBottom = true
-            } else if new.offset < old.offset - 0.5 {
+            // Following a reply only ever scrolls down, so a move up is the reader's, however small: a
+            // mouse wheel moves a few points at a time. A move up that lands exactly on the end is the
+            // conversation getting shorter, not the reader.
+            if new.offset < old.offset - 0.5, new.offset < new.maxOffset - 1 {
                 pinnedToBottom = false
+            } else if new.isNearBottom {
+                pinnedToBottom = true
             }
         }
         // Only the reader's own scrolling shows the bar, not the conversation following a reply.
