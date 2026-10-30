@@ -148,7 +148,11 @@ final class MiniWindowController: ObservableObject {
             panel.makeKey()
         case .hide:
             panel.orderOut(nil)
-            returnFocusToPreviousApp()
+            // When the full window takes over, Spot Chat keeps focus. Hiding the app here would race the
+            // full window's activation and leave it behind other apps, half drawn.
+            if !state.isFullWindowOpen {
+                returnFocusToPreviousApp()
+            }
         case let .appendUserMessage(text, conversationID):
             inputActions.send(text: text, to: session, newTopicID: conversationID)
         case .clearDraft:

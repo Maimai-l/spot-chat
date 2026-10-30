@@ -656,5 +656,6 @@ final class SpotChatUITests: XCTestCase {
         // The replies render again at the new width.
         RunLoop.current.run(until: Date().addingTimeInterval(1.5))
         attachScreenshot("Full window")
+        XCTAssertEqual(app.state, .runningForeground, "The full window comes to the front")
     }
 }

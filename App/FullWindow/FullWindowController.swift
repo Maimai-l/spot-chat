@@ -140,6 +140,8 @@ final class FullWindowController: NSObject, ObservableObject, NSWindowDelegate {
         window.title = String(localized: "Spot Chat")
         window.toolbarStyle = .unified
         window.titlebarSeparatorStyle = .none
+        // No bar background, even while the window is inactive.
+        window.titlebarAppearsTransparent = true
         window.minSize = NSSize(width: 720, height: 480)
         window.isReleasedWhenClosed = false
         window.delegate = self
