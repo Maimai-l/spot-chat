@@ -304,7 +304,8 @@ struct SmallIconButton: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .opacity(showsActions ? 1 : 0)
+        // Nearly, not fully, transparent: SwiftUI drops fully transparent views from accessibility.
+        .opacity(showsActions ? 1 : 0.001)
         .animation(.easeOut(duration: 0.12), value: showsActions)
         .help(label)
         .accessibilityLabel(Text(label))

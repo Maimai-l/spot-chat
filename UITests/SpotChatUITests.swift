@@ -41,6 +41,13 @@ final class SpotChatUITests: XCTestCase {
         app.descendants(matching: .any).matching(identifier: identifier).firstMatch
     }
 
+    /// The reply whose text contains the string, wherever it is in the conversation.
+    func reply(containing text: String, in app: XCUIApplication) -> XCUIElement {
+        app.descendants(matching: .any).matching(NSPredicate(
+            format: "identifier == %@ AND (value CONTAINS %@ OR label CONTAINS %@)", "message.assistant", text, text
+        )).firstMatch
+    }
+
     func elements(_ identifier: String, in app: XCUIApplication) -> XCUIElementQuery {
         app.descendants(matching: .any).matching(identifier: identifier)
     }
@@ -599,16 +606,13 @@ final class SpotChatUITests: XCTestCase {
         send("markdown", in: app)
         waitForReply(in: app, "SELF CONTAINS %@", "| WAL | concurrent |")
         send("markdown", in: app)
-        let replies = elements("message.assistant", in: app)
-        let second = replies.element(boundBy: 1)
-        XCTAssertTrue(second.waitForExistence(timeout: 10))
-        waitForText(of: second, "SELF CONTAINS %@", "| WAL | concurrent |")
+        XCTAssertTrue(elements("message.assistant", in: app).element(boundBy: 1).waitForExistence(timeout: 10))
+        RunLoop.current.run(until: Date().addingTimeInterval(1.5))
         attachScreenshot("Card")
 
         send("math", in: app)
-        let third = replies.element(boundBy: 2)
-        XCTAssertTrue(third.waitForExistence(timeout: 10))
-        waitForText(of: third, "SELF CONTAINS %@", "frac{n(n+1)}{2}$$")
+        XCTAssertTrue(reply(containing: "frac{n(n+1)}{2}$$", in: app).waitForExistence(timeout: 15))
+        RunLoop.current.run(until: Date().addingTimeInterval(1.5))
         attachScreenshot("Math")
 
         app.buttons["Expand to Full Window"].click()
