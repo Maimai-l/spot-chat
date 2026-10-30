@@ -130,6 +130,12 @@ final class SpotChatUITests: XCTestCase {
         XCTAssertTrue(element("commandText", in: app).exists)
         RunLoop.current.run(until: Date().addingTimeInterval(1))
         attachScreenshot("Commands")
+
+        app.buttons["Expand to Full Window"].click()
+        XCTAssertTrue(element("collapseToMini", in: app).waitForExistence(timeout: 10))
+        XCTAssertTrue(element("commandFolder", in: app).waitForExistence(timeout: 5), "The full window runs commands in the same folder")
+        RunLoop.current.run(until: Date().addingTimeInterval(1.5))
+        attachScreenshot("Commands full window")
     }
 
     func testCommandOutsideTheFolderAsksFirstAndRunsOnceAllowed() {

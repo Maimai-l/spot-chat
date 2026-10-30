@@ -303,13 +303,10 @@ struct CommandFolderChip: View {
             Divider()
             Button("Stop Running Commands", action: turnOff)
         } label: {
-            HStack(spacing: 5) {
-                Image(systemName: "apple.terminal")
-                    .font(.system(size: 12))
-                Text("Run Commands \(folder.lastPathComponent)")
-                    .font(.system(size: 13))
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+            // Where there is no room for the whole label, the icon stands for "Run Commands".
+            ViewThatFits(in: .horizontal) {
+                label(Text("Run Commands \(folder.lastPathComponent)"))
+                label(Text(folder.lastPathComponent))
             }
             .foregroundStyle(Color.accentColor)
             .padding(.horizontal, 10)
@@ -323,5 +320,16 @@ struct CommandFolderChip: View {
         .fixedSize(horizontal: false, vertical: true)
         .help(PathTile.shortPath(of: folder))
         .accessibilityIdentifier("commandFolder")
+    }
+
+    private func label(_ text: Text) -> some View {
+        HStack(spacing: 5) {
+            Image(systemName: "apple.terminal")
+                .font(.system(size: 12))
+            text
+                .font(.system(size: 13))
+                .lineLimit(1)
+                .truncationMode(.middle)
+        }
     }
 }
