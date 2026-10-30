@@ -96,11 +96,28 @@ public actor CommandAgent {
     /// Set when the user stops the turn: what fails from then on was stopped.
     private var isCancelling = false
 
+    /// dsh's session updates in the order it sent them, and marks for catching up with them.
+    private enum Inbound: Sendable {
+        case update(SessionUpdate)
+        case caughtUp(CheckedContinuation<Void, Never>)
+    }
+    private let inbound: AsyncStream<Inbound>
+    private let inboundSink: AsyncStream<Inbound>.Continuation
+    private var inboundReader: Task<Void, Never>?
+
     public init(runtime: CommandRuntime, options: CommandAgentOptions, folder: URL, approver: @escaping Approver) {
         self.runtime = runtime
         self.options = options
         self.folder = folder
         self.approver = approver
+        (inbound, inboundSink) = AsyncStream.makeStream()
+    }
+
+    /// Returns once every update read so far has been handled.
+    private func catchUp() async {
+        await withCheckedContinuation { continuation in
+            inboundSink.yield(.caughtUp(continuation))
+        }
     }
 
     public var isRunning: Bool {
@@ -130,7 +147,27 @@ public actor CommandAgent {
             Task { await self?.noteError(text) }
         }
 
-        let transport = PipeTransport(reading: output.fileHandleForReading, writing: input.fileHandleForWriting)
+        let sink = inboundSink
+        let transport = PipeTransport(
+            reading: output.fileHandleForReading, writing: input.fileHandleForWriting, ordered: ["session/update"]
+        ) { notification in
+            guard let params = notification.params,
+                  let data = try? JSONEncoder().encode(params),
+                  let note = try? JSONDecoder().decode(SessionNotification.self, from: data)
+            else { return }
+            sink.yield(.update(note.update))
+        }
+        if inboundReader == nil {
+            let updates = inbound
+            inboundReader = Task { [weak self] in
+                for await item in updates {
+                    switch item {
+                    case let .update(update): await self?.handle(update)
+                    case let .caughtUp(continuation): continuation.resume()
+                    }
+                }
+            }
+        }
         // A turn can run for a long time; it ends when dsh answers or exits.
         let rpc = ACPProtocol(transport: transport, defaultTimeoutSeconds: 7 * 24 * 3600)
         process.terminationHandler = { [weak self] _ in
@@ -140,13 +177,6 @@ public actor CommandAgent {
         self.process = process
         self.rpc = rpc
 
-        await rpc.onNotification(method: "session/update") { [weak self] notification in
-            guard let params = notification.params,
-                  let data = try? JSONEncoder().encode(params),
-                  let note = try? JSONDecoder().decode(SessionNotification.self, from: data)
-            else { return }
-            await self?.handle(note.update)
-        }
         await rpc.onRequest(method: "session/request_permission", requestType: RequestPermissionRequest.self) { [weak self] request in
             guard let self else { return RequestPermissionResponse(outcome: .cancelled) }
             return await self.answer(request)
@@ -208,6 +238,8 @@ public actor CommandAgent {
         let response = try await rpc.sendRequest(
             method: "session/prompt", params: PromptRequest(sessionId: SessionId(value: sessionID), prompt: blocks)
         )
+        // The updates dsh sent before its answer are part of this turn.
+        await catchUp()
         var stopped = isCancelling
         if case let .object(result) = response.result, case let .string(reason)? = result["stopReason"] {
             stopped = reason == "cancelled"
@@ -296,6 +328,8 @@ public actor CommandAgent {
     }
 
     private func answer(_ request: RequestPermissionRequest) async -> RequestPermissionResponse {
+        // dsh announces the command before asking about it.
+        await catchUp()
         let id = request.toolCall.toolCallId.value
         guard var run = runs[id] else { return Self.choose(.deny, from: request.options) }
         run.state = .waitingForApproval

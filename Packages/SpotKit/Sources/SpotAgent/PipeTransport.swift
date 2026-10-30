@@ -4,6 +4,9 @@ import Foundation
 
 /// ACP's newline-delimited JSON-RPC over a child process's pipes. Lines are read as data arrives,
 /// so no thread waits on the pipe.
+///
+/// Notifications named in `ordered` go to `onOrderedNotification` instead, in the order they were read:
+/// the SDK hands each notification to a task of its own, which can reorder a reply's chunks.
 final class PipeTransport: Transport, @unchecked Sendable {
     enum Failure: Error {
         case closed
@@ -22,10 +25,18 @@ final class PipeTransport: Transport, @unchecked Sendable {
     private let decoder = JSONDecoder()
     private let encoder = JSONEncoder()
 
+    private let ordered: Set<String>
+    private let onOrderedNotification: @Sendable (JsonRpcNotification) -> Void
+
     /// `reading` is the child's standard output, `writing` its standard input.
-    init(reading: FileHandle, writing: FileHandle) {
+    init(
+        reading: FileHandle, writing: FileHandle, ordered: Set<String> = [],
+        onOrderedNotification: @escaping @Sendable (JsonRpcNotification) -> Void = { _ in }
+    ) {
         self.reading = reading
         self.writing = writing
+        self.ordered = ordered
+        self.onOrderedNotification = onOrderedNotification
         (state, stateContinuation) = AsyncStream.makeStream()
         (messages, messageContinuation) = AsyncStream.makeStream()
         stateContinuation.yield(.created)
@@ -67,7 +78,10 @@ final class PipeTransport: Transport, @unchecked Sendable {
             return lines
         }
         for line in lines where !line.isEmpty {
-            if let message = try? decoder.decode(JsonRpcMessage.self, from: line) {
+            guard let message = try? decoder.decode(JsonRpcMessage.self, from: line) else { continue }
+            if case let .notification(notification) = message, ordered.contains(notification.method) {
+                onOrderedNotification(notification)
+            } else {
                 messageContinuation.yield(message)
             }
         }
