@@ -496,6 +496,27 @@ final class SpotChatUITests: XCTestCase {
         XCTAssertEqual(text(of: input), "first line\nsecond line\nthird line")
     }
 
+    func testCardGrowsUpFromTheInputAndClosesBackToIt() {
+        let app = launch(resetState: true)
+        let input = composer(in: app)
+        XCTAssertTrue(input.waitForExistence(timeout: 10))
+        let capsuleInput = input.frame
+
+        send("grow up", in: app)
+        waitForReply(in: app, "SELF == %@", "Echo: grow up")
+        let cardInput = composer(in: app).frame
+        XCTAssertEqual(cardInput.maxY, capsuleInput.maxY, accuracy: 20, "The input stays where it was")
+        XCTAssertLessThan(app.buttons["New Chat"].frame.minY, cardInput.minY - 300, "The card grows upward")
+
+        app.buttons["Close"].click()
+        XCTAssertTrue(app.buttons["New Chat"].waitForNonExistence(timeout: 5))
+        app.terminate()
+        let again = launch(resetState: false)
+        let reopened = composer(in: again)
+        XCTAssertTrue(reopened.waitForExistence(timeout: 10))
+        XCTAssertEqual(reopened.frame.maxY, capsuleInput.maxY, accuracy: 2, "The capsule opens at the same spot")
+    }
+
     func testEditingAQuestionReplacesTheReply() {
         let app = launch(resetState: true)
         send("first question", in: app)
