@@ -162,11 +162,6 @@ struct UserMessageView: View {
                         .strokeBorder(Color.accentColor, lineWidth: 1.5)
                 )
             HStack(spacing: 6) {
-                Image(systemName: "info.circle")
-                    .font(.system(size: 15))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 28, height: 28)
-                    .help(Text("Replies after this message are replaced."))
                 Button(action: cancel) {
                     Text("Cancel")
                         .font(.system(size: 14))

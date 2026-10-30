@@ -561,16 +561,6 @@
         }
       }
     },
-    "Replies after this message are replaced.": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "这条消息之后的回复会被替换。"
-          }
-        }
-      }
-    },
     "Retry": {
       "localizations": {
         "zh-Hans": {
