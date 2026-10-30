@@ -20,10 +20,22 @@ struct FullWindowView: View {
                     MessageList(
                         session: session,
                         scrollRequest: controller.scrollRequest,
-                        topInset: 12,
+                        topInset: 60,
                         horizontalPadding: 40,
                         maxContentWidth: 720
                     )
+                    // The top bar has no background, so messages fade out as they scroll under it.
+                    .mask {
+                        VStack(spacing: 0) {
+                            LinearGradient(
+                                stops: [.init(color: .clear, location: 0.55), .init(color: .black, location: 1)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                            .frame(height: 60)
+                            Color.black
+                        }
+                    }
                 }
                 ComposerView(composer: composer, session: session, app: app, actions: actions)
                     .background(
@@ -38,7 +50,10 @@ struct FullWindowView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color(nsColor: .textBackgroundColor))
-            .navigationTitle(title)
+            // As in Gemini: no title and no bar background, just the button at the end. An empty title
+            // (rather than none) keeps the button at the trailing edge.
+            .navigationTitle("")
+            .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button {
@@ -55,14 +70,6 @@ struct FullWindowView: View {
                 }
             }
         }
-    }
-}
-
-extension FullWindowView {
-    /// The conversation's name, which also names the window in the Window menu.
-    var title: String {
-        let name = app.topics.first { $0.id == session.topicID }?.name ?? ""
-        return name.isEmpty ? String(localized: "Spot Chat") : name
     }
 }
 

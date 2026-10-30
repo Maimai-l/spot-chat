@@ -11,6 +11,7 @@ The reply depends on the last user message:
   "fail"                   -> HTTP 500 with an error message
   "markdown"               -> a heading, a list, a code block and a table
   "math"                   -> inline and display LaTeX next to prices
+  a conversation title request -> "Mock title" (not kept as the last request)
   anything else            -> "Echo: <text>" in three chunks
 GET /v1/last-request returns the body of the last chat request.
 """
@@ -56,10 +57,20 @@ def last_user_parts(body):
     return []
 
 
+TITLE_INSTRUCTION = "Write a title for the conversation below."
+
+
+def is_title_request(body):
+    parts = last_user_parts(body)
+    return any(p.get("text", "").startswith(TITLE_INSTRUCTION) for p in parts if p.get("type") == "text")
+
+
 def reply_chunks(body):
     parts = last_user_parts(body)
     images = [p for p in parts if p.get("type") == "image_url"]
     text = "\n".join(p.get("text", "") for p in parts if p.get("type") == "text")
+    if text.startswith(TITLE_INSTRUCTION):
+        return ["Mock ", "title"], 0.02
     if images:
         return [f"I can see {len(images)} image(s)."], 0.02
     match = re.search(r"\[File: ([^\]]+)\]", text)
@@ -119,9 +130,10 @@ class Handler(BaseHTTPRequestHandler):
         if not self.path.endswith("/chat/completions"):
             self.send_json(404, {"error": {"message": "Not found", "type": "invalid_request_error"}})
             return
-        with lock:
-            last_request.clear()
-            last_request.update(body)
+        if not is_title_request(body):
+            with lock:
+                last_request.clear()
+                last_request.update(body)
         if not self.authorized():
             return
         if "fail" in "\n".join(p.get("text", "") for p in last_user_parts(body)).split():

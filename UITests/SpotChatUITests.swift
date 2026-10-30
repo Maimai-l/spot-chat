@@ -572,12 +572,14 @@ final class SpotChatUITests: XCTestCase {
         var app = launch(resetState: true)
         send("remember me", in: app)
         waitForReply(in: app, "SELF == %@", "Echo: remember me")
+        // The model names the conversation after its first reply.
+        RunLoop.current.run(until: Date().addingTimeInterval(1.5))
         app.terminate()
 
         app = launch(resetState: false, fullWindow: true)
         let item = element("historyItem", in: app)
         XCTAssertTrue(item.waitForExistence(timeout: 10))
-        XCTAssertEqual(text(of: item), "remember me")
+        XCTAssertEqual(text(of: item), "Mock title", "Named by the model, not after the first message")
         item.click()
         waitForReply(in: app, "SELF == %@", "Echo: remember me")
 

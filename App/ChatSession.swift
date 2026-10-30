@@ -143,6 +143,32 @@ final class ChatSession: ObservableObject {
         generation = nil
         isGenerating = false
         app.historyDidChange()
+        if failure == nil, !cancelled { nameTopicAfterFirstReply() }
+    }
+
+    /// After the first reply, asks the model for a short title; the first line of the question stands in
+    /// until then. A name the user typed is never replaced.
+    private func nameTopicAfterFirstReply() {
+        guard let topicID, messages.count == 2,
+              messages[0].role == .user, messages[1].role == .assistant, messages[1].status == .success,
+              case let .success((client, modelName)) = app.responder(for: app.currentModel)
+        else { return }
+        let question = messages[0].text.isEmpty ? (messages[0].attachments.first?.displayName ?? "") : messages[0].text
+        let request = TopicTitle.request(model: modelName, question: question, answer: messages[1].text)
+        let app = app
+        Task {
+            var reply = ""
+            do {
+                for try await chunk in client.reply(to: request) {
+                    reply += chunk
+                }
+            } catch {
+                return
+            }
+            guard let title = TopicTitle.clean(reply) else { return }
+            try? app.topicService.setAutomaticName(topicID, to: title)
+            app.historyDidChange()
+        }
     }
 
     private func updateReply(_ id: UUID, _ change: (inout ChatMessage) -> Void) {

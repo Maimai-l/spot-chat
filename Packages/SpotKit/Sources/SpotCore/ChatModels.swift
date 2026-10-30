@@ -118,3 +118,52 @@ public enum TopicName {
         return String(line.prefix(maxLength)) + "…"
     }
 }
+
+/// Names a conversation from its first exchange by asking the model, as Gemini and Cherry Studio do.
+/// The first line of the first message stands in until the title arrives.
+public enum TopicTitle {
+    /// Starts every naming request; also how the test server recognizes one.
+    public static let instruction = "Write a title for the conversation below."
+
+    /// A one-message request: the instruction, then the question and the start of the answer.
+    public static func request(model: String, question: String, answer: String) -> ChatRequest {
+        let prompt = """
+            \(instruction) Use at most 8 words, in the language the user wrote in. \
+            Reply with the title only, with no quotes, no punctuation at the end and no explanation.
+
+            User: \(question.prefix(1_000))
+
+            Assistant: \(answer.prefix(1_500))
+            """
+        return ChatRequest(model: model, messages: [ChatRequestMessage(role: .user, parts: [.text(prompt)])])
+    }
+
+    /// The title in a model's reply, without reasoning, quotes, labels or a final full stop.
+    /// Nil when nothing usable is left.
+    public static func clean(_ reply: String) -> String? {
+        var text = reply
+        while let open = text.range(of: "<think>") {
+            if let close = text.range(of: "</think>", range: open.upperBound..<text.endIndex) {
+                text.removeSubrange(open.lowerBound..<close.upperBound)
+            } else {
+                text.removeSubrange(open.lowerBound..<text.endIndex)
+            }
+        }
+        guard var line = text
+            .split(whereSeparator: \.isNewline)
+            .map({ $0.trimmingCharacters(in: .whitespaces) })
+            .first(where: { !$0.isEmpty })
+        else { return nil }
+        for label in ["Title:", "title:", "标题：", "标题:"] where line.hasPrefix(label) {
+            line = String(line.dropFirst(label.count)).trimmingCharacters(in: .whitespaces)
+        }
+        let wrappers = CharacterSet(charactersIn: "\"'`*#“”‘’「」『』《》")
+        line = line.trimmingCharacters(in: wrappers.union(.whitespaces))
+        while let last = line.last, ".。!！?？:：;；,，".contains(last) {
+            line.removeLast()
+        }
+        line = line.trimmingCharacters(in: wrappers.union(.whitespaces))
+        guard !line.isEmpty else { return nil }
+        return line.count > TopicName.maxLength ? String(line.prefix(TopicName.maxLength)) + "…" : line
+    }
+}

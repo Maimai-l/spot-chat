@@ -150,3 +150,33 @@ extension ProviderEndpoint {
         #expect(RetentionPolicy(storedMinutes: -3) == .clearImmediately)
     }
 }
+
+@Suite struct TopicTitleTests {
+    @Test func cleansTheModelsReply() {
+        #expect(TopicTitle.clean("\"Python Snake Game\"") == "Python Snake Game")
+        #expect(TopicTitle.clean("Title: Friendly Greeting.") == "Friendly Greeting")
+        #expect(TopicTitle.clean("「敏感性分析是什么」") == "敏感性分析是什么")
+        #expect(TopicTitle.clean("标题：时区换算。") == "时区换算")
+        #expect(TopicTitle.clean("**C++ Modulo Operator**\nIt explains…") == "C++ Modulo Operator")
+        #expect(TopicTitle.clean("<think>The user greets me.</think>\n\nFriendly Greeting") == "Friendly Greeting")
+        #expect(TopicTitle.clean("<think>still thinking") == nil)
+        #expect(TopicTitle.clean("  \n ") == nil)
+    }
+
+    @Test func longTitlesAreShortened() {
+        let title = TopicTitle.clean(String(repeating: "word ", count: 20))
+        #expect(title?.count == TopicName.maxLength + 1)
+    }
+
+    @Test func requestCarriesTheInstructionAndTheExchange() {
+        let request = TopicTitle.request(model: "m", question: "hi, write a python game", answer: "Here is a game")
+        #expect(request.model == "m")
+        guard case let .text(prompt) = request.messages.first?.parts.first else {
+            Issue.record("No text")
+            return
+        }
+        #expect(prompt.hasPrefix(TopicTitle.instruction))
+        #expect(prompt.contains("User: hi, write a python game"))
+        #expect(prompt.contains("Assistant: Here is a game"))
+    }
+}
