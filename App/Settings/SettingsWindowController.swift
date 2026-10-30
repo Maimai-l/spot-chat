@@ -46,6 +46,8 @@ final class SettingsWindowController {
 
     private func item(_ view: some View, label: String, symbol: String) -> NSTabViewItem {
         let controller = NSHostingController(rootView: view.frame(width: Self.contentSize.width, height: Self.contentSize.height))
+        // The window takes its title from the tab shown.
+        controller.title = label
         let item = NSTabViewItem(viewController: controller)
         item.label = label
         item.image = NSImage(systemSymbolName: symbol, accessibilityDescription: label)

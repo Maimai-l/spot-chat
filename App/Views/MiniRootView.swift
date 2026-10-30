@@ -162,15 +162,12 @@ struct ModelMenu: View {
                     // Worded as in DeepSeek's harness (dsh); each model keeps its own level, as in Cherry Studio.
                     Menu {
                         ForEach(ThinkingLevel.choices(isDeepSeek: app.isDeepSeek(current)), id: \.self) { level in
-                            Toggle(isOn: Binding(
+                            // dsh's description shows as the item's tooltip; a second line renders as a blank gap.
+                            Toggle(level.label, isOn: Binding(
                                 get: { app.thinking(for: current) == level },
                                 set: { isOn in if isOn { app.setThinking(level, for: current) } }
-                            )) {
-                                Text(level.label)
-                                if let detail = level.detail {
-                                    Text(detail)
-                                }
-                            }
+                            ))
+                            .help(level.detail ?? "")
                         }
                     } label: {
                         Label("Effort", systemImage: "brain")

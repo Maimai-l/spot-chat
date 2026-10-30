@@ -246,6 +246,7 @@ struct GeneralSettingsView: View {
                     TextEditor(text: Binding(get: { app.systemPrompt }, set: { app.setSystemPrompt($0) }))
                         .font(.body)
                         .scrollContentBackground(.hidden)
+                        .scrollIndicators(.never)
                         .padding(6)
                         .frame(minHeight: 80, maxHeight: 140)
                         .background(
