@@ -14,6 +14,10 @@ struct MessageList: View {
     @State private var position = ScrollPosition(edge: .bottom)
     @State private var metrics = ScrollMetrics()
     @State private var scrolling = false
+    /// Bumped when the reader moves the conversation, including with a mouse wheel.
+    @State private var readerScrolls = 0
+    /// Scrolling until this moment follows a reply and doesn't show the scroll bar.
+    @State private var followingUntil = Date.distantPast
 
     var body: some View {
         ScrollView {
@@ -44,8 +48,11 @@ struct MessageList: View {
                 content: geometry.contentSize.height,
                 visible: geometry.containerSize.height
             )
-        } action: { _, new in
+        } action: { old, new in
             metrics = new
+            if abs(new.offset - old.offset) > 0.5, Date() > followingUntil {
+                readerScrolls += 1
+            }
         }
         // Only the reader's own scrolling shows the bar, not the conversation following a reply.
         .onScrollPhaseChange { _, phase in
@@ -55,22 +62,28 @@ struct MessageList: View {
             ScrollIndicator(
                 metrics: metrics,
                 isScrolling: scrolling,
+                readerScrolls: readerScrolls,
                 topInset: max(topInset - 16, 8),
                 scrollTo: { position.scrollTo(y: $0) }
             )
         }
         .onChange(of: scrollRequest) {
-            position.scrollTo(edge: .bottom)
+            followBottom()
         }
         // A reply's height is known only once its page has rendered, after the message changed.
         .environment(\.replyDidResize) { id in
             if id == session.messages.last?.id {
-                position.scrollTo(edge: .bottom)
+                followBottom()
             }
         }
         .onAppear {
-            position.scrollTo(edge: .bottom)
+            followBottom()
         }
+    }
+
+    private func followBottom() {
+        followingUntil = Date().addingTimeInterval(0.4)
+        position.scrollTo(edge: .bottom)
     }
 }
 
@@ -87,6 +100,8 @@ struct ScrollMetrics: Equatable {
 struct ScrollIndicator: View {
     let metrics: ScrollMetrics
     let isScrolling: Bool
+    /// Changes each time the reader moves the conversation; shows the bar for a moment.
+    var readerScrolls = 0
     var topInset: CGFloat = 8
     var bottomInset: CGFloat = 8
     let scrollTo: (CGFloat) -> Void
@@ -136,6 +151,10 @@ struct ScrollIndicator: View {
             } else {
                 scheduleHide()
             }
+        }
+        .onChange(of: readerScrolls) {
+            withAnimation(.easeOut(duration: 0.12)) { shown = true }
+            scheduleHide()
         }
         .onChange(of: hovering) {
             if !hovering { scheduleHide() }
