@@ -83,6 +83,14 @@ struct CardView: View {
                     }
                 header
             }
+            // A command that waits for the user is asked about just above the input.
+            if let run = session.pendingApproval {
+                CommandApprovalCard(run: run, folderName: session.commandFolder?.lastPathComponent ?? "") {
+                    session.answerApproval($0)
+                }
+                .padding(.horizontal, 10)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
             ComposerView(
                 composer: composer, session: session, app: app, actions: controller.composerActions,
                 onTextHeightChange: controller.composerTextHeightChanged
@@ -94,6 +102,7 @@ struct CardView: View {
                 )
                 .padding(10)
         }
+        .animation(.easeOut(duration: 0.18), value: session.pendingApproval?.id)
         .background(WindowDragArea(onDragEnd: controller.panelWasDragged))
         .background(Color(nsColor: .windowBackgroundColor).opacity(0.72))
         .background(VisualEffectBackground(material: .popover))

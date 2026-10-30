@@ -1204,16 +1204,6 @@
         }
       }
     },
-    "Deny": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "拒绝"
-          }
-        }
-      }
-    },
     "Exited with code %lld": {
       "localizations": {
         "zh-Hans": {
@@ -1302,16 +1292,6 @@
         }
       }
     },
-    "Run this command outside %@?": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "允许在 %@ 之外运行这条命令？"
-          }
-        }
-      }
-    },
     "Running commands needs a DeepSeek API key. Add one in Settings.": {
       "localizations": {
         "zh-Hans": {
@@ -1382,32 +1362,12 @@
         }
       }
     },
-    "This one runs without the sandbox": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "这一次不受沙盒限制"
-          }
-        }
-      }
-    },
     "Use a Tool": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "使用工具"
-          }
-        }
-      }
-    },
-    "Waiting for your answer": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "等待你确认"
           }
         }
       }
@@ -1442,12 +1402,6 @@
         }
       }
     },
-    "esc": {
-      "shouldTranslate": false
-    },
-    "⌘↩": {
-      "shouldTranslate": false
-    },
     "Show in Finder": {
       "localizations": {
         "zh-Hans": {
@@ -1464,6 +1418,76 @@
           "stringUnit": {
             "state": "translated",
             "value": "运行命令"
+          }
+        }
+      }
+    },
+    "Spot wants to run a command outside %@": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spot 想在 %@ 之外运行一条命令"
+          }
+        }
+      }
+    },
+    "Command": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "命令"
+          }
+        }
+      }
+    },
+    "Reason": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "原因"
+          }
+        }
+      }
+    },
+    "Sandbox": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "沙盒"
+          }
+        }
+      }
+    },
+    "Off for this command": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这一次不受限制"
+          }
+        }
+      }
+    },
+    "Decline": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拒绝"
+          }
+        }
+      }
+    },
+    "Needs your input": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "需要你确认"
           }
         }
       }

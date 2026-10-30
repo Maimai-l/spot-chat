@@ -13,17 +13,20 @@ The mini window and the full window use the same parts: the input, the list of c
 
 ## In the conversation
 
+Everything is black, white and gray, as in Claude. The one color marks a step that waits for the user.
+
 - A reply shows its text, then **Ran 2 commands**, folded under one line like Thinking. It is open while the reply is being written.
-- Each command shows its summary from dsh, the command in a code box, and the end of its output. While it runs it has a Stop button; when it ends, how long it took.
-- States: running, succeeded, failed with its exit code, stopped by the sandbox, denied, stopped, and ran outside the folder (in orange).
+- Each command is a gray line: the tool's icon (a spinner while it runs), dsh's summary, and the time it took. Below are the command in a code box and the end of its output. A running command has a Stop button.
+- How a command ended is said in gray words, not colors: Stopped by the sandbox, Denied, Stopped, Ran outside the folder, Exited with code 1.
+- A command that waits for the user shows **Needs your input**: an orange dot and an outlined label, the only color on screen.
 
 ## Asking before going outside the folder
 
-dsh first runs every command in its sandbox. When the sandbox stops one and dsh asks to run it without the sandbox, a card appears in the reply:
+dsh first runs every command in its sandbox. When the sandbox stops one and dsh asks to run it without the sandbox, a card docks above the input, as Claude's approval card does:
 
-- Title: **Run this command outside Movies?**
-- dsh's reason, the command, and the orange note **This one runs without the sandbox**.
-- **Deny** (Esc) and **Allow Once** (⌘↩). There is no "always allow".
+- One line: **Spot wants to run a command outside Movies**, with a chevron that shows a long command in full.
+- A gray block of label and value rows: Command, Reason (dsh's justification), Sandbox: Off for this command.
+- **Decline** (Esc) on the left in gray, **Allow Once** (⌘ ↩) on the right in black, white in dark mode. The keys are shown in small boxes. There is no "always allow".
 - Stopping the reply while the card is open answers no.
 
 ## Full window
@@ -36,4 +39,4 @@ dsh first runs every command in its sandbox. When the sandbox stops one and dsh 
 
 ## Icons
 
-Buttons and labels use SF Symbols, never emoji: `apple.terminal` for running commands, `paperclip` for adding paths, `checkmark.circle.fill`, `xmark.circle.fill`, `hand.raised.circle.fill` and `stop.circle.fill` for command states, `exclamationmark.triangle.fill` for the note on the approval card. Files show their Finder icon. The mockups draw these as plain shapes because a browser has no SF Symbols.
+Buttons and labels use SF Symbols, never emoji, all in gray: `apple.terminal` for running commands and shell commands, `magnifyingglass` for web searches, `globe` for opening a page, `paperclip` for adding paths. Files show their Finder icon. The mockups draw these as plain shapes because a browser has no SF Symbols.

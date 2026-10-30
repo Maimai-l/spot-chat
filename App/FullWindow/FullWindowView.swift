@@ -40,6 +40,15 @@ struct FullWindowView: View {
                         }
                     }
                 }
+                if let run = session.pendingApproval {
+                    CommandApprovalCard(run: run, folderName: session.commandFolder?.lastPathComponent ?? "") {
+                        session.answerApproval($0)
+                    }
+                    .frame(maxWidth: 720)
+                    .padding(.horizontal, 40)
+                    .padding(.top, 6)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
                 ComposerView(composer: composer, session: session, app: app, actions: actions)
                     .background(
                         RoundedRectangle(cornerRadius: 28, style: .continuous)

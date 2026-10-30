@@ -65,9 +65,10 @@ struct CommandRunRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
-                CommandStateIcon(state: run.state)
+                CommandStateIcon(run: run)
                 Text(title)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
                     .lineLimit(2)
                 Spacer(minLength: 8)
                 if run.state == .running {
@@ -91,10 +92,13 @@ struct CommandRunRow: View {
                     .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.primary.opacity(0.05)))
                     .accessibilityIdentifier("commandText")
             }
+            if run.state == .waitingForApproval {
+                NeedsInputPill()
+            }
             if let note {
                 Text(note)
                     .font(.system(size: 12))
-                    .foregroundStyle(run.outsideFolder ? Color.orange : .secondary)
+                    .foregroundStyle(.secondary)
                     .accessibilityIdentifier("commandNote")
             }
             if !run.output.isEmpty {
@@ -127,7 +131,7 @@ struct CommandRunRow: View {
         case .blocked: return String(localized: "Stopped by the sandbox")
         case .denied: return String(localized: "Denied")
         case .stopped: return String(localized: "Stopped")
-        case .waitingForApproval: return String(localized: "Waiting for your answer")
+        case .waitingForApproval: return nil
         case .running, .succeeded, .failed:
             if run.outsideFolder { return String(localized: "Ran outside the folder") }
             if run.state == .failed, let code = run.exitCode { return String(localized: "Exited with code \(code)") }
@@ -143,92 +147,201 @@ struct CommandRunRow: View {
     }
 }
 
+/// What the command is, in gray as the rest of the conversation: a spinner while it runs, otherwise
+/// the tool's icon. How it ended is said in words below, not in colors.
 struct CommandStateIcon: View {
-    let state: CommandRun.State
+    let run: CommandRun
 
     var body: some View {
         Group {
-            switch state {
-            case .running, .waitingForApproval:
+            if !run.isFinished {
                 ProgressView().controlSize(.mini)
-            case .succeeded:
-                Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-            case .failed:
-                Image(systemName: "xmark.circle.fill").foregroundStyle(.red)
-            case .blocked, .denied:
-                Image(systemName: "hand.raised.circle.fill").foregroundStyle(.secondary)
-            case .stopped:
-                Image(systemName: "stop.circle.fill").foregroundStyle(.secondary)
+            } else {
+                Image(systemName: symbol)
             }
         }
-        .font(.system(size: 14))
+        .font(.system(size: 12))
+        .foregroundStyle(.secondary)
         .frame(width: 16, height: 16)
+    }
+
+    private var symbol: String {
+        switch run.tool {
+        case .shell: return "apple.terminal"
+        case .webSearch: return "magnifyingglass"
+        case .webFetch: return "globe"
+        case .other: return "wrench.and.screwdriver"
+        }
     }
 }
 
-/// Asks before dsh runs a command outside the folder. That one runs without the sandbox.
+/// Asks before dsh runs a command outside the folder, docked above the input as Claude does: what it
+/// wants in one line, the details in a gray block, then Decline and Allow Once.
 struct CommandApprovalCard: View {
     let run: CommandRun
     let folderName: String
     let answer: (CommandApproval) -> Void
+    @State private var showsWholeCommand = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Run this command outside \(folderName)?")
-                .font(.system(size: 15, weight: .semibold))
-            if let justification = run.justification, !justification.isEmpty {
-                Text(justification)
-                    .font(.system(size: 13))
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+            Button {
+                withAnimation(.easeOut(duration: 0.15)) { showsWholeCommand.toggle() }
+            } label: {
+                HStack(spacing: 6) {
+                    Text("Spot wants to run a command outside \(folderName)")
+                        .font(.system(size: 14))
+                        .foregroundStyle(.primary)
+                        .multilineTextAlignment(.leading)
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .rotationEffect(.degrees(showsWholeCommand ? 180 : 0))
+                }
+                .contentShape(Rectangle())
             }
-            Text(run.detail)
-                .font(.system(size: 12, design: .monospaced))
-                .textSelection(.enabled)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 8)
-                .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.primary.opacity(0.05)))
-            Label("This one runs without the sandbox", systemImage: "exclamationmark.triangle.fill")
-                .font(.system(size: 12))
-                .foregroundStyle(.orange)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.orange.opacity(0.12)))
-            HStack(spacing: 8) {
-                Spacer()
-                Button {
-                    answer(.deny)
-                } label: {
-                    HStack(spacing: 6) {
-                        Text("Deny")
-                        Text("esc").foregroundStyle(.secondary)
+            .buttonStyle(.plain)
+
+            Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 14, verticalSpacing: 6) {
+                GridRow {
+                    detailLabel("Command")
+                    Text(run.detail)
+                        .font(.system(size: 12, design: .monospaced))
+                        .lineLimit(showsWholeCommand ? nil : 3)
+                        .textSelection(.enabled)
+                        .accessibilityIdentifier("approvalCommand")
+                }
+                if let justification = run.justification, !justification.isEmpty {
+                    GridRow {
+                        detailLabel("Reason")
+                        Text(justification)
                     }
                 }
+                GridRow {
+                    detailLabel("Sandbox")
+                    Text("Off for this command")
+                }
+            }
+            .font(.system(size: 13))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.primary.opacity(0.05)))
+
+            HStack {
+                Button { answer(.deny) } label: {
+                    HStack(spacing: 6) {
+                        Text("Decline")
+                        KeyCaps(keys: ["Esc"])
+                    }
+                }
+                .buttonStyle(ApprovalButtonStyle(prominent: false))
                 .keyboardShortcut(.cancelAction)
                 .accessibilityIdentifier("denyCommand")
-                Button {
-                    answer(.allow)
-                } label: {
+                Spacer()
+                Button { answer(.allow) } label: {
                     HStack(spacing: 6) {
                         Text("Allow Once")
-                        Text("⌘↩").opacity(0.7)
+                        KeyCaps(keys: ["⌘", "↩"])
                     }
                 }
+                .buttonStyle(ApprovalButtonStyle(prominent: true))
                 .keyboardShortcut(.return, modifiers: .command)
-                .buttonStyle(.borderedProminent)
                 .accessibilityIdentifier("allowCommand")
             }
-            .controlSize(.large)
         }
-        .padding(16)
+        .padding(12)
         .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(Color(nsColor: .textBackgroundColor))
-                .shadow(color: .black.opacity(0.08), radius: 8, y: 2)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Color.primary.opacity(0.1))
         )
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("commandApproval")
+    }
+
+    private func detailLabel(_ key: LocalizedStringKey) -> some View {
+        Text(key)
+            .foregroundStyle(.secondary)
+            .gridColumnAlignment(.leading)
+    }
+}
+
+/// The two buttons of the approval card: gray, or black (white in dark mode) for the one that goes ahead.
+struct ApprovalButtonStyle: ButtonStyle {
+    let prominent: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 13, weight: .medium))
+            .foregroundStyle(prominent ? Color(nsColor: .textBackgroundColor) : Color.primary)
+            .padding(.leading, 12)
+            .padding(.trailing, 6)
+            .frame(height: 30)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(prominent ? Color.primary : Color.primary.opacity(0.06))
+            )
+            .opacity(configuration.isPressed ? 0.75 : 1)
+            .environment(\.keyCapsOnDark, prominent)
+    }
+}
+
+/// Keys shown in small boxes after a button's name, such as Esc or ⌘ ↩.
+struct KeyCaps: View {
+    let keys: [String]
+    @Environment(\.keyCapsOnDark) private var onDark
+
+    var body: some View {
+        HStack(spacing: 3) {
+            ForEach(keys, id: \.self) { key in
+                Text(verbatim: key)
+                    .font(.system(size: 11))
+                    .padding(.horizontal, 4)
+                    .frame(minWidth: 18, minHeight: 18)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .stroke(onDark ? Color(nsColor: .textBackgroundColor).opacity(0.35) : Color.primary.opacity(0.15))
+                    )
+                    .opacity(0.8)
+            }
+        }
+        .accessibilityHidden(true)
+    }
+}
+
+private struct KeyCapsOnDarkKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    var keyCapsOnDark: Bool {
+        get { self[KeyCapsOnDarkKey.self] }
+        set { self[KeyCapsOnDarkKey.self] = newValue }
+    }
+}
+
+/// Marks the step that waits for the user, the one color in a conversation of commands.
+struct NeedsInputPill: View {
+    var body: some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(Color.orange)
+                .frame(width: 8, height: 8)
+                .padding(3)
+                .overlay(Circle().stroke(Color.orange.opacity(0.35), lineWidth: 1.5))
+            Text("Needs your input")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Color(red: 0.55, green: 0.36, blue: 0.05))
+                .padding(.horizontal, 9)
+                .padding(.vertical, 3)
+                .overlay(Capsule().stroke(Color.orange.opacity(0.35)))
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("needsInput")
     }
 }
 
@@ -308,10 +421,10 @@ struct CommandFolderChip: View {
                 label(Text("Run Commands \(folder.lastPathComponent)"))
                 label(Text(folder.lastPathComponent))
             }
-            .foregroundStyle(Color.accentColor)
+            .foregroundStyle(.primary)
             .padding(.horizontal, 10)
             .frame(height: 28)
-            .background(Capsule().fill(Color.accentColor.opacity(0.12)))
+            .background(Capsule().fill(Color.primary.opacity(0.07)))
             .contentShape(Capsule())
         }
         .menuStyle(.button)

@@ -1,6 +1,5 @@
 import AppKit
 import SwiftUI
-import SpotAgent
 import SpotCore
 
 /// The conversation, scrolled to the newest message. The system scroll bar is replaced by a thin one
@@ -34,9 +33,6 @@ struct MessageList: View {
                         retry: { session.retry(message.id) },
                         regenerate: { session.regenerateLastReply() },
                         edit: { session.edit(message.id, text: $0) },
-                        approval: message.commands.contains(where: { $0.id == session.pendingApproval?.id }) ? session.pendingApproval : nil,
-                        folderName: session.commandFolder?.lastPathComponent ?? "",
-                        answer: { session.answerApproval($0) },
                         stop: { session.stop() }
                     )
                     .id(message.id)
@@ -254,9 +250,6 @@ struct MessageRow: View {
     let retry: () -> Void
     let regenerate: () -> Void
     let edit: (String) -> Void
-    var approval: CommandRun?
-    var folderName = ""
-    var answer: (CommandApproval) -> Void = { _ in }
     var stop: () -> Void = {}
 
     var body: some View {
@@ -269,9 +262,6 @@ struct MessageRow: View {
                 canRegenerate: isLast && !isGenerating,
                 retry: retry,
                 regenerate: regenerate,
-                approval: approval,
-                folderName: folderName,
-                answer: answer,
                 stop: stop
             )
         }
@@ -421,9 +411,6 @@ struct AssistantMessageView: View {
     let canRegenerate: Bool
     let retry: () -> Void
     let regenerate: () -> Void
-    var approval: CommandRun?
-    var folderName = ""
-    var answer: (CommandApproval) -> Void = { _ in }
     var stop: () -> Void = {}
     @State private var hovering = false
 
@@ -445,9 +432,6 @@ struct AssistantMessageView: View {
             }
             if !message.commands.isEmpty {
                 CommandRunsView(runs: message.commands, isLive: message.status == .pending, stop: stop)
-            }
-            if let approval {
-                CommandApprovalCard(run: approval, folderName: folderName, answer: answer)
             }
             if message.status == .error {
                 ErrorBox(message: message.errorMessage ?? "", retry: retry)
