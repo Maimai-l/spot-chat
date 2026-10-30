@@ -191,6 +191,10 @@ struct HistorySidebar: View {
                 Spacer(minLength: 4)
                 ActivityDot(activity: app.activity[topic.id])
             }
+                // One element for assistive apps: the name, with what the conversation is doing as its value.
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(Text(topic.name.isEmpty ? String(localized: "New Chat") : topic.name))
+                .accessibilityValue(Text(ActivityDot.description(of: app.activity[topic.id])))
                 .contextMenu {
                     Button("Rename…") { controller.beginRename(topic) }
                     Button("Export as Markdown…") { controller.export(topic) }
@@ -224,9 +228,14 @@ struct ActivityDot: View {
             .font(.system(size: 7))
             .foregroundStyle(color)
             .animation(.easeOut(duration: 0.2), value: activity)
-            .accessibilityHidden(activity == nil)
-            .accessibilityLabel(Text(activity == .needsInput ? "Needs your input" : "Working"))
-            .accessibilityIdentifier(activity == .needsInput ? "activity.needsInput" : activity == .working ? "activity.working" : "activity.none")
+    }
+
+    static func description(of activity: TopicActivity?) -> String {
+        switch activity {
+        case .needsInput: return String(localized: "Needs your input")
+        case .working: return String(localized: "Working")
+        case nil: return ""
+        }
     }
 
     private var color: Color {

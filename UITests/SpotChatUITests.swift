@@ -895,9 +895,11 @@ final class SpotChatUITests: XCTestCase {
     func testHistoryShowsWhatAConversationIsDoing() {
         let app = launch(resetState: true, fullWindow: true)
         send("slow", in: app)
-        XCTAssertTrue(element("activity.working", in: app).waitForExistence(timeout: 10), "A gray dot while the reply is made")
+        let row = element("historyItem", in: app)
+        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        waitForText(of: row, "SELF == %@", "Working")
         element("stop", in: app).click()
-        XCTAssertTrue(element("activity.working", in: app).waitForNonExistence(timeout: 5), "No dot once it is idle")
+        waitForText(of: row, "SELF == %@", "slow", timeout: 5)
     }
 
     func testSettingsOpenFromTheFullWindow() {

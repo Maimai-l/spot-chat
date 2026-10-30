@@ -16,7 +16,11 @@ Spot Chat is in alpha. There are no releases yet; every build is an alpha build 
 
 4. Spot Chat lives in the menu bar. Press Option+Space to open the mini window.
 
-The interface follows the system language: Simplified Chinese on a Chinese system, English otherwise.
+The interface follows the system language, Simplified Chinese or English. Settings › General › Language sets it for Spot Chat alone.
+
+## Running commands
+
+With a DeepSeek API key, a conversation can run commands in a folder: choose **Run Commands** in the + menu. Files you add go in by their path. Commands run in a sandbox that keeps them inside the folder; when one needs to go outside it, Spot Chat asks first.
 
 ## Build from source
 
