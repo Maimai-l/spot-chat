@@ -909,7 +909,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "中"
+            "value": "中等"
           }
         }
       }
@@ -929,7 +929,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "最大"
+            "value": "最高"
           }
         }
       }

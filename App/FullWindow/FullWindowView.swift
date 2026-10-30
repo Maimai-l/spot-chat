@@ -219,9 +219,10 @@ struct ActivityDot: View {
     let activity: TopicActivity?
 
     var body: some View {
-        Circle()
-            .fill(color)
-            .frame(width: 7, height: 7)
+        // An image rather than a shape, so assistive apps and tests see it.
+        Image(systemName: "circle.fill")
+            .font(.system(size: 7))
+            .foregroundStyle(color)
             .animation(.easeOut(duration: 0.2), value: activity)
             .accessibilityHidden(activity == nil)
             .accessibilityLabel(Text(activity == .needsInput ? "Needs your input" : "Working"))

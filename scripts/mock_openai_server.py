@@ -139,11 +139,13 @@ def messages_steps(body):
         content = message.get("content")
         if isinstance(content, str):
             content = [{"type": "text", "text": content}]
-        for block in content or []:
-            if block.get("type") == "tool_result":
-                results.append(json.dumps(block))
-            elif message.get("role") == "user" and block.get("type") == "text":
-                texts.append(block.get("text", ""))
+        blocks = content or []
+        # A user message with text starts a new question; only its own tool results count.
+        asked = [b.get("text", "") for b in blocks if message.get("role") == "user" and b.get("type") == "text"
+                 and not b.get("text", "").startswith("Current runtime context")]
+        if asked:
+            texts, results = asked, []
+        results += [json.dumps(b) for b in blocks if b.get("type") == "tool_result"]
     question = " ".join(t for t in texts if not t.startswith("Current runtime context"))
     if "outside" in question:
         if not results:
