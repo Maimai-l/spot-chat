@@ -203,7 +203,14 @@ final class SpotChatUITests: XCTestCase {
         XCTAssertTrue(copy.waitForExistence(timeout: 10))
         NSPasteboard.general.clearContents()
         tap(copy)
-        XCTAssertEqual(NSPasteboard.general.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines), "PRAGMA journal_mode = WAL;")
+        // The page hands the code to the app, which writes the pasteboard a moment later.
+        let deadline = Date().addingTimeInterval(3)
+        var copied = NSPasteboard.general.string(forType: .string)
+        while copied == nil, Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+            copied = NSPasteboard.general.string(forType: .string)
+        }
+        XCTAssertEqual(copied?.trimmingCharacters(in: .whitespacesAndNewlines), "PRAGMA journal_mode = WAL;")
     }
 
     func testEscapeStopsGenerationAndKeepsThePartialReply() {
