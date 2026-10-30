@@ -33,9 +33,10 @@ dsh first runs every command in its sandbox. When the sandbox stops one and dsh 
 
 ![Full window](command-mode-full-window.png)
 
-1. Conversations that run commands have a terminal icon in the sidebar.
-2. The folder chip's menu has **Show in Finder**, since what the commands make is in that folder.
-3. Files dropped anywhere on the window go in by path.
+- Conversations that run commands have a terminal icon in the sidebar.
+- A dot at the end of each conversation says what it is doing: amber while it waits for the user, gray while a reply is being made, none otherwise. It is the same amber as Needs your input.
+- The folder chip's menu has **Show in Finder**, since what the commands make is in that folder.
+- Files dropped anywhere on the window go in by path.
 
 ## Icons
 

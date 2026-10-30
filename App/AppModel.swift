@@ -26,6 +26,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var thinkingLevels: [String: ThinkingLevel] = [:]
     /// Models whose service turned down an effort level.
     @Published private(set) var modelsWithoutEffort: Set<String> = []
+    /// What conversations are doing right now, for the dots in the history.
+    @Published private(set) var activity: [UUID: TopicActivity] = [:]
     /// Bumped whenever a conversation's messages change outside the session showing it.
     @Published private(set) var historyRevision = 0
 
@@ -300,6 +302,19 @@ final class AppModel: ObservableObject {
     func historyDidChange() {
         reloadTopics()
     }
+
+    func setActivity(_ value: TopicActivity?, for topicID: UUID) {
+        guard activity[topicID] != value else { return }
+        activity[topicID] = value
+    }
+}
+
+/// What a conversation is doing.
+enum TopicActivity: Equatable {
+    /// A reply is being made.
+    case working
+    /// It waits for the user to allow or decline a command.
+    case needsInput
 }
 
 enum CommandUnavailable: LocalizedError {

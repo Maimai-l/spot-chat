@@ -8,13 +8,21 @@ import SpotCore
 /// The mini window and the full window each own one.
 @MainActor
 final class ChatSession: ObservableObject {
-    @Published private(set) var topicID: UUID?
+    @Published private(set) var topicID: UUID? {
+        didSet { reportActivity() }
+    }
     @Published private(set) var messages: [ChatMessage] = []
-    @Published var isGenerating = false
+    @Published var isGenerating = false {
+        didSet { reportActivity() }
+    }
     /// The folder this conversation runs commands in; nil when it only chats.
     @Published private(set) var commandFolder: URL?
     /// A command dsh wants to run outside the folder, waiting for the user.
-    @Published var pendingApproval: CommandRun?
+    @Published var pendingApproval: CommandRun? {
+        didSet { reportActivity() }
+    }
+    /// The conversation whose activity this session last told the app about.
+    private var reportedActivity: (topicID: UUID, activity: TopicActivity)?
 
     let app: AppModel
     var generation: Task<Void, Never>?
@@ -50,6 +58,19 @@ final class ChatSession: ObservableObject {
             }
             return message
         }
+    }
+
+    /// Tells the history what this conversation is doing: waiting for the user, working, or nothing.
+    private func reportActivity() {
+        let activity: TopicActivity? = pendingApproval != nil ? .needsInput : (isGenerating ? .working : nil)
+        let current = topicID.flatMap { id in activity.map { (topicID: id, activity: $0) } }
+        if let old = reportedActivity, old.topicID != current?.topicID {
+            app.setActivity(nil, for: old.topicID)
+        }
+        if let current {
+            app.setActivity(current.activity, for: current.topicID)
+        }
+        reportedActivity = current
     }
 
     func setCommandFolderShown(_ folder: URL?) {

@@ -853,6 +853,14 @@ final class SpotChatUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["What's on your mind?"].exists)
     }
 
+    func testHistoryShowsWhatAConversationIsDoing() {
+        let app = launch(resetState: true, fullWindow: true)
+        send("slow", in: app)
+        XCTAssertTrue(element("activity.working", in: app).waitForExistence(timeout: 10), "A gray dot while the reply is made")
+        element("stop", in: app).click()
+        XCTAssertTrue(element("activity.working", in: app).waitForNonExistence(timeout: 5), "No dot once it is idle")
+    }
+
     func testSettingsOpenFromTheFullWindow() {
         let app = launch(resetState: true, fullWindow: true)
         let gear = element("openSettings", in: app)

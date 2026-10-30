@@ -188,6 +188,8 @@ struct HistorySidebar: View {
                 }
                 Text(topic.name.isEmpty ? String(localized: "New Chat") : topic.name)
                     .lineLimit(1)
+                Spacer(minLength: 4)
+                ActivityDot(activity: app.activity[topic.id])
             }
                 .contextMenu {
                     Button("Rename…") { controller.beginRename(topic) }
@@ -209,4 +211,33 @@ struct EmptyConversation: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
+}
+
+/// A dot at the end of a conversation in the history: amber while it waits for the user, gray while it
+/// works, and nothing otherwise.
+struct ActivityDot: View {
+    let activity: TopicActivity?
+
+    var body: some View {
+        Circle()
+            .fill(color)
+            .frame(width: 7, height: 7)
+            .animation(.easeOut(duration: 0.2), value: activity)
+            .accessibilityHidden(activity == nil)
+            .accessibilityLabel(Text(activity == .needsInput ? "Needs your input" : "Working"))
+            .accessibilityIdentifier(activity == .needsInput ? "activity.needsInput" : activity == .working ? "activity.working" : "activity.none")
+    }
+
+    private var color: Color {
+        switch activity {
+        case .needsInput: return Color.needsInput
+        case .working: return Color.secondary.opacity(0.6)
+        case nil: return .clear
+        }
+    }
+}
+
+extension Color {
+    /// The one color for a conversation that waits for the user.
+    static let needsInput = Color(red: 0.94, green: 0.63, blue: 0.23)
 }

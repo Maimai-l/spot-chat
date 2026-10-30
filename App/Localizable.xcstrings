@@ -1491,6 +1491,16 @@
           }
         }
       }
+    },
+    "Working": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "进行中"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
