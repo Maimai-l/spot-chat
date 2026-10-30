@@ -103,6 +103,17 @@ struct MessageList: View {
             pinnedToBottom = true
             followBottom(animated: true)
         }
+        // Commands grow the reply without its page resizing; follow them like its text.
+        .onChange(of: session.messages.last?.commands) {
+            guard pinnedToBottom else { return }
+            DispatchQueue.main.async { followBottom(animated: false) }
+        }
+        // A question for the user is always brought into view.
+        .onChange(of: session.pendingApproval?.id) { _, id in
+            guard id != nil else { return }
+            pinnedToBottom = true
+            DispatchQueue.main.async { followBottom(animated: true) }
+        }
         // A reply's height is known only once its page has rendered, after the message changed.
         .environment(\.replyDidResize) { id in
             // Without animation, as Claude and ChatGPT keep a growing reply in view: an animated scroll
