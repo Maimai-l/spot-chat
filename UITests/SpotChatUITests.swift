@@ -610,6 +610,13 @@ final class SpotChatUITests: XCTestCase {
         RunLoop.current.run(until: Date().addingTimeInterval(1.5))
         attachScreenshot("Card")
 
+        // The scroll bar shows while scrolling and is gone a moment after.
+        let conversation = app.webViews.firstMatch
+        conversation.scroll(byDeltaX: 0, deltaY: 120)
+        attachScreenshot("Scrolling")
+        RunLoop.current.run(until: Date().addingTimeInterval(2))
+        attachScreenshot("After scrolling")
+
         send("math", in: app)
         XCTAssertTrue(reply(containing: "frac{n(n+1)}{2}$$", in: app).waitForExistence(timeout: 15))
         RunLoop.current.run(until: Date().addingTimeInterval(1.5))
