@@ -17,6 +17,19 @@ public enum ChatServiceError: Error, Equatable, Sendable {
     case invalidEndpoint
     case other(message: String)
 
+    /// From a response that wasn't a success, using the service's own message when it sent one.
+    public init(statusCode: Int, body: Data) {
+        struct Body: Decodable {
+            struct Detail: Decodable { var message: String? }
+            var error: Detail?
+        }
+        if let message = (try? JSONDecoder().decode(Body.self, from: body))?.error?.message, !message.isEmpty {
+            self = .api(message: message)
+        } else {
+            self = .http(statusCode: statusCode)
+        }
+    }
+
     public init(_ error: Error) {
         switch error {
         case let error as ChatServiceError:
@@ -63,30 +76,48 @@ public struct OpenAICompatibleClient: ChatResponder {
         ))
     }
 
-    /// Streams the reply, with the thinking of reasoning models (DeepSeek's `reasoning_content`, or `reasoning`).
+    /// Streams the reply, with the thinking of reasoning models and the token usage at the end.
     /// Cancelling the consuming task cancels the request.
+    ///
+    /// The request is built with the OpenAI library but the stream is read here, to follow DeepSeek's
+    /// streaming contract (as catalogued by deepseek-harness): keep-alive comments and chunks without
+    /// choices are skipped, thinking arrives as `reasoning_content`, and cache hits are reported as
+    /// `prompt_cache_hit_tokens` rather than OpenAI's `cached_tokens`.
     public func stream(_ request: ChatRequest) -> AsyncThrowingStream<ReplyChunk, Error> {
-        let query = ChatQuery(
-            messages: request.messages.compactMap(Self.messageParam),
-            model: request.model,
-            stream: true
-        )
-        let upstream: AsyncThrowingStream<ChatStreamResult, Error> = makeClient().chatsStream(query: query)
+        let urlRequest: URLRequest
+        do {
+            urlRequest = try makeStreamRequest(request)
+        } catch {
+            return AsyncThrowingStream { $0.finish(throwing: ChatServiceError(error)) }
+        }
         return AsyncThrowingStream { continuation in
             let task = Task {
                 do {
-                    for try await result in upstream {
-                        for choice in result.choices {
-                            if let reasoning = choice.delta.reasoning, !reasoning.isEmpty {
-                                continuation.yield(.reasoning(reasoning))
-                            }
-                            if let content = choice.delta.content, !content.isEmpty {
-                                continuation.yield(.text(content))
-                            }
+                    let (bytes, response) = try await URLSession.shared.bytes(for: urlRequest)
+                    let status = (response as? HTTPURLResponse)?.statusCode ?? 200
+                    guard (200..<300).contains(status) else {
+                        var body = Data()
+                        for try await byte in bytes {
+                            body.append(byte)
+                            if body.count > 65_536 { break }
+                        }
+                        throw ChatServiceError(statusCode: status, body: body)
+                    }
+                    for try await line in bytes.lines {
+                        switch try StreamLine.decode(line) {
+                        case let .chunks(chunks):
+                            for chunk in chunks { continuation.yield(chunk) }
+                        case .done:
+                            continuation.finish()
+                            return
+                        case .ignored:
+                            break
                         }
                     }
                     continuation.finish()
                 } catch is CancellationError {
+                    continuation.finish(throwing: CancellationError())
+                } catch let error as URLError where error.code == .cancelled {
                     continuation.finish(throwing: CancellationError())
                 } catch {
                     continuation.finish(throwing: ChatServiceError(error))
@@ -94,6 +125,28 @@ public struct OpenAICompatibleClient: ChatResponder {
             }
             continuation.onTermination = { _ in task.cancel() }
         }
+    }
+
+    /// The same bytes for the same conversation, so a service's prompt cache can match the prefix:
+    /// keys are sorted and nothing in the body changes from one request to the next.
+    func makeStreamRequest(_ request: ChatRequest) throws -> URLRequest {
+        let query = ChatQuery(
+            messages: request.messages.compactMap(Self.messageParam),
+            model: request.model,
+            stream: true,
+            streamOptions: .init(includeUsage: true)
+        )
+        var urlRequest = URLRequest(url: endpoint.url(path: "chat/completions"), timeoutInterval: 120)
+        urlRequest.httpMethod = "POST"
+        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        urlRequest.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+        if !apiKey.isEmpty {
+            urlRequest.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        urlRequest.httpBody = try encoder.encode(query)
+        return urlRequest
     }
 
     /// The model ids the service offers, sorted.

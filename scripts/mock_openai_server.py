@@ -15,6 +15,11 @@ The reply depends on the last user message:
   a conversation title request -> "Mock title" (not kept as the last request)
   anything else            -> "Echo: <text>" in three chunks
 GET /v1/last-request returns the body of the last chat request.
+
+Streams look like DeepSeek's: a keep-alive comment first, a chunk with no choices partway, and, when
+stream_options.include_usage is set, a final usage chunk. Its prompt_cache_hit_tokens counts the bytes
+the request shares with the start of the previous chat request (a quarter token per byte, in blocks
+of 64 tokens), the way a prefix cache would.
 """
 
 import json
@@ -44,7 +49,23 @@ MATH_REPLY = (
 )
 
 last_request = {}
+previous_body = [""]
 lock = threading.Lock()
+
+
+def cache_usage(raw, prompt_text_bytes):
+    """Usage for a request whose raw body is `raw`, given the previous chat request's body."""
+    with lock:
+        previous = previous_body[0]
+        previous_body[0] = raw
+    shared = 0
+    for a, b in zip(previous, raw):
+        if a != b:
+            break
+        shared += 1
+    prompt = max(1, prompt_text_bytes // 4)
+    hit = min(prompt, (shared // 4) // 64 * 64)
+    return {"prompt_cache_hit_tokens": hit, "prompt_cache_miss_tokens": prompt - hit, "prompt_tokens": prompt}
 
 
 def last_user_parts(body):
@@ -131,7 +152,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         length = int(self.headers.get("Content-Length", "0"))
-        body = json.loads(self.rfile.read(length) or b"{}")
+        raw = self.rfile.read(length) or b"{}"
+        body = json.loads(raw)
         if not self.path.endswith("/chat/completions"):
             self.send_json(404, {"error": {"message": "Not found", "type": "invalid_request_error"}})
             return
@@ -146,12 +168,21 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         chunks, delay = reply_chunks(body)
+        usage = None
+        if (body.get("stream_options") or {}).get("include_usage"):
+            usage = {"prompt_tokens": 0, "completion_tokens": 0}
+            if not is_title_request(body):
+                usage.update(cache_usage(raw.decode("utf-8", "replace"), len(json.dumps(body.get("messages", [])))))
+            usage["completion_tokens"] = sum(len(c if isinstance(c, str) else c[1]) for c in chunks) // 4
+            usage["total_tokens"] = usage["prompt_tokens"] + usage["completion_tokens"]
         self.send_response(200)
         self.send_header("Content-Type", "text/event-stream")
         self.send_header("Cache-Control", "no-cache")
         self.end_headers()
         model = body.get("model", "mock-fast")
         try:
+            self.wfile.write(b": keep-alive\n\n")
+            self.wfile.flush()
             for index, chunk in enumerate(chunks):
                 # A ("reasoning", text) pair is sent the way DeepSeek sends its thinking.
                 delta = {"reasoning_content": chunk[1]} if isinstance(chunk, tuple) else {"content": chunk}
@@ -162,10 +193,15 @@ class Handler(BaseHTTPRequestHandler):
                     "choices": [{"index": 0, "delta": delta, "finish_reason": None}],
                 })
                 time.sleep(delay)
+                if index == 0:
+                    self.write_event({"choices": []})
             self.write_event({
                 "id": "chatcmpl-mock", "object": "chat.completion.chunk", "created": 0, "model": model,
                 "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
             })
+            if usage:
+                self.write_event({"id": "chatcmpl-mock", "object": "chat.completion.chunk", "created": 0,
+                                  "model": model, "choices": [], "usage": usage})
             self.wfile.write(b"data: [DONE]\n\n")
             self.wfile.flush()
         except (BrokenPipeError, ConnectionResetError):

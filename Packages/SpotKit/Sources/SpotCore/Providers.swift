@@ -90,4 +90,17 @@ public struct ProviderEndpoint: Equatable, Sendable {
         self.port = components.port ?? (scheme == "https" ? 443 : 80)
         self.basePath = path
     }
+
+    /// An API address under the base URL, such as "chat/completions".
+    public func url(path: String) -> URL {
+        var components = URLComponents()
+        components.scheme = scheme
+        components.host = host
+        if port != (scheme == "https" ? 443 : 80) {
+            components.port = port
+        }
+        components.path = basePath + "/" + path
+        // Built from parts that were parsed from a URL, so it is always valid.
+        return components.url ?? URL(fileURLWithPath: "/")
+    }
 }

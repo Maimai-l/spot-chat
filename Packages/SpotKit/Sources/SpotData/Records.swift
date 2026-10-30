@@ -1,5 +1,6 @@
 import Foundation
 import GRDB
+import SpotCore
 
 struct TopicRecord: Codable, FetchableRecord, PersistableRecord, Sendable {
     static let databaseTableName = "topic"
@@ -22,6 +23,7 @@ struct MessageRecord: Codable, FetchableRecord, PersistableRecord, Sendable {
         var reasoning: String?
         /// Seconds.
         var reasoningDuration: Double?
+        var usage: TokenUsage?
     }
 
     var id: String

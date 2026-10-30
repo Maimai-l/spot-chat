@@ -184,7 +184,8 @@ public struct MessageService: Sendable {
     static func payload(_ message: ChatMessage) -> MessageRecord.Payload {
         .init(
             content: message.text, error: message.errorMessage,
-            reasoning: message.reasoning.isEmpty ? nil : message.reasoning, reasoningDuration: message.reasoningDuration
+            reasoning: message.reasoning.isEmpty ? nil : message.reasoning, reasoningDuration: message.reasoningDuration,
+            usage: message.usage
         )
     }
 
@@ -196,7 +197,8 @@ public struct MessageService: Sendable {
         return ChatMessage(
             id: id, role: role, text: record.data.content, status: status, errorMessage: record.data.error,
             attachments: attachments, modelID: record.modelId, createdAt: Timestamp.date(record.createdAt),
-            reasoning: record.data.reasoning ?? "", reasoningDuration: record.data.reasoningDuration
+            reasoning: record.data.reasoning ?? "", reasoningDuration: record.data.reasoningDuration,
+            usage: record.data.usage
         )
     }
 }

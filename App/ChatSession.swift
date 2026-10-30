@@ -126,6 +126,9 @@ final class ChatSession: ObservableObject {
                     case let .text(part):
                         if let thinkingStarted, thinkingTook == nil { thinkingTook = Date().timeIntervalSince(thinkingStarted) }
                         text += part
+                    case let .usage(usage):
+                        self?.updateReply(replyID) { $0.usage = usage }
+                        continue
                     }
                     self?.updateReply(replyID) { reply in
                         reply.text = text

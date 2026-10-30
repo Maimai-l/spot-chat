@@ -74,6 +74,8 @@ public struct ChatMessage: Identifiable, Equatable, Sendable {
     public var reasoning: String
     /// How long the model thought, once it has finished.
     public var reasoningDuration: TimeInterval?
+    /// Tokens the reply used, when the service reported them.
+    public var usage: TokenUsage?
 
     public init(
         id: UUID = UUID(),
@@ -85,7 +87,8 @@ public struct ChatMessage: Identifiable, Equatable, Sendable {
         modelID: String? = nil,
         createdAt: Date = Date(),
         reasoning: String = "",
-        reasoningDuration: TimeInterval? = nil
+        reasoningDuration: TimeInterval? = nil,
+        usage: TokenUsage? = nil
     ) {
         self.id = id
         self.role = role
@@ -97,6 +100,7 @@ public struct ChatMessage: Identifiable, Equatable, Sendable {
         self.createdAt = createdAt
         self.reasoning = reasoning
         self.reasoningDuration = reasoningDuration
+        self.usage = usage
     }
 }
 

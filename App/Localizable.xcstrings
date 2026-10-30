@@ -863,6 +863,16 @@
           }
         }
       }
+    },
+    "%lld input tokens, %lld from cache, %lld output": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "输入 %1$lld token，缓存命中 %2$lld，输出 %3$lld"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

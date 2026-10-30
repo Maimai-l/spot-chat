@@ -26,10 +26,26 @@ public struct ChatRequestMessage: Equatable, Sendable {
     }
 }
 
-/// A piece of a streamed reply: the model's thinking, which reasoning models send first, or the reply itself.
+/// A piece of a streamed reply: the model's thinking, which reasoning models send first, the reply itself,
+/// or, at the end, how many tokens the request used.
 public enum ReplyChunk: Equatable, Sendable {
     case reasoning(String)
     case text(String)
+    case usage(TokenUsage)
+}
+
+/// Tokens a reply used. `cachedTokens` of the prompt were served from the service's prompt cache,
+/// which DeepSeek and OpenAI bill at a fraction of the price.
+public struct TokenUsage: Equatable, Sendable, Codable {
+    public var promptTokens: Int
+    public var completionTokens: Int
+    public var cachedTokens: Int
+
+    public init(promptTokens: Int, completionTokens: Int, cachedTokens: Int) {
+        self.promptTokens = promptTokens
+        self.completionTokens = completionTokens
+        self.cachedTokens = cachedTokens
+    }
 }
 
 /// Produces the assistant's reply as a stream of chunks.

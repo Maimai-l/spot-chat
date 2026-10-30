@@ -266,7 +266,7 @@ final class SpotChatUITests: XCTestCase {
         send("markdown", in: app)
         waitForReply(in: app, "SELF CONTAINS %@", "| WAL | concurrent |")
         send("slow", in: app)
-        waitForReply(in: app, "SELF CONTAINS %@", "tick 1")
+        XCTAssertTrue(reply(containing: "tick 1", in: app).waitForExistence(timeout: 10))
         XCTAssertFalse(element("jumpToLatest", in: app).exists)
 
         let conversation = composer(in: app).coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0))
@@ -281,6 +281,24 @@ final class SpotChatUITests: XCTestCase {
         jump.click()
         XCTAssertTrue(jump.waitForNonExistence(timeout: 5))
         element("stop", in: app).click()
+    }
+
+    func testLaterTurnsAreServedFromThePromptCache() {
+        let app = launch(resetState: true)
+        send("markdown", in: app)
+        waitForReply(in: app, "SELF CONTAINS %@", "| WAL | concurrent |")
+        send("hello", in: app)
+        XCTAssertTrue(reply(containing: "Echo: hello", in: app).waitForExistence(timeout: 10))
+        send("again", in: app)
+        XCTAssertTrue(reply(containing: "Echo: again", in: app).waitForExistence(timeout: 10))
+
+        // The third request starts with the second one's bytes, so most of it comes from the cache.
+        let usage = elements("usage", in: app).element(boundBy: 2)
+        XCTAssertTrue(usage.waitForExistence(timeout: 10))
+        let numbers = text(of: usage).split(whereSeparator: { !$0.isNumber }).compactMap { Int($0) }
+        XCTAssertGreaterThanOrEqual(numbers.count, 3, text(of: usage))
+        guard numbers.count >= 3 else { return }
+        XCTAssertGreaterThan(numbers[1], numbers[0] / 2, text(of: usage))
     }
 
     func testErrorShowsTheServiceMessageWithRetry() {

@@ -386,6 +386,7 @@ struct AssistantMessageView: View {
     let canRegenerate: Bool
     let retry: () -> Void
     let regenerate: () -> Void
+    @State private var hovering = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -409,6 +410,7 @@ struct AssistantMessageView: View {
                 actions
             }
         }
+        .onHover { hovering = $0 }
         .overlay(alignment: .topLeading) {
             // The reply's full text as one element, so tests and assistive apps can read it at once.
             Text(message.text)
@@ -429,6 +431,17 @@ struct AssistantMessageView: View {
             }
             if canRegenerate {
                 SmallIconButton(systemName: "arrow.clockwise", label: "Regenerate", identifier: "regenerate", action: regenerate)
+            }
+            if let usage = message.usage {
+                // How much of the prompt the service's cache served, shown while the pointer is on the reply.
+                Text("\(usage.promptTokens) input tokens, \(usage.cachedTokens) from cache, \(usage.completionTokens) output")
+                    .font(.system(size: 11))
+                    .monospacedDigit()
+                    .foregroundStyle(.tertiary)
+                    .padding(.leading, 8)
+                    .opacity(hovering ? 1 : 0.001)
+                    .animation(.easeOut(duration: 0.12), value: hovering)
+                    .accessibilityIdentifier("usage")
             }
         }
         .padding(.leading, -6)

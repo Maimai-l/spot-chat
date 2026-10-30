@@ -49,6 +49,22 @@ struct OpenAICompatibleClientTests {
         #expect(try await ask("think", client: client()) == "Two plus two is four.")
     }
 
+    @Test func reportsCacheHitsForARepeatedPrefix() async throws {
+        let long = String(repeating: "Background for the question. ", count: 120)
+        let request = ChatRequest(model: "mock-fast", messages: [ChatRequestMessage(role: .user, parts: [.text(long)])])
+        func usage() async throws -> TokenUsage? {
+            var usage: TokenUsage?
+            for try await chunk in try client().stream(request) {
+                if case let .usage(value) = chunk { usage = value }
+            }
+            return usage
+        }
+        _ = try await usage()
+        let second = try #require(try await usage())
+        #expect(second.promptTokens > 0)
+        #expect(second.cachedTokens > second.promptTokens / 2, "\(second)")
+    }
+
     @Test func listsModels() async throws {
         #expect(try await client().listModels() == ["mock-fast", "mock-vision"])
     }
@@ -109,5 +125,53 @@ struct OpenAICompatibleClientTests {
         let parts = messages?.last?["content"] as? [[String: Any]]
         let image = parts?.first { $0["type"] as? String == "image_url" }?["image_url"] as? [String: Any]
         #expect((image?["url"] as? String)?.hasPrefix("data:image/png;base64,") == true)
+    }
+}
+
+/// The stream shapes deepseek-harness catalogues for DeepSeek, decoded without a server.
+struct StreamLineTests {
+    @Test func keepAliveCommentsAndEmptyChunksAreSkipped() throws {
+        #expect(try StreamLine.decode(": keep-alive") == .ignored)
+        #expect(try StreamLine.decode("") == .ignored)
+        #expect(try StreamLine.decode("data: {}") == .ignored)
+        #expect(try StreamLine.decode(#"data: {"choices": []}"#) == .ignored)
+        #expect(try StreamLine.decode(#"data: {"choices":[{"index":0,"delta":{"content":null}}]}"#) == .ignored)
+        #expect(try StreamLine.decode("data: [DONE]") == .done)
+    }
+
+    @Test func thinkingAndTextAreTold() throws {
+        #expect(try StreamLine.decode(#"data: {"choices":[{"delta":{"reasoning_content":"Hmm"}}]}"#) == .chunks([.reasoning("Hmm")]))
+        #expect(try StreamLine.decode(#"data: {"choices":[{"delta":{"reasoning":"Hmm"}}]}"#) == .chunks([.reasoning("Hmm")]))
+        #expect(try StreamLine.decode(#"data:{"choices":[{"delta":{"content":"Hi"}}]}"#) == .chunks([.text("Hi")]))
+    }
+
+    @Test func cacheHitsAreReadFromEitherField() throws {
+        let deepSeek = #"data: {"choices":[],"usage":{"prompt_tokens":1300,"completion_tokens":40,"prompt_cache_hit_tokens":1280,"prompt_cache_miss_tokens":20}}"#
+        #expect(try StreamLine.decode(deepSeek) == .chunks([.usage(TokenUsage(promptTokens: 1300, completionTokens: 40, cachedTokens: 1280))]))
+        let openAI = #"data: {"choices":[],"usage":{"prompt_tokens":1300,"completion_tokens":40,"prompt_tokens_details":{"cached_tokens":1024}}}"#
+        #expect(try StreamLine.decode(openAI) == .chunks([.usage(TokenUsage(promptTokens: 1300, completionTokens: 40, cachedTokens: 1024))]))
+    }
+
+    @Test func anErrorInTheStreamIsThrown() {
+        #expect(throws: ChatServiceError.api(message: "Overloaded")) {
+            try StreamLine.decode(#"data: {"error":{"message":"Overloaded"}}"#)
+        }
+    }
+
+    @Test func theRequestBodyIsTheSameEveryTime() throws {
+        let client = try OpenAICompatibleClient(baseURL: "https://api.deepseek.com/v1", apiKey: "key")
+        let request = ChatRequest(model: "deepseek-chat", messages: [
+            ChatRequestMessage(role: .user, parts: [.text("Hello")]),
+            ChatRequestMessage(role: .assistant, parts: [.text("Hi! How can I help?")]),
+            ChatRequestMessage(role: .user, parts: [.text("A question")]),
+        ])
+        let first = try client.makeStreamRequest(request)
+        let second = try client.makeStreamRequest(request)
+        #expect(first.httpBody == second.httpBody)
+        #expect(first.url?.absoluteString == "https://api.deepseek.com/v1/chat/completions")
+        let body = String(decoding: first.httpBody ?? Data(), as: UTF8.self)
+        // The conversation comes first, so a later turn starts with the same bytes as this one.
+        #expect(body.hasPrefix(#"{"messages":[{"content":"Hello","role":"user"}"#), "\(body)")
+        #expect(body.contains(#""stream_options":{"include_usage":true}"#))
     }
 }
