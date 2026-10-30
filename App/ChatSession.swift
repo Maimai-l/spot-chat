@@ -121,34 +121,46 @@ final class ChatSession: ObservableObject {
             var thinkingTook: TimeInterval?
             var lastSave = Date()
             var failure: String?
-            do {
-                for try await chunk in responder.stream(request) {
-                    if Task.isCancelled { break }
-                    switch chunk {
-                    case let .reasoning(part):
-                        if thinkingStarted == nil { thinkingStarted = Date() }
-                        reasoning += part
-                    case let .text(part):
-                        if let thinkingStarted, thinkingTook == nil { thinkingTook = Date().timeIntervalSince(thinkingStarted) }
-                        text += part
-                    case let .usage(usage):
-                        self?.updateReply(replyID) { $0.usage = usage }
-                        continue
+            var request = request
+            attempts: while true {
+                do {
+                    for try await chunk in responder.stream(request) {
+                        if Task.isCancelled { break }
+                        switch chunk {
+                        case let .reasoning(part):
+                            if thinkingStarted == nil { thinkingStarted = Date() }
+                            reasoning += part
+                        case let .text(part):
+                            if let thinkingStarted, thinkingTook == nil { thinkingTook = Date().timeIntervalSince(thinkingStarted) }
+                            text += part
+                        case let .usage(usage):
+                            self?.updateReply(replyID) { $0.usage = usage }
+                            continue
+                        }
+                        self?.updateReply(replyID) { reply in
+                            reply.text = text
+                            reply.reasoning = reasoning
+                            reply.reasoningDuration = thinkingTook
+                        }
+                        // Saved as it streams, so a quit or crash keeps what has arrived.
+                        if Date().timeIntervalSince(lastSave) > 1 {
+                            lastSave = Date()
+                            self?.saveReply(replyID)
+                        }
                     }
-                    self?.updateReply(replyID) { reply in
-                        reply.text = text
-                        reply.reasoning = reasoning
-                        reply.reasoningDuration = thinkingTook
-                    }
-                    // Saved as it streams, so a quit or crash keeps what has arrived.
-                    if Date().timeIntervalSince(lastSave) > 1 {
-                        lastSave = Date()
-                        self?.saveReply(replyID)
-                    }
+                    break attempts
+                } catch let error as ChatServiceError
+                    where error.rejectsThinking && request.thinking != .automatic && text.isEmpty && reasoning.isEmpty {
+                    // A model without reasoning turned the effort down: ask again without it, and from now on.
+                    request.thinking = .automatic
+                    if let modelID = model?.id { self?.app.markWithoutEffort(modelID) }
+                    continue attempts
+                } catch is CancellationError {
+                    break attempts
+                } catch {
+                    failure = ErrorText.describe(error)
+                    break attempts
                 }
-            } catch is CancellationError {
-            } catch {
-                failure = ErrorText.describe(error)
             }
             if let thinkingStarted, thinkingTook == nil { thinkingTook = Date().timeIntervalSince(thinkingStarted) }
             let cancelled = Task.isCancelled

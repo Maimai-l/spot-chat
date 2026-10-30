@@ -189,7 +189,8 @@ struct EffortMenu: View {
     @ObservedObject var app: AppModel
 
     var body: some View {
-        if let current = app.currentModel {
+        // Hidden for a model whose service turned effort levels down, as dsh shows none for it.
+        if let current = app.currentModel, app.supportsEffort(current) {
             let level = app.thinking(for: current)
             Menu {
                 ForEach(ThinkingLevel.choices(isDeepSeek: app.isDeepSeek(current)), id: \.self) { choice in

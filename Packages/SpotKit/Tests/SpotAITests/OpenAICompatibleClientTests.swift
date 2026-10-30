@@ -166,6 +166,13 @@ struct StreamLineTests {
         #expect(try StreamLine.decode(openAI) == .chunks([.usage(TokenUsage(promptTokens: 1300, completionTokens: 40, cachedTokens: 1024))]))
     }
 
+    @Test func aRejectedEffortIsRecognized() {
+        #expect(ChatServiceError.api(message: "Unsupported parameter: 'reasoning_effort' is not supported with this model.").rejectsThinking)
+        #expect(ChatServiceError.http(statusCode: 400).rejectsThinking)
+        #expect(!ChatServiceError.api(message: "Incorrect API key provided.").rejectsThinking)
+        #expect(!ChatServiceError.http(statusCode: 500).rejectsThinking)
+    }
+
     @Test func anErrorInTheStreamIsThrown() {
         #expect(throws: ChatServiceError.api(message: "Overloaded")) {
             try StreamLine.decode(#"data: {"error":{"message":"Overloaded"}}"#)

@@ -512,6 +512,8 @@ public enum PreferenceKey {
     public static let systemPrompt = "chat.system_prompt"
     /// Thinking level by `user_model` id.
     public static let thinkingLevels = "chat.thinking_levels"
+    /// `user_model` ids whose service turned down an effort level; none is sent to them.
+    public static let modelsWithoutEffort = "chat.models_without_effort"
 }
 
 /// Key-value settings, stored as JSON like Cherry Studio's preference table.

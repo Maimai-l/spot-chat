@@ -17,6 +17,20 @@ public enum ChatServiceError: Error, Equatable, Sendable {
     case invalidEndpoint
     case other(message: String)
 
+    /// Whether the service turned the request down because of its effort or thinking field, as OpenAI does
+    /// for models without reasoning ("Unsupported parameter: 'reasoning_effort' …").
+    public var rejectsThinking: Bool {
+        switch self {
+        case let .api(message):
+            let text = message.lowercased()
+            return text.contains("reasoning") || text.contains("thinking")
+        case let .http(statusCode):
+            return statusCode == 400 || statusCode == 422
+        default:
+            return false
+        }
+    }
+
     /// From a response that wasn't a success, using the service's own message when it sent one.
     public init(statusCode: Int, body: Data) {
         struct Body: Decodable {

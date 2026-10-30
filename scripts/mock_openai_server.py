@@ -15,6 +15,7 @@ The reply depends on the last user message:
   "think tags"             -> the thinking inside the reply as <think>...</think>, cut across chunks
   "diagram"                -> a Mermaid flowchart
   a conversation title request -> "Mock title" (not kept as the last request)
+mock-vision has no reasoning: a request with reasoning_effort gets OpenAI's 400 for it.
   anything else            -> "Echo: <text>" in three chunks
 GET /v1/last-request returns the body of the last chat request.
 
@@ -152,6 +153,12 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(200, last_request)
             return
         if not self.authorized():
+            return
+        if body.get("model") == "mock-vision" and "reasoning_effort" in body:
+            self.send_json(400, {"error": {
+                "message": "Unsupported parameter: 'reasoning_effort' is not supported with this model.",
+                "type": "invalid_request_error", "param": "reasoning_effort", "code": "unsupported_parameter",
+            }})
             return
         if self.path.endswith("/models"):
             self.send_json(200, {"object": "list", "data": [

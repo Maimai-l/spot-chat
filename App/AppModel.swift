@@ -21,6 +21,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var systemPrompt = AppModel.defaultSystemPrompt
     /// Thinking level by model; a model not listed thinks as its service decides.
     @Published private(set) var thinkingLevels: [String: ThinkingLevel] = [:]
+    /// Models whose service turned down an effort level.
+    @Published private(set) var modelsWithoutEffort: Set<String> = []
     /// Bumped whenever a conversation's messages change outside the session showing it.
     @Published private(set) var historyRevision = 0
 
@@ -67,10 +69,20 @@ final class AppModel: ObservableObject {
         thinkingLevels[model.id] ?? ThinkingLevel.standard(isDeepSeek: isDeepSeek(model))
     }
 
-    /// What a request sends. DeepSeek always gets its level, as dsh sends it. Elsewhere nothing is sent
-    /// until a level is chosen, since models without reasoning reject the field.
+    /// Whether the model takes an effort level. A model whose service turned one down is asked without it.
+    func supportsEffort(_ model: ProviderModel) -> Bool {
+        !modelsWithoutEffort.contains(model.id)
+    }
+
+    /// What a request sends: the level shown, unless the model turned levels down.
     func requestThinking(for model: ProviderModel) -> ThinkingLevel {
-        thinkingLevels[model.id] ?? (isDeepSeek(model) ? ThinkingLevel.standard(isDeepSeek: true) : .automatic)
+        supportsEffort(model) ? thinking(for: model) : .automatic
+    }
+
+    /// Remembers that the model's service rejects effort levels, as LiteLLM and others handle it.
+    func markWithoutEffort(_ modelID: String) {
+        modelsWithoutEffort.insert(modelID)
+        try? preferenceService.set(PreferenceKey.modelsWithoutEffort, to: modelsWithoutEffort.sorted())
     }
 
     func setThinking(_ level: ThinkingLevel, for model: ProviderModel) {
@@ -173,6 +185,7 @@ final class AppModel: ObservableObject {
         }
         systemPrompt = (try? preferenceService.value(PreferenceKey.systemPrompt, as: String.self)) ?? Self.defaultSystemPrompt
         thinkingLevels = (try? preferenceService.value(PreferenceKey.thinkingLevels, as: [String: ThinkingLevel].self)) ?? [:]
+        modelsWithoutEffort = Set((try? preferenceService.value(PreferenceKey.modelsWithoutEffort, as: [String].self)) ?? [])
     }
 
     func setSystemPrompt(_ prompt: String) {

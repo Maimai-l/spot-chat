@@ -434,7 +434,21 @@ final class SpotChatUITests: XCTestCase {
         let messages = try lastRequest()["messages"] as? [[String: Any]] ?? []
         XCTAssertEqual(messages.first?["role"] as? String, "system")
         XCTAssertEqual(messages.first?["content"] as? String, "Answer in one line.")
-        XCTAssertNil(try lastRequest()["reasoning_effort"], "Without a chosen level nothing about thinking is sent")
+        XCTAssertEqual(try lastRequest()["reasoning_effort"] as? String, "medium", "The level shown is the level sent")
+    }
+
+    func testAModelThatRejectsEffortIsAskedAgainWithoutIt() throws {
+        let app = launch(resetState: true)
+        let menu = element("modelMenu", in: app)
+        XCTAssertTrue(menu.waitForExistence(timeout: 10))
+        menu.click()
+        app.menuItems["mock-vision"].click()
+        XCTAssertTrue(element("effortMenu", in: app).waitForExistence(timeout: 5))
+
+        send("hi", in: app)
+        waitForReply(in: app, "SELF == %@", "Echo: hi")
+        XCTAssertNil(try lastRequest()["reasoning_effort"], "The retry leaves the level out")
+        XCTAssertTrue(element("effortMenu", in: app).waitForNonExistence(timeout: 5), "The model shows no effort from then on")
     }
 
     func testWithoutAModelTheReplyExplainsWhatToDo() {
