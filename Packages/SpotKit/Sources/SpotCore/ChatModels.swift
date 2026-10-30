@@ -144,11 +144,14 @@ public struct TopicSummary: Identifiable, Equatable, Sendable {
     public let id: UUID
     public var name: String
     public var lastActivityAt: Date
+    /// Whether the conversation runs commands in a folder.
+    public var runsCommands: Bool
 
-    public init(id: UUID, name: String, lastActivityAt: Date) {
+    public init(id: UUID, name: String, lastActivityAt: Date, runsCommands: Bool = false) {
         self.id = id
         self.name = name
         self.lastActivityAt = lastActivityAt
+        self.runsCommands = runsCommands
     }
 }
 

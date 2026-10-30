@@ -297,6 +297,10 @@ struct CommandFolderChip: View {
     var body: some View {
         Menu {
             Button("Choose Another Folder…", action: chooseFolder)
+            Button("Show in Finder") {
+                NSWorkspace.shared.activateFileViewerSelecting([folder])
+            }
+            Divider()
             Button("Stop Running Commands", action: turnOff)
         } label: {
             HStack(spacing: 5) {

@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 import SpotCore
 
 struct FullWindowView: View {
@@ -52,6 +53,10 @@ struct FullWindowView: View {
             }
             .frame(minWidth: 420, maxWidth: .infinity, maxHeight: .infinity)
             .background(Color(nsColor: .textBackgroundColor))
+            .onDrop(of: [.fileURL], isTargeted: nil) { providers in
+                MiniRootView.loadFileURLs(from: providers) { composer.add(fileURLs: $0, asPaths: session.commandFolder != nil) }
+                return true
+            }
             // As in Gemini: no title and no bar background, just the button at the end. An empty title
             // (rather than none) keeps the button at the trailing edge.
             .navigationTitle("")
@@ -165,8 +170,16 @@ struct HistorySidebar: View {
                 }
                 .accessibilityIdentifier("renameField")
         } else {
-            Text(topic.name.isEmpty ? String(localized: "New Chat") : topic.name)
-                .lineLimit(1)
+            HStack(spacing: 6) {
+                if topic.runsCommands {
+                    Image(systemName: "apple.terminal")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .accessibilityLabel(Text("Runs Commands"))
+                }
+                Text(topic.name.isEmpty ? String(localized: "New Chat") : topic.name)
+                    .lineLimit(1)
+            }
                 .contextMenu {
                     Button("Rename…") { controller.beginRename(topic) }
                     Button("Export as Markdown…") { controller.export(topic) }

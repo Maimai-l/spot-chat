@@ -12,6 +12,7 @@ extension ChatSession {
         endAgent()
         if let topicID {
             try? app.topicService.setCommandFolder(folder, for: topicID)
+            app.historyDidChange()
         }
         setCommandFolderShown(folder)
     }

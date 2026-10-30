@@ -32,8 +32,8 @@ final class ChatSession: ObservableObject {
         stop()
         self.topicID = topicID
         messages = Self.stored(topicID.flatMap { try? app.messageService.list(topicID: $0) } ?? [])
-        // A new conversation keeps running commands where the last one did.
-        if let topicID {
+        // A stored conversation runs commands where it did; one not stored yet keeps the current folder.
+        if let topicID, (try? app.topicService.get(topicID)) != nil {
             setCommandFolderShown((try? app.topicService.commandSetup(of: topicID))?.folder)
         }
     }

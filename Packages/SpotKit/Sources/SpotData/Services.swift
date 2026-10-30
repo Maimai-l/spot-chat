@@ -121,7 +121,10 @@ public struct TopicService: Sendable {
 
     static func summary(_ record: TopicRecord) -> TopicSummary? {
         guard let id = UUID(uuidString: record.id) else { return nil }
-        return TopicSummary(id: id, name: record.name, lastActivityAt: Timestamp.date(record.lastActivityAt))
+        return TopicSummary(
+            id: id, name: record.name, lastActivityAt: Timestamp.date(record.lastActivityAt),
+            runsCommands: record.commandFolder != nil
+        )
     }
 }
 
