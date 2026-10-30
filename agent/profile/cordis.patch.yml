@@ -1,0 +1,60 @@
+# Spot Chat: dsh's minimal composition (as in web-app/presets/minimal.patch.yml) over the ACP profile.
+# One sandboxed bash, read_image and the web tools; sandbox, approval and permission stay as dsh ships them.
+
+- id: system-prompt
+  config:
+    personaPrefix: You are a helpful software engineer assistant.
+
+- id: tool-fs
+  config:
+    read: false
+    readImage: true
+    write: false
+    edit: false
+
+# No uploads of session logs or telemetry.
+- id: session-log-deepseek
+  disabled: true
+- id: otel
+  disabled: true
+- id: session-telemetry-otel
+  disabled: true
+
+# Everything else the coding agent carries.
+- id: tool-plugin-manager
+  disabled: true
+- id: tool-jobs
+  disabled: true
+- id: tool-fs-search
+  disabled: true
+- id: agent-instructions
+  disabled: true
+- id: skill-filesystem
+  disabled: true
+- id: tool-skill
+  disabled: true
+- id: command-goal
+  disabled: true
+- id: tool-goal
+  disabled: true
+- id: plan-mode
+  disabled: true
+- id: tool-subagent-control
+  disabled: true
+- id: tool-subagent
+  disabled: true
+- id: tool-subagent-fork
+  disabled: true
+- id: workflow-ptc
+  disabled: true
+- id: tool-workflow
+  disabled: true
+- id: tool-todo
+  disabled: true
+
+# Web search and page fetch through DeepSeek's Search and Fetch API (one direct request each,
+# no extra model turn), with dsh's own web_search / web_fetch tools and their guidance.
+- id: web
+  config:
+    searchProvider: deepseek-search-api
+    fetchProvider: deepseek-fetch-api

@@ -74,6 +74,21 @@ jobs:
           xcodebuild -version
       - name: Install XcodeGen
         run: brew install xcodegen
+      - name: Set up Node for the command runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.22.2
+      - name: Restore the command runtime
+        id: agent-cache
+        uses: actions/cache@v4
+        with:
+          path: build/AgentRuntime
+          key: agent-runtime-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('agent/**', 'scripts/build_agent_runtime.py') }}
+      - name: Build the command runtime
+        if: steps.agent-cache.outputs.cache-hit != 'true'
+        run: python3 scripts/build_agent_runtime.py --node "$(dirname "$(dirname "$(which node)")")" --out build/AgentRuntime
+      - name: Test the command runtime and its macOS sandbox
+        run: bash scripts/agent_smoke_test.sh build/AgentRuntime
       - name: Generate Xcode project
         run: xcodegen generate
       - name: Start mock OpenAI server

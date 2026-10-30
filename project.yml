@@ -14,6 +14,8 @@ settings:
     CODE_SIGN_STYLE: Manual
     DEVELOPMENT_TEAM: ""
     ENABLE_HARDENED_RUNTIME: NO
+    # The runtime-embedding script copies a folder Xcode doesn't track.
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
 packages:
   SpotKit:
     path: Packages/SpotKit
@@ -40,6 +42,16 @@ targets:
       - package: SpotKit
         product: SpotAI
       - package: KeyboardShortcuts
+    postBuildScripts:
+      # The dsh runtime for running commands, built into build/AgentRuntime by
+      # scripts/build_agent_runtime.py. Builds without it simply leave the feature unavailable.
+      - name: Embed command runtime
+        basedOnDependencyAnalysis: false
+        script: |
+          if [ -d "$SRCROOT/build/AgentRuntime" ]; then
+            mkdir -p "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/Agent"
+            rsync -a --delete "$SRCROOT/build/AgentRuntime/" "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/Agent/"
+          fi
     info:
       path: App/Info.plist
       properties:
