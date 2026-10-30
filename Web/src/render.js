@@ -77,8 +77,10 @@ export function createRenderer() {
     const token = tokens[index]
     const language = token.info.trim().split(/\s+/)[0] ?? ''
     const code = token.content.replace(/\n$/, '')
+    // A Mermaid diagram starts as its source; the page draws it once the reply is complete.
+    const diagram = language.toLowerCase() === 'mermaid'
     return (
-      '<div class="code-block">' +
+      (diagram ? `<div class="code-block mermaid-block" data-source="${escapeHtml(code)}">` : '<div class="code-block">') +
       '<div class="code-header">' +
       `<span class="code-language">${escapeHtml(language)}</span>` +
       `<button class="copy-code" type="button" aria-label="${escapeHtml(labels.copyCode)}">` +

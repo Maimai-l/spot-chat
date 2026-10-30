@@ -1,6 +1,7 @@
 import AppKit
 import Combine
 import SwiftUI
+import UniformTypeIdentifiers
 import SpotCore
 
 /// The full window: conversation history on the left, the selected conversation on the right.
@@ -103,6 +104,25 @@ final class FullWindowController: NSObject, ObservableObject, NSWindowDelegate {
 
     func delete(_ topic: TopicSummary) {
         app.deleteTopic(topic.id)
+    }
+
+    /// Saves the conversation as a Markdown file the user picks.
+    func export(_ topic: TopicSummary) {
+        let title = topic.name.isEmpty ? String(localized: "New Chat") : topic.name
+        let messages = (try? app.messageService.list(topicID: topic.id)) ?? []
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [UTType(filenameExtension: "md") ?? .plainText]
+        panel.nameFieldStringValue = ConversationExport.fileName(for: title)
+        panel.canCreateDirectories = true
+        let save = { (response: NSApplication.ModalResponse) in
+            guard response == .OK, let url = panel.url else { return }
+            try? ConversationExport.markdown(title: title, messages: messages).write(to: url, atomically: true, encoding: .utf8)
+        }
+        if let window {
+            panel.beginSheetModal(for: window, completionHandler: save)
+        } else {
+            save(panel.runModal())
+        }
     }
 
     private func historyDidChange() {

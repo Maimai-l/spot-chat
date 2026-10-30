@@ -30,6 +30,7 @@ final class AppModel: ObservableObject {
     let providerService: ProviderService
     let modelService: ModelService
     let preferenceService: PreferenceService
+    let assistantService: AssistantService
 
     init(database: AppDatabase, filesDirectory: URL) {
         fileService = FileEntryService(database: database, directory: filesDirectory)
@@ -38,6 +39,7 @@ final class AppModel: ObservableObject {
         providerService = ProviderService(database: database)
         modelService = ModelService(database: database)
         preferenceService = PreferenceService(database: database)
+        assistantService = AssistantService(database: database)
         try? providerService.ensureBuiltInProviders()
         reloadProviders()
         reloadPreferences()
@@ -72,6 +74,12 @@ final class AppModel: ObservableObject {
     /// Whether the model is served by DeepSeek's own API, whose thinking levels differ.
     func isDeepSeek(_ model: ProviderModel) -> Bool {
         provider(for: model).flatMap { ProviderEndpoint(baseURL: $0.baseURL) }?.isDeepSeek ?? false
+    }
+
+    /// The assistant preset a conversation uses, if it names one.
+    func preset(forTopic topicID: UUID?) -> AssistantPreset? {
+        guard let topicID, let id = try? topicService.assistantID(of: topicID) else { return nil }
+        return try? assistantService.get(id)
     }
 
     func setDefaultModel(_ id: String) {

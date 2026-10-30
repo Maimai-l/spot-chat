@@ -13,7 +13,9 @@ final class SpotChatUITests: XCTestCase {
 
     // MARK: Helpers
 
-    func launch(resetState: Bool, provider: Bool = true, language: String = "en", fullWindow: Bool = false) -> XCUIApplication {
+    func launch(
+        resetState: Bool, provider: Bool = true, language: String = "en", fullWindow: Bool = false, arguments: [String] = []
+    ) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = [
             "-SpotChatShowMiniOnLaunch", "YES",
@@ -29,6 +31,7 @@ final class SpotChatUITests: XCTestCase {
         if fullWindow {
             app.launchArguments += ["-SpotChatShowFullWindowOnLaunch", "YES"]
         }
+        app.launchArguments += arguments
         app.launch()
         return app
     }
@@ -299,6 +302,37 @@ final class SpotChatUITests: XCTestCase {
         XCTAssertGreaterThanOrEqual(numbers.count, 3, text(of: usage))
         guard numbers.count >= 3 else { return }
         XCTAssertGreaterThan(numbers[1], numbers[0] / 2, text(of: usage))
+    }
+
+    func testSelectedTextIsQuotedInTheInput() {
+        let app = launch(resetState: true, arguments: ["-SpotChatAskAbout", "The mitochondria\nis the powerhouse"])
+        let input = composer(in: app)
+        XCTAssertTrue(input.waitForExistence(timeout: 10))
+        waitForText(of: input, "SELF BEGINSWITH %@", "> The mitochondria\n> is the powerhouse")
+        input.typeText("Explain this")
+        XCTAssertTrue(text(of: input).hasSuffix("\n\nExplain this"), text(of: input))
+        attachScreenshot("Selection")
+    }
+
+    func testHistoryCanBeSearchedByWhatWasSaid() {
+        let app = launch(resetState: true, fullWindow: true)
+        send("markdown", in: app)
+        waitForReply(in: app, "SELF CONTAINS %@", "| WAL | concurrent |")
+        element("newChat", in: app).click()
+        send("hello", in: app)
+        XCTAssertTrue(reply(containing: "Echo: hello", in: app).waitForExistence(timeout: 10))
+        XCTAssertEqual(elements("historyItem", in: app).count, 2)
+
+        let search = app.searchFields.firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        search.click()
+        search.typeText("journal_mode")
+        let deadline = Date().addingTimeInterval(5)
+        while elements("historyItem", in: app).count != 1, Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+        }
+        XCTAssertEqual(elements("historyItem", in: app).count, 1, "Only the conversation that mentions it is left")
+        attachScreenshot("History search")
     }
 
     func testErrorShowsTheServiceMessageWithRetry() {
@@ -753,6 +787,11 @@ final class SpotChatUITests: XCTestCase {
         XCTAssertTrue(reply(containing: "frac{n(n+1)}{2}$$", in: app).waitForExistence(timeout: 15))
         RunLoop.current.run(until: Date().addingTimeInterval(1.5))
         attachScreenshot("Math")
+
+        send("diagram", in: app)
+        XCTAssertTrue(reply(containing: "C --> D", in: app).waitForExistence(timeout: 15))
+        RunLoop.current.run(until: Date().addingTimeInterval(2.5))
+        attachScreenshot("Diagram")
 
         app.buttons["Expand to Full Window"].click()
         XCTAssertTrue(element("collapseToMini", in: app).waitForExistence(timeout: 10))

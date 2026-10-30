@@ -103,6 +103,23 @@ public final class AppDatabase: Sendable {
                 );
                 """)
         }
+        // Assistant presets, as in Cherry Studio's assistant table; a conversation can name one.
+        migrator.registerMigration("v2-assistants") { db in
+            try db.execute(sql: """
+                CREATE TABLE assistant (
+                    id TEXT PRIMARY KEY NOT NULL,
+                    name TEXT NOT NULL,
+                    prompt TEXT NOT NULL DEFAULT '',
+                    emoji TEXT NOT NULL,
+                    description TEXT NOT NULL DEFAULT '',
+                    modelId TEXT REFERENCES user_model(id) ON DELETE SET NULL,
+                    settings TEXT NOT NULL,
+                    createdAt INTEGER NOT NULL,
+                    updatedAt INTEGER NOT NULL
+                );
+                ALTER TABLE topic ADD COLUMN assistantId TEXT REFERENCES assistant(id) ON DELETE SET NULL;
+                """)
+        }
         return migrator
     }
 }

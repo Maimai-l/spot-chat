@@ -46,6 +46,14 @@ targets:
         CFBundleDisplayName: Spot Chat
         CFBundleName: Spot Chat
         LSUIElement: true
+        NSServices:
+          - NSMenuItem:
+              default: Ask Spot Chat
+            NSMessage: askAboutSelection
+            NSPortName: Spot Chat
+            NSSendTypes:
+              - public.utf8-plain-text
+              - NSStringPboardType
         LSApplicationCategoryType: public.app-category.productivity
         UIDesignRequiresCompatibility: true
         CFBundleDevelopmentRegion: en

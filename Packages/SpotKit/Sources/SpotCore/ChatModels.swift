@@ -104,6 +104,33 @@ public struct ChatMessage: Identifiable, Equatable, Sendable {
     }
 }
 
+/// A reusable setup for conversations: a system prompt, and optionally a model and effort.
+/// Cherry Studio calls it an assistant.
+public struct AssistantPreset: Identifiable, Equatable, Sendable {
+    public let id: UUID
+    public var name: String
+    public var prompt: String
+    public var emoji: String
+    public var description: String
+    /// The `user_model` id to use instead of the current model.
+    public var modelID: String?
+    /// The effort to use instead of the model's own.
+    public var thinking: ThinkingLevel?
+
+    public init(
+        id: UUID, name: String, prompt: String, emoji: String = "🌟", description: String = "",
+        modelID: String? = nil, thinking: ThinkingLevel? = nil
+    ) {
+        self.id = id
+        self.name = name
+        self.prompt = prompt
+        self.emoji = emoji
+        self.description = description
+        self.modelID = modelID
+        self.thinking = thinking
+    }
+}
+
 /// A conversation as listed in history. Cherry Studio calls it a topic.
 public struct TopicSummary: Identifiable, Equatable, Sendable {
     public let id: UUID

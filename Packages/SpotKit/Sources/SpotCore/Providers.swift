@@ -36,9 +36,12 @@ public struct ProviderTemplate: Identifiable, Equatable, Sendable {
 
     public static let deepSeek = ProviderTemplate(id: "deepseek", name: "DeepSeek", baseURL: "https://api.deepseek.com/v1")
     public static let openAI = ProviderTemplate(id: "openai", name: "OpenAI", baseURL: "https://api.openai.com/v1")
+    /// Local servers, at the addresses Cherry Studio's provider registry uses. They need no key.
+    public static let ollama = ProviderTemplate(id: "ollama", name: "Ollama", baseURL: "http://localhost:11434/v1")
+    public static let lmStudio = ProviderTemplate(id: "lmstudio", name: "LM Studio", baseURL: "http://localhost:1234/v1")
 
     /// In the order they are listed.
-    public static let all: [ProviderTemplate] = [.deepSeek, .openAI]
+    public static let all: [ProviderTemplate] = [.deepSeek, .openAI, .ollama, .lmStudio]
 }
 
 public struct ProviderModel: Identifiable, Equatable, Hashable, Sendable {

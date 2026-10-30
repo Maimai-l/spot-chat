@@ -180,3 +180,65 @@ extension ProviderEndpoint {
         #expect(prompt.contains("Assistant: Here is a game"))
     }
 }
+
+struct ThinkTagSplitterTests {
+    func split(_ pieces: [String]) -> (thinking: String, text: String) {
+        var splitter = ThinkTagSplitter()
+        var chunks = pieces.flatMap { splitter.feed($0) }
+        chunks += splitter.finish()
+        var thinking = "", text = ""
+        for chunk in chunks {
+            switch chunk {
+            case let .reasoning(part): thinking += part
+            case let .text(part): text += part
+            case .usage: break
+            }
+        }
+        return (thinking, text)
+    }
+
+    @Test func aLeadingThinkBlockIsThinking() {
+        let result = split(["<think>Let me see.</think>\n\nFour."])
+        #expect(result.thinking == "Let me see.")
+        #expect(result.text == "Four.")
+    }
+
+    @Test func tagsCutAcrossPiecesStillCount() {
+        let result = split(["  <thi", "nk>Let ", "me see.</th", "ink>", "Four", "."])
+        #expect(result.thinking == "Let me see.")
+        #expect(result.text == "Four.")
+    }
+
+    @Test func aReplyWithoutTagsIsLeftAlone() {
+        #expect(split(["Hello ", "<think> is a tag"]).text == "Hello <think> is a tag")
+        #expect(split(["<", "b>bold</b>"]).text == "<b>bold</b>")
+        #expect(split(["<thinking about it"]).text == "<thinking about it")
+    }
+
+    @Test func anUnfinishedThinkBlockStaysThinking() {
+        let result = split(["<think>Still going"])
+        #expect(result.thinking == "Still going")
+        #expect(result.text == "")
+    }
+}
+
+struct ConversationExportTests {
+    @Test func followsCherryStudiosLayout() {
+        let markdown = ConversationExport.markdown(title: "Circles", messages: [
+            ChatMessage(role: .user, text: "Area?"),
+            ChatMessage(role: .assistant, text: "Use $\\pi r^2$."),
+            ChatMessage(role: .assistant, text: "", status: .error, errorMessage: "Failed"),
+        ])
+        #expect(markdown == "# Circles\n\n## 🧑‍💻 User\n\nArea?\n\n---\n## 🤖 Assistant\n\nUse $\\pi r^2$.\n")
+    }
+
+    @Test func fileNamesLeaveOutReservedCharacters() {
+        #expect(ConversationExport.fileName(for: "a/b: c?") == "a b  c.md")
+        #expect(ConversationExport.fileName(for: "  ") == "Conversation.md")
+    }
+
+    @Test func selectionsAreQuoted() {
+        #expect(SelectionQuote.draft(quoting: "  one\n\ntwo \n") == "> one\n>\n> two\n\n")
+        #expect(SelectionQuote.draft(quoting: " \n ") == nil)
+    }
+}

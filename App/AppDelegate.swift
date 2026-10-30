@@ -5,6 +5,7 @@ import SpotData
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    private let selectionService = SelectionService()
     /// Launch arguments used by the UI tests.
     enum LaunchOption {
         static let showMiniWindow = "SpotChatShowMiniOnLaunch"
@@ -15,6 +16,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         /// Adds a provider with this base URL when there is none.
         static let testProviderURL = "SpotChatTestProviderURL"
         static let testProviderKey = "SpotChatTestProviderKey"
+        /// Opens the mini window as if this text had been selected and asked about.
+        static let askAbout = "SpotChatAskAbout"
     }
 
     private(set) lazy var app = makeAppModel()
@@ -43,8 +46,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         KeyboardShortcuts.onKeyDown(for: .openFullWindow) { [weak self] in
             self?.openFullWindow()
         }
+        // On release, so the shortcut's own keys aren't held while the selection is copied.
+        KeyboardShortcuts.onKeyUp(for: .askAboutSelection) { [weak self] in
+            guard let self else { return }
+            Task { @MainActor in
+                let text = await SelectionReader.selectedText()
+                self.miniController.ask(about: text)
+            }
+        }
+        selectionService.onText = { [weak self] text in self?.miniController.ask(about: text) }
+        NSApp.servicesProvider = selectionService
+        NSUpdateDynamicServices()
 
-        if defaults.bool(forKey: LaunchOption.showFullWindow) {
+        if let selection = defaults.string(forKey: LaunchOption.askAbout) {
+            miniController.ask(about: selection)
+        } else if defaults.bool(forKey: LaunchOption.showFullWindow) {
             openFullWindow()
         } else if defaults.bool(forKey: LaunchOption.showMiniWindow) {
             miniController.handle(.openRequested)

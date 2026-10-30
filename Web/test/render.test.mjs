@@ -99,3 +99,9 @@ test('display math inside a paragraph does not nest paragraphs', () => {
   assert.doesNotMatch(html, /<p class="katex-block">/)
   assert.match(render('$$x^2$$'), /^<div class="katex-block">/)
 })
+
+test('a mermaid block keeps its source for drawing', () => {
+  const html = render('```mermaid\ngraph TD\n  A --> B\n```')
+  assert.match(html, /class="code-block mermaid-block" data-source="graph TD\n  A --&gt; B"/)
+  assert.match(html, /class="code-language">mermaid</)
+})

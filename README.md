@@ -50,5 +50,6 @@ MOCK_OPENAI_BASE_URL=http://127.0.0.1:8765/v1 swift test --package-path Packages
 | Math in replies | [KaTeX](https://github.com/KaTeX/KaTeX) through [@vscode/markdown-it-katex](https://github.com/microsoft/vscode-markdown-it-katex) |
 | Code highlighting in replies | [highlight.js](https://github.com/highlightjs/highlight.js) |
 | Updating a streaming reply in place | [morphdom](https://github.com/patrick-steele-idem/morphdom) |
+| Diagrams in replies | [Mermaid](https://github.com/mermaid-js/mermaid) |
 | SQLite | [GRDB.swift](https://github.com/groue/GRDB.swift) |
 | Xcode project generation | [XcodeGen](https://github.com/yonaskolb/XcodeGen) |

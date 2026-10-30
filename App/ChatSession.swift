@@ -79,7 +79,9 @@ final class ChatSession: ObservableObject {
     // MARK: Generation
 
     private func generateReply() {
-        let model = app.currentModel
+        // A conversation tied to an assistant preset uses its model, prompt and effort.
+        let preset = app.preset(forTopic: topicID)
+        let model = preset?.modelID.flatMap { id in app.allModels.first { $0.id == id } } ?? app.currentModel
         var reply = ChatMessage(role: .assistant, text: "", status: .pending, modelID: model?.id)
         let history = messages
 
@@ -96,8 +98,9 @@ final class ChatSession: ObservableObject {
                 request = ChatRequest(
                     model: modelName,
                     messages: try ChatRequestBuilder.messages(from: history, loadAttachment: AttachmentLoader.load),
-                    systemPrompt: app.systemPrompt.trimmingCharacters(in: .whitespacesAndNewlines),
-                    thinking: model.map { app.thinking(for: $0) } ?? .automatic
+                    systemPrompt: (preset?.prompt.isEmpty == false ? preset?.prompt ?? "" : app.systemPrompt)
+                        .trimmingCharacters(in: .whitespacesAndNewlines),
+                    thinking: preset?.thinking ?? model.map { app.thinking(for: $0) } ?? .automatic
                 )
             } catch {
                 reply.status = .error

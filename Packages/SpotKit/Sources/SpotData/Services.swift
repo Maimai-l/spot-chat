@@ -6,6 +6,7 @@ public enum DataError: Error, Equatable {
     case notFound
     case invalidModelID
     case builtInProvider
+    case emptyName
 }
 
 // MARK: Topics
@@ -22,7 +23,7 @@ public struct TopicService: Sendable {
         let now = Timestamp.milliseconds(date)
         let record = TopicRecord(
             id: id.uuidString, name: name, isNameManuallyEdited: false,
-            lastActivityAt: now, createdAt: now, updatedAt: now
+            lastActivityAt: now, createdAt: now, updatedAt: now, assistantId: nil
         )
         try database.writer.write { db in try record.insert(db) }
         return TopicSummary(id: id, name: name, lastActivityAt: date)
@@ -59,6 +60,19 @@ public struct TopicService: Sendable {
         }
     }
 
+    /// The assistant preset the conversation uses, if any.
+    public func assistantID(of id: UUID) throws -> UUID? {
+        try database.writer.read { db in
+            try TopicRecord.fetchOne(db, key: id.uuidString)?.assistantId.flatMap(UUID.init(uuidString:))
+        }
+    }
+
+    public func setAssistant(_ assistantID: UUID?, for id: UUID) throws {
+        try update(id) { record in
+            record.assistantId = assistantID?.uuidString
+        }
+    }
+
     public func touch(_ id: UUID, at date: Date = Date()) throws {
         try update(id) { record in
             record.lastActivityAt = Timestamp.milliseconds(date)
@@ -84,6 +98,73 @@ public struct TopicService: Sendable {
     static func summary(_ record: TopicRecord) -> TopicSummary? {
         guard let id = UUID(uuidString: record.id) else { return nil }
         return TopicSummary(id: id, name: record.name, lastActivityAt: Timestamp.date(record.lastActivityAt))
+    }
+}
+
+// MARK: Assistants
+
+/// Assistant presets: a name, a system prompt and optionally a model and effort, as in Cherry Studio.
+/// There is no screen for them yet.
+public struct AssistantService: Sendable {
+    let database: AppDatabase
+
+    public init(database: AppDatabase) {
+        self.database = database
+    }
+
+    /// Oldest first.
+    public func list() throws -> [AssistantPreset] {
+        try database.writer.read { db in
+            try AssistantRecord.order(Column("createdAt"), Column("rowid")).fetchAll(db)
+        }.compactMap(Self.preset)
+    }
+
+    public func get(_ id: UUID) throws -> AssistantPreset? {
+        try database.writer.read { db in try AssistantRecord.fetchOne(db, key: id.uuidString) }.flatMap(Self.preset)
+    }
+
+    @discardableResult
+    public func create(
+        name: String, prompt: String = "", emoji: String = "🌟", description: String = "",
+        modelID: String? = nil, thinking: ThinkingLevel? = nil
+    ) throws -> AssistantPreset {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { throw DataError.emptyName }
+        let now = Timestamp.milliseconds(Date())
+        let record = AssistantRecord(
+            id: UUID().uuidString, name: trimmed, prompt: prompt, emoji: emoji, description: description,
+            modelId: modelID, settings: .init(reasoningEffort: thinking), createdAt: now, updatedAt: now
+        )
+        try database.writer.write { db in try record.insert(db) }
+        guard let preset = Self.preset(record) else { throw DataError.notFound }
+        return preset
+    }
+
+    public func update(_ preset: AssistantPreset) throws {
+        try database.writer.write { db in
+            guard var record = try AssistantRecord.fetchOne(db, key: preset.id.uuidString) else { throw DataError.notFound }
+            record.name = preset.name
+            record.prompt = preset.prompt
+            record.emoji = preset.emoji
+            record.description = preset.description
+            record.modelId = preset.modelID
+            record.settings = .init(reasoningEffort: preset.thinking)
+            record.updatedAt = Timestamp.milliseconds(Date())
+            try record.update(db)
+        }
+    }
+
+    /// Conversations that used it keep going without one.
+    public func delete(_ id: UUID) throws {
+        _ = try database.writer.write { db in try AssistantRecord.deleteOne(db, key: id.uuidString) }
+    }
+
+    static func preset(_ record: AssistantRecord) -> AssistantPreset? {
+        guard let id = UUID(uuidString: record.id) else { return nil }
+        return AssistantPreset(
+            id: id, name: record.name, prompt: record.prompt, emoji: record.emoji, description: record.description,
+            modelID: record.modelId, thinking: record.settings.reasoningEffort
+        )
     }
 }
 
@@ -128,6 +209,19 @@ public struct MessageService: Sendable {
             return records.compactMap { record in
                 Self.message(record, attachments: attachments[record.id] ?? [])
             }
+        }
+    }
+
+    /// Conversations with a message containing `text`, ignoring case, using the `searchableText`
+    /// column Cherry Studio keeps for this.
+    public func topicIDs(containing text: String) throws -> Set<UUID> {
+        let query = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return [] }
+        return try database.writer.read { db in
+            let ids = try String.fetchAll(db, sql: """
+                SELECT DISTINCT topicId FROM message WHERE instr(lower(searchableText), lower(?)) > 0
+                """, arguments: [query])
+            return Set(ids.compactMap(UUID.init(uuidString:)))
         }
     }
 

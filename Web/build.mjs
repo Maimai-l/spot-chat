@@ -38,6 +38,9 @@ const light = readFileSync(join(styles, 'github.min.css'), 'utf8')
 const dark = readFileSync(join(styles, 'github-dark.min.css'), 'utf8')
 write('highlight.css', `${light}\n@media (prefers-color-scheme: dark){${dark}}\n`)
 
+// Mermaid as published, loaded by the page only when a reply has a diagram.
+write('mermaid.min.js', readFileSync(join(here, 'node_modules', 'mermaid', 'dist', 'mermaid.min.js')))
+
 // KaTeX: the stylesheet and its woff2 fonts only; WebKit never needs the older formats.
 const katexDist = join(here, 'node_modules', 'katex', 'dist')
 const katexCSS = readFileSync(join(katexDist, 'katex.min.css'), 'utf8')

@@ -273,6 +273,7 @@ struct GeneralSettingsView: View {
             Section("Shortcuts") {
                 KeyboardShortcuts.Recorder("Open Mini Window", name: .toggleMiniWindow)
                 KeyboardShortcuts.Recorder("Open Full Window", name: .openFullWindow)
+                KeyboardShortcuts.Recorder("Ask About Selection", name: .askAboutSelection)
             }
 
             Section("Mini Window") {

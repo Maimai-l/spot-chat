@@ -195,6 +195,18 @@ pre code.hljs {
   padding: 0;
 }
 
+/* Mermaid diagrams, drawn in the code card. */
+.mermaid-diagram {
+  padding: 8px 14px 14px;
+  overflow-x: auto;
+}
+.mermaid-diagram svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+}
+
 /* Tables: full width, a rule under the header and between rows. */
 .table-scroll {
   overflow-x: auto;

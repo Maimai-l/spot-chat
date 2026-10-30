@@ -49,6 +49,20 @@ struct OpenAICompatibleClientTests {
         #expect(try await ask("think", client: client()) == "Two plus two is four.")
     }
 
+    @Test func thinkingInsideTheReplyIsFolded() async throws {
+        let request = ChatRequest(model: "mock-fast", messages: [ChatRequestMessage(role: .user, parts: [.text("think tags")])])
+        var thinking = "", text = ""
+        for try await chunk in try client().stream(request) {
+            switch chunk {
+            case let .reasoning(part): thinking += part
+            case let .text(part): text += part
+            case .usage: break
+            }
+        }
+        #expect(thinking == "The user asks for a sum.")
+        #expect(text == "Two plus two is four.")
+    }
+
     @Test func reportsCacheHitsForARepeatedPrefix() async throws {
         let long = String(repeating: "Background for the question. ", count: 120)
         let request = ChatRequest(model: "mock-fast", messages: [ChatRequestMessage(role: .user, parts: [.text(long)])])

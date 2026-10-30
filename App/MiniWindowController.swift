@@ -96,6 +96,16 @@ final class MiniWindowController: ObservableObject {
         return actions
     }
 
+    /// Opens the mini window with the selected text quoted at the start of the input.
+    /// Without any text it just opens.
+    func ask(about selection: String?) {
+        if let quote = selection.flatMap(SelectionQuote.draft(quoting:)) {
+            composer.draft = quote + composer.draft
+        }
+        handle(.openRequested)
+        composer.requestFocus()
+    }
+
     func handle(_ event: MiniWindowEvent) {
         let effects = state.handle(event, isKey: panel.isKeyWindow)
         mode = state.mode

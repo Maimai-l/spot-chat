@@ -12,6 +12,8 @@ The reply depends on the last user message:
   "markdown"               -> a heading, a list, a code block and a table
   "math"                   -> inline and display LaTeX next to prices
   "think"                  -> DeepSeek-style reasoning_content for about a second, then the reply
+  "think tags"             -> the thinking inside the reply as <think>...</think>, cut across chunks
+  "diagram"                -> a Mermaid flowchart
   a conversation title request -> "Mock title" (not kept as the last request)
   anything else            -> "Echo: <text>" in three chunks
 GET /v1/last-request returns the body of the last chat request.
@@ -79,6 +81,10 @@ def last_user_parts(body):
     return []
 
 
+DIAGRAM_REPLY = (
+    "Here is the flow:\n\n```mermaid\ngraph LR\n  A[Question] --> B{Thinking?}\n"
+    "  B -- yes --> C[Reasoning]\n  B -- no --> D[Answer]\n  C --> D\n```\n"
+)
 THINKING_STEPS = ["The user asks ", "what two plus two is. ", "Adding them ", "gives four. ", "I'll answer briefly."]
 TITLE_INSTRUCTION = "Write a title for the conversation below."
 
@@ -103,6 +109,10 @@ def reply_chunks(body):
         return [f"tick {i} " for i in range(60)], 0.2
     if text.strip() == "markdown":
         return [MARKDOWN_REPLY[i:i + 20] for i in range(0, len(MARKDOWN_REPLY), 20)], 0.02
+    if text.strip() == "think tags":
+        return ["<thi", "nk>The user asks ", "for a sum.</th", "ink>\n\n", "Two plus two ", "is four."], 0.05
+    if text.strip() == "diagram":
+        return [DIAGRAM_REPLY[i:i + 20] for i in range(0, len(DIAGRAM_REPLY), 20)], 0.02
     if text.strip() == "think":
         thinking = [("reasoning", part) for part in THINKING_STEPS]
         return thinking + ["Two plus two ", "is four."], 0.15

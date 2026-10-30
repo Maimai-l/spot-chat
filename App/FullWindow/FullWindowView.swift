@@ -80,15 +80,34 @@ struct HistorySidebar: View {
     @ObservedObject var session: ChatSession
     @ObservedObject var app: AppModel
     @FocusState private var renameFocused: Bool
+    @State private var query = ""
+    /// Conversations whose messages contain the query.
+    @State private var matches: Set<UUID> = []
+
+    /// The history, narrowed to conversations whose name or messages contain the query.
+    private var shownTopics: [TopicSummary] {
+        let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return app.topics }
+        return app.topics.filter { $0.name.localizedCaseInsensitiveContains(text) || matches.contains($0.id) }
+    }
 
     var body: some View {
         List(selection: Binding(get: { session.topicID }, set: { controller.select($0) })) {
-            ForEach(app.topics) { topic in
+            ForEach(shownTopics) { topic in
                 row(for: topic)
                     .tag(topic.id)
             }
         }
         .listStyle(.sidebar)
+        .searchable(text: $query, placement: .sidebar, prompt: Text("Search"))
+        .onChange(of: query) { refreshMatches() }
+        .onChange(of: app.topics) { refreshMatches() }
+        .overlay {
+            if !query.trimmingCharacters(in: .whitespaces).isEmpty, shownTopics.isEmpty {
+                Text("No Results")
+                    .foregroundStyle(.secondary)
+            }
+        }
         .accessibilityIdentifier("history")
         .safeAreaInset(edge: .top) {
             Button(action: controller.newChat) {
@@ -130,6 +149,10 @@ struct HistorySidebar: View {
         }
     }
 
+    private func refreshMatches() {
+        matches = (try? app.messageService.topicIDs(containing: query)) ?? []
+    }
+
     @ViewBuilder
     private func row(for topic: TopicSummary) -> some View {
         if controller.renamingTopic == topic.id {
@@ -146,6 +169,7 @@ struct HistorySidebar: View {
                 .lineLimit(1)
                 .contextMenu {
                     Button("Rename…") { controller.beginRename(topic) }
+                    Button("Export as Markdown…") { controller.export(topic) }
                     Divider()
                     Button("Delete…", role: .destructive) { controller.topicToDelete = topic }
                 }

@@ -103,17 +103,25 @@ public struct OpenAICompatibleClient: ChatResponder {
                         }
                         throw ChatServiceError(statusCode: status, body: body)
                     }
-                    for try await line in bytes.lines {
+                    // Services that put the thinking inside the reply as <think>…</think> get it folded too.
+                    var tags = ThinkTagSplitter()
+                    lines: for try await line in bytes.lines {
                         switch try StreamLine.decode(line) {
                         case let .chunks(chunks):
-                            for chunk in chunks { continuation.yield(chunk) }
+                            for chunk in chunks {
+                                if case let .text(text) = chunk {
+                                    for part in tags.feed(text) { continuation.yield(part) }
+                                } else {
+                                    continuation.yield(chunk)
+                                }
+                            }
                         case .done:
-                            continuation.finish()
-                            return
+                            break lines
                         case .ignored:
                             break
                         }
                     }
+                    for part in tags.finish() { continuation.yield(part) }
                     continuation.finish()
                 } catch is CancellationError {
                     continuation.finish(throwing: CancellationError())

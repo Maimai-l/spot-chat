@@ -11,6 +11,26 @@ struct TopicRecord: Codable, FetchableRecord, PersistableRecord, Sendable {
     var lastActivityAt: Int64
     var createdAt: Int64
     var updatedAt: Int64
+    var assistantId: String?
+}
+
+struct AssistantRecord: Codable, FetchableRecord, PersistableRecord, Sendable {
+    static let databaseTableName = "assistant"
+
+    /// The JSON in the `settings` column.
+    struct Settings: Codable, Equatable, Sendable {
+        var reasoningEffort: ThinkingLevel?
+    }
+
+    var id: String
+    var name: String
+    var prompt: String
+    var emoji: String
+    var description: String
+    var modelId: String?
+    var settings: Settings
+    var createdAt: Int64
+    var updatedAt: Int64
 }
 
 struct MessageRecord: Codable, FetchableRecord, PersistableRecord, Sendable {

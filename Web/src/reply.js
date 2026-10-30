@@ -28,13 +28,76 @@ function show(markdown, streaming) {
   // Patching instead of replacing keeps finished formulas, code and the reader's selection in place.
   morphdom(content, next, {
     childrenOnly: true,
-    onBeforeElUpdated: (from, to) => !from.isEqualNode(to),
+    onBeforeElUpdated: (from, to) => {
+      // A drawn diagram stays drawn while its source is unchanged.
+      if (from.classList?.contains('rendered') && from.dataset.source === to.dataset?.source) return false
+      return !from.isEqualNode(to)
+    },
     // While a reply streams, each new paragraph, list item, row or code block fades in.
     onNodeAdded: (node) => {
       if (streaming && node.nodeType === Node.ELEMENT_NODE) node.classList.add('appear')
       return node
     },
   })
+  reportHeight()
+  if (!streaming) drawDiagrams()
+}
+
+// Mermaid is large, so it loads only for a reply that has a diagram.
+let mermaidLoad = null
+function loadMermaid() {
+  mermaidLoad ??= new Promise((resolve, reject) => {
+    const script = document.createElement('script')
+    script.src = 'mermaid.min.js'
+    script.onload = () => {
+      const dark = window.matchMedia('(prefers-color-scheme: dark)').matches
+      window.mermaid.initialize({
+        startOnLoad: false,
+        securityLevel: 'strict',
+        theme: dark ? 'dark' : 'default',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif',
+      })
+      resolve(window.mermaid)
+    }
+    script.onerror = reject
+    document.head.appendChild(script)
+  })
+  return mermaidLoad
+}
+
+const diagrams = new Map()
+let diagramCount = 0
+async function drawDiagrams() {
+  const blocks = [...content.querySelectorAll('.mermaid-block:not(.rendered)')]
+  if (blocks.length === 0) return
+  let mermaid
+  try {
+    mermaid = await loadMermaid()
+  } catch {
+    return
+  }
+  for (const block of blocks) {
+    const source = block.dataset.source
+    let svg = diagrams.get(source)
+    if (svg === undefined) {
+      const id = `diagram-${++diagramCount}`
+      try {
+        svg = (await mermaid.render(id, source)).svg
+      } catch {
+        // A diagram Mermaid can't read stays as its source.
+        svg = null
+      }
+      document.getElementById(`d${id}`)?.remove()
+      diagrams.set(source, svg)
+    }
+    if (!block.isConnected || block.dataset.source !== source) continue
+    block.classList.add('rendered')
+    if (svg === null) continue
+    const drawing = document.createElement('div')
+    drawing.className = 'mermaid-diagram'
+    drawing.innerHTML = svg
+    block.querySelector('pre')?.replaceWith(drawing)
+  }
   reportHeight()
 }
 
@@ -111,7 +174,8 @@ document.addEventListener('click', (event) => {
   const button = event.target.closest('.copy-code')
   if (button) {
     event.preventDefault()
-    const code = button.closest('.code-block')?.querySelector('pre code')?.textContent ?? ''
+    const block = button.closest('.code-block')
+    const code = block?.dataset.source ?? block?.querySelector('pre code')?.textContent ?? ''
     post('copyCode', code)
     const label = button.querySelector('.copy-label')
     button.classList.add('copied')

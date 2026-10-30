@@ -100,6 +100,40 @@ struct TestStore {
         #expect(saved.errorMessage == "Incorrect API key provided.")
     }
 
+    @Test func assistantPresetsAreStoredAndLinkedToConversations() throws {
+        let store = try TestStore()
+        let assistants = AssistantService(database: store.database)
+        let writer = try assistants.create(name: " Writer ", prompt: "Write plainly.", thinking: .low)
+        #expect(writer.name == "Writer")
+        #expect(throws: DataError.emptyName) { try assistants.create(name: "  ") }
+
+        var edited = writer
+        edited.prompt = "Write briefly."
+        try assistants.update(edited)
+        #expect(try assistants.get(writer.id)?.prompt == "Write briefly.")
+        #expect(try assistants.get(writer.id)?.thinking == .low)
+
+        let topic = try store.topics.create()
+        try store.topics.setAssistant(writer.id, for: topic.id)
+        #expect(try store.topics.assistantID(of: topic.id) == writer.id)
+        try assistants.delete(writer.id)
+        #expect(try assistants.list().isEmpty)
+        #expect(try store.topics.assistantID(of: topic.id) == nil, "The conversation stays, without the preset")
+    }
+
+    @Test func searchFindsConversationsByTheirMessages() throws {
+        let store = try TestStore()
+        let circles = try store.topics.create(name: "Circles")
+        let lunch = try store.topics.create(name: "Lunch")
+        try store.messages.append(ChatMessage(role: .user, text: "What is the Area of a circle?"), to: circles.id)
+        try store.messages.append(ChatMessage(role: .assistant, text: "午饭吃面条"), to: lunch.id)
+
+        #expect(try store.messages.topicIDs(containing: "area") == [circles.id])
+        #expect(try store.messages.topicIDs(containing: "面条") == [lunch.id])
+        #expect(try store.messages.topicIDs(containing: "  ").isEmpty)
+        #expect(try store.messages.topicIDs(containing: "100%").isEmpty)
+    }
+
     @Test func thinkingIsKeptWithTheReply() throws {
         let store = try TestStore()
         let topic = try store.topics.create()
@@ -210,7 +244,7 @@ struct TestStore {
         try store.providers.ensureBuiltInProviders()
         try store.providers.ensureBuiltInProviders()
         let listed = try store.providers.list()
-        #expect(listed.map(\.id) == ["deepseek", "openai", own.id])
+        #expect(listed.map(\.id) == ["deepseek", "openai", "ollama", "lmstudio", own.id])
         #expect(listed[0].baseURL == "https://api.deepseek.com/v1")
         #expect(listed[0].isBuiltIn)
         #expect(!listed[2].isBuiltIn)
@@ -232,7 +266,7 @@ struct TestStore {
         let keyed = try store.providers.create(name: "OpenAI", baseURL: "https://api.openai.com/v1", apiKey: "sk-1")
         try store.providers.ensureBuiltInProviders()
         let listed = try store.providers.list()
-        #expect(listed.map(\.id) == ["deepseek", "openai", keyed.id], "The one with a key stays")
+        #expect(listed.map(\.id) == ["deepseek", "openai", "ollama", "lmstudio", keyed.id], "The one with a key stays")
     }
 }
 
