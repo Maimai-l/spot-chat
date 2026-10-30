@@ -414,6 +414,10 @@ public enum PreferenceKey {
     public static let miniRetentionMinutes = "mini_window.retention_minutes"
     /// Height of the expanded card in points.
     public static let cardHeight = "mini_window.card_height"
+    /// The system prompt sent before every conversation.
+    public static let systemPrompt = "chat.system_prompt"
+    /// Thinking level by `user_model` id.
+    public static let thinkingLevels = "chat.thinking_levels"
 }
 
 /// Key-value settings, stored as JSON like Cherry Studio's preference table.

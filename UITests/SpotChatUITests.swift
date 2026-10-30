@@ -359,6 +359,49 @@ final class SpotChatUITests: XCTestCase {
         XCTAssertEqual(try lastRequest()["model"] as? String, "mock-vision")
     }
 
+    func testThinkingLevelIsChosenInTheModelMenu() throws {
+        let app = launch(resetState: true)
+        let menu = element("modelMenu", in: app)
+        XCTAssertTrue(menu.waitForExistence(timeout: 10))
+        menu.click()
+        let thinking = app.menuItems["Thinking Level"]
+        XCTAssertTrue(thinking.waitForExistence(timeout: 5))
+        thinking.hover()
+        let high = app.menuItems["High"]
+        XCTAssertTrue(high.waitForExistence(timeout: 5))
+        attachScreenshot("Model menu")
+        high.click()
+
+        send("hi", in: app)
+        waitForReply(in: app, "SELF == %@", "Echo: hi")
+        // The test server isn't DeepSeek, so the level goes out as OpenAI's reasoning_effort.
+        XCTAssertEqual(try lastRequest()["reasoning_effort"] as? String, "high")
+        XCTAssertNil(try lastRequest()["thinking"])
+    }
+
+    func testSystemPromptIsSentFirst() throws {
+        let app = launch(resetState: true, fullWindow: true)
+        let gear = element("openSettings", in: app)
+        XCTAssertTrue(gear.waitForExistence(timeout: 10))
+        gear.click()
+        let general = app.toolbars.buttons["General"]
+        XCTAssertTrue(general.waitForExistence(timeout: 5))
+        general.click()
+        let prompt = element("systemPrompt", in: app)
+        XCTAssertTrue(prompt.waitForExistence(timeout: 5))
+        prompt.click()
+        prompt.typeText("Answer in one line.")
+        attachScreenshot("General settings")
+        app.typeKey("w", modifierFlags: .command)
+
+        send("hi", in: app)
+        waitForReply(in: app, "SELF == %@", "Echo: hi")
+        let messages = try lastRequest()["messages"] as? [[String: Any]] ?? []
+        XCTAssertEqual(messages.first?["role"] as? String, "system")
+        XCTAssertEqual(messages.first?["content"] as? String, "Answer in one line.")
+        XCTAssertNil(try lastRequest()["reasoning_effort"], "Without a chosen level nothing about thinking is sent")
+    }
+
     func testWithoutAModelTheReplyExplainsWhatToDo() {
         let app = launch(resetState: true, provider: false)
         XCTAssertTrue(element("addModel", in: app).waitForExistence(timeout: 10))

@@ -91,6 +91,12 @@ public struct ProviderEndpoint: Equatable, Sendable {
         self.basePath = path
     }
 
+    /// DeepSeek's own API, which switches thinking with a `thinking` field rather than `reasoning_effort` alone.
+    public var isDeepSeek: Bool {
+        let host = host.lowercased()
+        return host == "deepseek.com" || host.hasSuffix(".deepseek.com")
+    }
+
     /// An API address under the base URL, such as "chat/completions".
     public func url(path: String) -> URL {
         var components = URLComponents()

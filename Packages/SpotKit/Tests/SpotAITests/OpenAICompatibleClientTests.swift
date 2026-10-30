@@ -174,4 +174,32 @@ struct StreamLineTests {
         #expect(body.hasPrefix(#"{"messages":[{"content":"Hello","role":"user"}"#), "\(body)")
         #expect(body.contains(#""stream_options":{"include_usage":true}"#))
     }
+
+    @Test func thinkingLevelsFollowEachService() throws {
+        func body(_ baseURL: String, _ level: ThinkingLevel, system: String = "") throws -> [String: Any] {
+            let client = try OpenAICompatibleClient(baseURL: baseURL, apiKey: "key")
+            let request = ChatRequest(
+                model: "m", messages: [ChatRequestMessage(role: .user, parts: [.text("Hi")])], systemPrompt: system, thinking: level
+            )
+            let data = try #require(try client.makeStreamRequest(request).httpBody)
+            return try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+        }
+        let deepSeek = "https://api.deepseek.com/v1"
+        #expect(try body(deepSeek, .automatic)["thinking"] == nil)
+        #expect((try body(deepSeek, .off)["thinking"] as? [String: String]) == ["type": "disabled"])
+        #expect(try body(deepSeek, .off)["reasoning_effort"] == nil)
+        #expect((try body(deepSeek, .max)["thinking"] as? [String: String]) == ["type": "enabled"])
+        #expect(try body(deepSeek, .max)["reasoning_effort"] as? String == "max")
+        #expect(try body(deepSeek, .medium)["reasoning_effort"] as? String == "high")
+
+        let openAI = "https://api.openai.com/v1"
+        #expect(try body(openAI, .automatic)["reasoning_effort"] == nil)
+        #expect(try body(openAI, .off)["reasoning_effort"] as? String == "none")
+        #expect(try body(openAI, .medium)["reasoning_effort"] as? String == "medium")
+        #expect(try body(openAI, .high)["thinking"] == nil)
+
+        let messages = try body(openAI, .automatic, system: "Be brief.")["messages"] as? [[String: Any]]
+        #expect(messages?.first?["role"] as? String == "system")
+        #expect(messages?.first?["content"] as? String == "Be brief.")
+    }
 }

@@ -130,8 +130,12 @@ public struct OpenAICompatibleClient: ChatResponder {
     /// The same bytes for the same conversation, so a service's prompt cache can match the prefix:
     /// keys are sorted and nothing in the body changes from one request to the next.
     func makeStreamRequest(_ request: ChatRequest) throws -> URLRequest {
+        var messages = request.messages.compactMap(Self.messageParam)
+        if !request.systemPrompt.isEmpty {
+            messages.insert(.system(.init(content: .textContent(request.systemPrompt))), at: 0)
+        }
         let query = ChatQuery(
-            messages: request.messages.compactMap(Self.messageParam),
+            messages: messages,
             model: request.model,
             stream: true,
             streamOptions: .init(includeUsage: true)
@@ -145,8 +149,36 @@ public struct OpenAICompatibleClient: ChatResponder {
         }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-        urlRequest.httpBody = try encoder.encode(query)
+        var body = try encoder.encode(query)
+        let thinking = Self.thinkingFields(request.thinking, isDeepSeek: endpoint.isDeepSeek)
+        if !thinking.isEmpty, var object = try JSONSerialization.jsonObject(with: body) as? [String: Any] {
+            object.merge(thinking) { _, new in new }
+            body = try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys, .withoutEscapingSlashes])
+        }
+        urlRequest.httpBody = body
         return urlRequest
+    }
+
+    /// The request fields for a thinking level, after Cherry Studio's provider registry
+    /// (packages/provider-registry/src/providers/deepseek.ts and reasoningProfiles.ts).
+    static func thinkingFields(_ level: ThinkingLevel, isDeepSeek: Bool) -> [String: Any] {
+        if isDeepSeek {
+            switch level {
+            case .automatic: return [:]
+            case .off: return ["thinking": ["type": "disabled"]]
+            // DeepSeek has no medium; Cherry Studio sends high for it.
+            case .low: return ["thinking": ["type": "enabled"], "reasoning_effort": "low"]
+            case .medium, .high: return ["thinking": ["type": "enabled"], "reasoning_effort": "high"]
+            case .max: return ["thinking": ["type": "enabled"], "reasoning_effort": "max"]
+            }
+        }
+        switch level {
+        case .automatic: return [:]
+        case .off: return ["reasoning_effort": "none"]
+        case .low: return ["reasoning_effort": "low"]
+        case .medium: return ["reasoning_effort": "medium"]
+        case .high, .max: return ["reasoning_effort": "high"]
+        }
     }
 
     /// The model ids the service offers, sorted.

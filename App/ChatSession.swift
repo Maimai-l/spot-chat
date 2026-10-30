@@ -95,7 +95,9 @@ final class ChatSession: ObservableObject {
             do {
                 request = ChatRequest(
                     model: modelName,
-                    messages: try ChatRequestBuilder.messages(from: history, loadAttachment: AttachmentLoader.load)
+                    messages: try ChatRequestBuilder.messages(from: history, loadAttachment: AttachmentLoader.load),
+                    systemPrompt: app.systemPrompt.trimmingCharacters(in: .whitespacesAndNewlines),
+                    thinking: model.map { app.thinking(for: $0) } ?? .automatic
                 )
             } catch {
                 reply.status = .error
@@ -185,7 +187,8 @@ final class ChatSession: ObservableObject {
               case let .success((client, modelName)) = app.responder(for: app.currentModel)
         else { return }
         let question = messages[0].text.isEmpty ? (messages[0].attachments.first?.displayName ?? "") : messages[0].text
-        let request = TopicTitle.request(model: modelName, question: question, answer: messages[1].text)
+        let thinking: ThinkingLevel = app.currentModel.map { app.isDeepSeek($0) } == true ? .off : .automatic
+        let request = TopicTitle.request(model: modelName, question: question, answer: messages[1].text, thinking: thinking)
         let app = app
         Task {
             var reply = ""

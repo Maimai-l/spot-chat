@@ -240,6 +240,29 @@ struct GeneralSettingsView: View {
                 .accessibilityIdentifier("defaultModel")
             }
 
+            Section {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("System Prompt")
+                    TextEditor(text: Binding(get: { app.systemPrompt }, set: { app.setSystemPrompt($0) }))
+                        .font(.body)
+                        .scrollContentBackground(.hidden)
+                        .padding(6)
+                        .frame(minHeight: 80, maxHeight: 140)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .fill(Color(nsColor: .textBackgroundColor))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.5)
+                        )
+                        .accessibilityIdentifier("systemPrompt")
+                }
+            } footer: {
+                Text("Sent at the start of every conversation.")
+                    .foregroundStyle(.secondary)
+            }
+
             Section("Shortcuts") {
                 KeyboardShortcuts.Recorder("Open Mini Window", name: .toggleMiniWindow)
                 KeyboardShortcuts.Recorder("Open Full Window", name: .openFullWindow)

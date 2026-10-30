@@ -158,8 +158,21 @@ struct ModelMenu: View {
                             }
                         }
                     }
+                    Divider()
+                    // As in Cherry Studio: each model keeps its own thinking level.
+                    Picker(selection: Binding(
+                        get: { app.thinking(for: current) },
+                        set: { app.setThinking($0, for: current) }
+                    )) {
+                        ForEach(ThinkingLevel.choices(isDeepSeek: app.isDeepSeek(current)), id: \.self) { level in
+                            Text(level.label).tag(level)
+                        }
+                    } label: {
+                        Label("Thinking Level", systemImage: "brain")
+                    }
+                    .accessibilityIdentifier("thinkingLevel")
                 } label: {
-                    pill(current.modelID)
+                    pill(current.modelID, thinks: app.thinking(for: current).isOn)
                 }
                 .menuStyle(.button)
                 .buttonStyle(.plain)
@@ -177,17 +190,25 @@ struct ModelMenu: View {
         .onHover { hovering = $0 }
     }
 
-    private func pill(_ title: String) -> some View {
-        Text(title)
-            .font(.system(size: 15, weight: .semibold))
-            .lineLimit(1)
-            .padding(.horizontal, 8)
-            .frame(height: 30)
-            .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(Color.primary.opacity(hovering ? 0.07 : 0))
-            )
-            .contentShape(Rectangle())
+    private func pill(_ title: String, thinks: Bool = false) -> some View {
+        HStack(spacing: 5) {
+            Text(title)
+                .lineLimit(1)
+            if thinks {
+                Image(systemName: "brain")
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundStyle(.secondary)
+                    .accessibilityLabel(Text("Thinking Level"))
+            }
+        }
+        .font(.system(size: 15, weight: .semibold))
+        .padding(.horizontal, 8)
+        .frame(height: 30)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color.primary.opacity(hovering ? 0.07 : 0))
+        )
+        .contentShape(Rectangle())
     }
 }
 
@@ -278,5 +299,23 @@ struct HoverCircle: ViewModifier {
         content
             .background(Circle().fill(Color.primary.opacity(hovering ? 0.07 : 0)))
             .onHover { hovering = $0 }
+    }
+}
+
+extension ThinkingLevel {
+    var label: LocalizedStringKey {
+        switch self {
+        case .automatic: "Default"
+        case .off: "Off"
+        case .low: "Low"
+        case .medium: "Medium"
+        case .high: "High"
+        case .max: "Max"
+        }
+    }
+
+    /// Whether the model is asked to think.
+    var isOn: Bool {
+        self != .automatic && self != .off
     }
 }

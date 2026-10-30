@@ -15,6 +15,9 @@ final class AppModel: ObservableObject {
     @Published private(set) var retentionPolicy: RetentionPolicy = .default
     @Published private(set) var cardHeight = AppModel.defaultCardHeight
     @Published private(set) var topics: [TopicSummary] = []
+    @Published private(set) var systemPrompt = ""
+    /// Thinking level by model; a model not listed thinks as its service decides.
+    @Published private(set) var thinkingLevels: [String: ThinkingLevel] = [:]
     /// Bumped whenever a conversation's messages change outside the session showing it.
     @Published private(set) var historyRevision = 0
 
@@ -52,6 +55,20 @@ final class AppModel: ObservableObject {
 
     func provider(for model: ProviderModel) -> Provider? {
         providers.first { $0.id == model.providerID }
+    }
+
+    func thinking(for model: ProviderModel) -> ThinkingLevel {
+        thinkingLevels[model.id] ?? .automatic
+    }
+
+    func setThinking(_ level: ThinkingLevel, for model: ProviderModel) {
+        thinkingLevels[model.id] = level == .automatic ? nil : level
+        try? preferenceService.set(PreferenceKey.thinkingLevels, to: thinkingLevels)
+    }
+
+    /// Whether the model is served by DeepSeek's own API, whose thinking levels differ.
+    func isDeepSeek(_ model: ProviderModel) -> Bool {
+        provider(for: model).flatMap { ProviderEndpoint(baseURL: $0.baseURL) }?.isDeepSeek ?? false
     }
 
     func setDefaultModel(_ id: String) {
@@ -136,6 +153,13 @@ final class AppModel: ObservableObject {
         if let height = try? preferenceService.value(PreferenceKey.cardHeight, as: Int.self) {
             cardHeight = height.clamped(to: Self.cardHeightRange)
         }
+        systemPrompt = (try? preferenceService.value(PreferenceKey.systemPrompt, as: String.self)) ?? ""
+        thinkingLevels = (try? preferenceService.value(PreferenceKey.thinkingLevels, as: [String: ThinkingLevel].self)) ?? [:]
+    }
+
+    func setSystemPrompt(_ prompt: String) {
+        systemPrompt = prompt
+        try? preferenceService.set(PreferenceKey.systemPrompt, to: prompt)
     }
 
     func setRetentionPolicy(_ policy: RetentionPolicy) {

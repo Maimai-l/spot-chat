@@ -4,10 +4,32 @@ import Foundation
 public struct ChatRequest: Equatable, Sendable {
     public var model: String
     public var messages: [ChatRequestMessage]
+    /// Sent first, as the system message. Empty sends none.
+    public var systemPrompt: String
+    public var thinking: ThinkingLevel
 
-    public init(model: String, messages: [ChatRequestMessage]) {
+    public init(model: String, messages: [ChatRequestMessage], systemPrompt: String = "", thinking: ThinkingLevel = .automatic) {
         self.model = model
         self.messages = messages
+        self.systemPrompt = systemPrompt
+        self.thinking = thinking
+    }
+}
+
+/// How much a reasoning model thinks before it replies, chosen per model as in Cherry Studio.
+/// `automatic` sends nothing and leaves it to the service.
+public enum ThinkingLevel: String, Codable, CaseIterable, Sendable {
+    case automatic
+    case off
+    case low
+    case medium
+    case high
+    case max
+
+    /// The levels a service offers. DeepSeek's are low, high and max
+    /// (api-docs.deepseek.com/guides/thinking_mode); OpenAI-style services take low, medium and high.
+    public static func choices(isDeepSeek: Bool) -> [ThinkingLevel] {
+        isDeepSeek ? [.automatic, .off, .low, .high, .max] : [.automatic, .off, .low, .medium, .high]
     }
 }
 
