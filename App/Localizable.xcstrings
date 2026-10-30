@@ -561,12 +561,32 @@
         }
       }
     },
+    "Replies after this message are replaced.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这条消息之后的回复会被替换。"
+          }
+        }
+      }
+    },
     "Retry": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "重试"
+          }
+        }
+      }
+    },
+    "Save": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存"
           }
         }
       }
@@ -760,16 +780,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "未命名"
-          }
-        }
-      }
-    },
-    "Update": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "更新"
           }
         }
       }

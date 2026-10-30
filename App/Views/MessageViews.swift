@@ -75,8 +75,8 @@ struct MessageRow: View {
     }
 }
 
-/// The question, with Copy and Edit beside it under the pointer. Editing turns it into a field;
-/// Update replaces the question and the replies after it.
+/// The question, with Edit and Copy below it under the pointer, as in Claude. Editing turns it into a
+/// field; Save replaces the question and the replies after it.
 struct UserMessageView: View {
     let message: ChatMessage
     let canEdit: Bool
@@ -88,33 +88,31 @@ struct UserMessageView: View {
     @FocusState private var editFocused: Bool
 
     var body: some View {
-        VStack(alignment: .trailing, spacing: 6) {
+        VStack(alignment: .trailing, spacing: 4) {
             if !message.attachments.isEmpty {
                 AttachmentStrip(attachments: message.attachments)
             }
             if editing {
                 editor
             } else if !message.text.isEmpty {
-                HStack(alignment: .center, spacing: 2) {
-                    SmallIconButton(systemName: "doc.on.doc", label: "Copy", identifier: "copyMessage") {
-                        NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(message.text, forType: .string)
-                    }
+                bubble
+                    .padding(.leading, 60)
+                HStack(spacing: 2) {
                     if canEdit {
                         SmallIconButton(systemName: "pencil", label: "Edit", identifier: "editMessage") {
                             editText = message.text
                             editing = true
-                            editFocused = true
                         }
                     }
-                    bubble
-                        .padding(.leading, 6)
+                    SmallIconButton(systemName: "doc.on.doc", label: "Copy", identifier: "copyMessage") {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(message.text, forType: .string)
+                    }
                 }
                 // The buttons stay clickable while hidden, so keyboard and test clicks reach them too.
                 .environment(\.showsMessageActions, hovering)
             }
         }
-        .padding(.leading, editing ? 0 : 60)
         .frame(maxWidth: .infinity, alignment: .trailing)
         .contentShape(Rectangle())
         .onHover { hovering = $0 }
@@ -150,7 +148,7 @@ struct UserMessageView: View {
                 .lineLimit(1...10)
                 .focused($editFocused)
                 .onAppear { editFocused = true }
-                .onSubmit(update)
+                .onSubmit(save)
                 .onExitCommand(perform: cancel)
                 .accessibilityIdentifier("editField")
                 .padding(.horizontal, 16)
@@ -163,18 +161,36 @@ struct UserMessageView: View {
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
                         .strokeBorder(Color.accentColor, lineWidth: 1.5)
                 )
-            HStack(spacing: 8) {
-                Button("Cancel", action: cancel)
-                    .buttonStyle(.plain)
-                    .font(.system(size: 13, weight: .medium))
-                    .padding(.horizontal, 10)
-                    .frame(height: 28)
-                    .accessibilityIdentifier("cancelEdit")
-                Button("Update", action: update)
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.regular)
-                    .disabled(!isChanged)
-                    .accessibilityIdentifier("updateEdit")
+            HStack(spacing: 6) {
+                Image(systemName: "info.circle")
+                    .font(.system(size: 15))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 28, height: 28)
+                    .help(Text("Replies after this message are replaced."))
+                Button(action: cancel) {
+                    Text("Cancel")
+                        .font(.system(size: 14))
+                        .padding(.horizontal, 10)
+                        .frame(height: 28)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("cancelEdit")
+                Button(action: save) {
+                    Text("Save")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(isChanged ? Color(nsColor: .textBackgroundColor) : Color.secondary)
+                        .padding(.horizontal, 12)
+                        .frame(height: 28)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(isChanged ? Color.primary : Color.primary.opacity(0.06))
+                        )
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(!isChanged)
+                .accessibilityIdentifier("saveEdit")
             }
         }
     }
@@ -183,7 +199,7 @@ struct UserMessageView: View {
         editing = false
     }
 
-    private func update() {
+    private func save() {
         guard isChanged else { return }
         editing = false
         onEdit(editText)

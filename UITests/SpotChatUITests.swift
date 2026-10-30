@@ -490,10 +490,10 @@ final class SpotChatUITests: XCTestCase {
         element("editMessage", in: app).click()
         let field = element("editField", in: app)
         XCTAssertTrue(field.waitForExistence(timeout: 5))
-        XCTAssertFalse(element("updateEdit", in: app).isEnabled, "Update waits for a change")
+        XCTAssertFalse(element("saveEdit", in: app).isEnabled, "Save waits for a change")
         field.typeKey("a", modifierFlags: .command)
         field.typeText("second question")
-        element("updateEdit", in: app).click()
+        element("saveEdit", in: app).click()
 
         waitForReply(in: app, "SELF == %@", "Echo: second question")
         XCTAssertEqual(elements("message.user", in: app).count, 1)
