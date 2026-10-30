@@ -259,8 +259,15 @@ struct GeneralSettingsView: View {
                         .accessibilityIdentifier("systemPrompt")
                 }
             } footer: {
-                Text("Sent at the start of every conversation.")
-                    .foregroundStyle(.secondary)
+                HStack {
+                    Text("Sent at the start of every conversation.")
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    if app.systemPrompt != AppModel.defaultSystemPrompt {
+                        Button("Restore Default") { app.setSystemPrompt(AppModel.defaultSystemPrompt) }
+                            .accessibilityIdentifier("restoreSystemPrompt")
+                    }
+                }
             }
 
             Section("Shortcuts") {

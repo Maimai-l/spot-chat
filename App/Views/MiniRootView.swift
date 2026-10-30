@@ -159,20 +159,24 @@ struct ModelMenu: View {
                         }
                     }
                     Divider()
-                    // As in Cherry Studio: each model keeps its own thinking level.
-                    Picker(selection: Binding(
-                        get: { app.thinking(for: current) },
-                        set: { app.setThinking($0, for: current) }
-                    )) {
+                    // Worded as in DeepSeek's harness (dsh); each model keeps its own level, as in Cherry Studio.
+                    Menu {
                         ForEach(ThinkingLevel.choices(isDeepSeek: app.isDeepSeek(current)), id: \.self) { level in
-                            Text(level.label).tag(level)
+                            Toggle(isOn: Binding(
+                                get: { app.thinking(for: current) == level },
+                                set: { isOn in if isOn { app.setThinking(level, for: current) } }
+                            )) {
+                                Text(level.label)
+                                if let detail = level.detail {
+                                    Text(detail)
+                                }
+                            }
                         }
                     } label: {
-                        Label("Thinking Level", systemImage: "brain")
+                        Label("Effort", systemImage: "brain")
                     }
-                    .accessibilityIdentifier("thinkingLevel")
                 } label: {
-                    pill(current.modelID, thinks: app.thinking(for: current).isOn)
+                    pill(current.modelID, effort: app.thinking(for: current))
                 }
                 .menuStyle(.button)
                 .buttonStyle(.plain)
@@ -190,15 +194,17 @@ struct ModelMenu: View {
         .onHover { hovering = $0 }
     }
 
-    private func pill(_ title: String, thinks: Bool = false) -> some View {
-        HStack(spacing: 5) {
+    /// The model name, followed by its effort in a lighter tone when one is chosen, as dsh shows it.
+    private func pill(_ title: String, effort: ThinkingLevel = .automatic) -> some View {
+        HStack(spacing: 6) {
             Text(title)
                 .lineLimit(1)
-            if thinks {
-                Image(systemName: "brain")
-                    .font(.system(size: 13, weight: .regular))
+            if effort != .automatic {
+                Text(effort.label)
+                    .fontWeight(.regular)
                     .foregroundStyle(.secondary)
-                    .accessibilityLabel(Text("Thinking Level"))
+                    .lineLimit(1)
+                    .accessibilityIdentifier("effortLabel")
             }
         }
         .font(.system(size: 15, weight: .semibold))
@@ -303,6 +309,7 @@ struct HoverCircle: ViewModifier {
 }
 
 extension ThinkingLevel {
+    /// Names as in Cherry Studio and dsh.
     var label: LocalizedStringKey {
         switch self {
         case .automatic: "Default"
@@ -314,8 +321,14 @@ extension ThinkingLevel {
         }
     }
 
-    /// Whether the model is asked to think.
-    var isOn: Bool {
-        self != .automatic && self != .off
+    /// dsh's description of each level (packages/llm/llm-deepseek/src/model-info.ts).
+    var detail: LocalizedStringKey? {
+        switch self {
+        case .off: "Use for simple tasks that do not need reasoning."
+        case .low: "Prefer for routine or latency-sensitive tasks."
+        case .high: "The default balance for most tasks."
+        case .max: "Reserve for the hardest quality-first tasks."
+        case .automatic, .medium: nil
+        }
     }
 }

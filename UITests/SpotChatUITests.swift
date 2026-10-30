@@ -339,7 +339,7 @@ final class SpotChatUITests: XCTestCase {
         waitForText(of: second, "SELF == %@", "Echo: second")
 
         let messages = try lastRequest()["messages"] as? [[String: Any]] ?? []
-        XCTAssertEqual(messages.count, 3, "The earlier question and answer are sent along")
+        XCTAssertEqual(messages.filter { $0["role"] as? String != "system" }.count, 3, "The earlier question and answer are sent along")
     }
 
     // MARK: Models and settings
@@ -364,13 +364,14 @@ final class SpotChatUITests: XCTestCase {
         let menu = element("modelMenu", in: app)
         XCTAssertTrue(menu.waitForExistence(timeout: 10))
         menu.click()
-        let thinking = app.menuItems["Thinking Level"]
-        XCTAssertTrue(thinking.waitForExistence(timeout: 5))
-        thinking.hover()
-        let high = app.menuItems["High"]
+        let effort = app.menuItems["Effort"]
+        XCTAssertTrue(effort.waitForExistence(timeout: 5))
+        effort.hover()
+        let high = app.menuItems.matching(NSPredicate(format: "title BEGINSWITH %@", "High")).firstMatch
         XCTAssertTrue(high.waitForExistence(timeout: 5))
         attachScreenshot("Model menu")
         high.click()
+        XCTAssertEqual(text(of: element("effortLabel", in: app)), "High")
 
         send("hi", in: app)
         waitForReply(in: app, "SELF == %@", "Echo: hi")
@@ -389,7 +390,9 @@ final class SpotChatUITests: XCTestCase {
         general.click()
         let prompt = element("systemPrompt", in: app)
         XCTAssertTrue(prompt.waitForExistence(timeout: 5))
+        XCTAssertEqual(text(of: prompt), "You are a helpful assistant.", "DeepSeek's example prompt is the default")
         prompt.click()
+        prompt.typeKey("a", modifierFlags: .command)
         prompt.typeText("Answer in one line.")
         attachScreenshot("General settings")
         app.typeKey("w", modifierFlags: .command)

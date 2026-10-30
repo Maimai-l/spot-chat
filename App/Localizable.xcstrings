@@ -929,17 +929,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "最高"
-          }
-        }
-      }
-    },
-    "Thinking Level": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "思考强度"
+            "value": "最大"
           }
         }
       }
@@ -960,6 +950,66 @@
           "stringUnit": {
             "state": "translated",
             "value": "在每段对话开头发送。"
+          }
+        }
+      }
+    },
+    "Effort": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "推理等级"
+          }
+        }
+      }
+    },
+    "Restore Default": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "恢复默认"
+          }
+        }
+      }
+    },
+    "Use for simple tasks that do not need reasoning.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "适合不需要推理的简单任务。"
+          }
+        }
+      }
+    },
+    "Prefer for routine or latency-sensitive tasks.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "适合日常或对延迟敏感的任务。"
+          }
+        }
+      }
+    },
+    "The default balance for most tasks.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "大多数任务的默认平衡。"
+          }
+        }
+      }
+    },
+    "Reserve for the hardest quality-first tasks.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "留给最难、质量优先的任务。"
           }
         }
       }

@@ -8,6 +8,9 @@ import SpotData
 @MainActor
 final class AppModel: ObservableObject {
     static let defaultCardHeight = 560
+    /// The system message of the first request in DeepSeek's API documentation (api-docs.deepseek.com).
+    /// Replaced by whatever is set in Settings; an empty setting sends none.
+    static let defaultSystemPrompt = "You are a helpful assistant."
     static let cardHeightRange = 400...900
 
     @Published private(set) var providers: [Provider] = []
@@ -15,7 +18,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var retentionPolicy: RetentionPolicy = .default
     @Published private(set) var cardHeight = AppModel.defaultCardHeight
     @Published private(set) var topics: [TopicSummary] = []
-    @Published private(set) var systemPrompt = ""
+    @Published private(set) var systemPrompt = AppModel.defaultSystemPrompt
     /// Thinking level by model; a model not listed thinks as its service decides.
     @Published private(set) var thinkingLevels: [String: ThinkingLevel] = [:]
     /// Bumped whenever a conversation's messages change outside the session showing it.
@@ -153,7 +156,7 @@ final class AppModel: ObservableObject {
         if let height = try? preferenceService.value(PreferenceKey.cardHeight, as: Int.self) {
             cardHeight = height.clamped(to: Self.cardHeightRange)
         }
-        systemPrompt = (try? preferenceService.value(PreferenceKey.systemPrompt, as: String.self)) ?? ""
+        systemPrompt = (try? preferenceService.value(PreferenceKey.systemPrompt, as: String.self)) ?? Self.defaultSystemPrompt
         thinkingLevels = (try? preferenceService.value(PreferenceKey.thinkingLevels, as: [String: ThinkingLevel].self)) ?? [:]
     }
 
