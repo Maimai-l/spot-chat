@@ -14,26 +14,30 @@ struct ProvidersSettingsView: View {
             VStack(spacing: 0) {
                 List(selection: $selection) {
                     ForEach(app.providers) { provider in
-                        Text(provider.name.isEmpty ? String(localized: "Untitled") : provider.name)
-                            .tag(provider.id)
+                        HStack {
+                            Text(provider.name.isEmpty ? String(localized: "Untitled") : provider.name)
+                                .lineLimit(1)
+                            Spacer()
+                            Toggle("", isOn: Binding(
+                                get: { provider.isEnabled },
+                                set: { app.setProviderEnabled(provider.id, $0) }
+                            ))
+                            .toggleStyle(.switch)
+                            .controlSize(.mini)
+                            .labelsHidden()
+                            .accessibilityLabel(Text("Use \(provider.name)"))
+                            .accessibilityIdentifier("providerEnabled")
+                        }
+                        .tag(provider.id)
                     }
                 }
                 .listStyle(.sidebar)
                 .accessibilityIdentifier("providerList")
                 Divider()
                 HStack(spacing: 0) {
-                    Menu {
-                        ForEach(ProviderTemplate.all) { template in
-                            Button(template.name) { add(template) }
-                        }
-                        Divider()
-                        Button("Custom Provider", action: addProvider)
-                    } label: {
+                    Button(action: addProvider) {
                         Image(systemName: "plus").frame(width: 26, height: 22)
                     }
-                    .menuStyle(.borderlessButton)
-                    .menuIndicator(.hidden)
-                    .fixedSize()
                     .accessibilityLabel(Text("Add Provider"))
                     .accessibilityIdentifier("addProvider")
                     Button {
@@ -41,7 +45,7 @@ struct ProvidersSettingsView: View {
                     } label: {
                         Image(systemName: "minus").frame(width: 26, height: 22)
                     }
-                    .disabled(selection == nil)
+                    .disabled(app.providers.first { $0.id == selection }?.isBuiltIn ?? true)
                     .accessibilityLabel(Text("Delete Provider"))
                     Spacer()
                 }
@@ -60,12 +64,7 @@ struct ProvidersSettingsView: View {
                     Text(app.providers.isEmpty ? "Add a provider to start chatting." : "Select a provider.")
                         .foregroundStyle(.secondary)
                     if app.providers.isEmpty {
-                        HStack {
-                            ForEach(ProviderTemplate.all) { template in
-                                Button(template.name) { add(template) }
-                            }
-                            Button("Custom Provider", action: addProvider)
-                        }
+                        Button("Add Provider", action: addProvider)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -87,12 +86,6 @@ struct ProvidersSettingsView: View {
             }
         } message: { _ in
             Text("Its models are removed too. Conversations stay in history.")
-        }
-    }
-
-    private func add(_ template: ProviderTemplate) {
-        if let provider = app.addProvider(from: template) {
-            selection = provider.id
         }
     }
 
@@ -126,8 +119,12 @@ struct ProviderDetailView: View {
     var body: some View {
         Form {
             Section {
-                TextField("Name", text: $name)
-                    .accessibilityIdentifier("providerName")
+                if provider.isBuiltIn {
+                    LabeledContent("Name", value: provider.name)
+                } else {
+                    TextField("Name", text: $name)
+                        .accessibilityIdentifier("providerName")
+                }
                 TextField("API Address", text: $baseURL, prompt: Text(verbatim: "https://api.openai.com/v1"))
                     .accessibilityIdentifier("providerURL")
                 HStack {

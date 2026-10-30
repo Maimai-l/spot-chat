@@ -4,31 +4,23 @@ import CoreGraphics
 #endif
 
 /// Window frame math in AppKit screen coordinates (origin at the bottom left).
+///
+/// The mini window is placed by its bottom-left corner, where the input bar sits: the capsule grows
+/// upward into the card and shrinks back down to the same spot, as Gemini's does, so the input never moves.
 public enum WindowPlacement {
-    /// Distance from the top of the screen's visible area to the top of the window, as a fraction of its height.
-    public static let defaultTopFraction: CGFloat = 0.2
+    /// Distance from the bottom of the screen's visible area to the bottom of the window,
+    /// as a fraction of the visible height, leaving room above for the card.
+    public static let defaultBottomFraction: CGFloat = 0.22
 
-    /// The frame for a window that is about to appear.
-    /// Uses the position the user last dragged it to when there is one, otherwise centered horizontally near the top.
-    public static func initialFrame(size: CGSize, savedTopLeft: CGPoint?, visibleFrame: CGRect) -> CGRect {
-        let topLeft = savedTopLeft ?? CGPoint(
-            x: visibleFrame.midX - size.width / 2,
-            y: visibleFrame.maxY - visibleFrame.height * defaultTopFraction
-        )
-        let frame = CGRect(x: topLeft.x, y: topLeft.y - size.height, width: size.width, height: size.height)
-        return clamp(frame, to: visibleFrame)
+    /// Where the input bar goes when the user has not dragged it: centered, in the lower part of the screen.
+    public static func defaultBottomLeft(width: CGFloat, visibleFrame: CGRect) -> CGPoint {
+        CGPoint(x: visibleFrame.midX - width / 2, y: visibleFrame.minY + visibleFrame.height * defaultBottomFraction)
     }
 
-    /// Capsule to card: the top edge stays put and the window grows downward.
-    /// When there is not enough room below, the whole window moves up until it fits.
-    public static func expandedFrame(from frame: CGRect, toHeight height: CGFloat, visibleFrame: CGRect) -> CGRect {
-        let grown = CGRect(x: frame.minX, y: frame.maxY - height, width: frame.width, height: height)
-        return clamp(grown, to: visibleFrame)
-    }
-
-    /// Card to capsule: the top edge stays put.
-    public static func collapsedFrame(from frame: CGRect, toHeight height: CGFloat) -> CGRect {
-        CGRect(x: frame.minX, y: frame.maxY - height, width: frame.width, height: height)
+    /// The window with its bottom-left corner at the input bar's spot, moved only as far as needed to fit
+    /// on screen; a card too tall for the room above slides down rather than off the top.
+    public static func frame(bottomLeft: CGPoint, size: CGSize, visibleFrame: CGRect) -> CGRect {
+        clamp(CGRect(origin: bottomLeft, size: size), to: visibleFrame)
     }
 
     /// Moves a frame the smallest distance needed to lie inside `visibleFrame`.
@@ -42,8 +34,8 @@ public enum WindowPlacement {
         return result
     }
 
-    public static func topLeft(of frame: CGRect) -> CGPoint {
-        CGPoint(x: frame.minX, y: frame.maxY)
+    public static func bottomLeft(of frame: CGRect) -> CGPoint {
+        frame.origin
     }
 }
 

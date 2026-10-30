@@ -32,8 +32,10 @@ struct MessageList: View {
                         edit: { session.edit(message.id, text: $0) }
                     )
                     .id(message.id)
+                    .transition(.opacity)
                 }
             }
+            .animation(.easeOut(duration: 0.2), value: session.messages.count)
             .frame(maxWidth: maxContentWidth)
             .frame(maxWidth: .infinity)
             .padding(.horizontal, horizontalPadding)
@@ -68,22 +70,27 @@ struct MessageList: View {
             )
         }
         .onChange(of: scrollRequest) {
-            followBottom()
+            followBottom(animated: true)
         }
         // A reply's height is known only once its page has rendered, after the message changed.
         .environment(\.replyDidResize) { id in
             if id == session.messages.last?.id {
-                followBottom()
+                followBottom(animated: true)
             }
         }
         .onAppear {
-            followBottom()
+            followBottom(animated: false)
         }
     }
 
-    private func followBottom() {
-        followingUntil = Date().addingTimeInterval(0.4)
-        position.scrollTo(edge: .bottom)
+    /// Keeps the newest message in view; animated, it glides rather than jumps.
+    private func followBottom(animated: Bool) {
+        followingUntil = Date().addingTimeInterval(0.5)
+        if animated {
+            withAnimation(.easeOut(duration: 0.22)) { position.scrollTo(edge: .bottom) }
+        } else {
+            position.scrollTo(edge: .bottom)
+        }
     }
 }
 

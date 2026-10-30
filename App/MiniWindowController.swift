@@ -27,6 +27,8 @@ final class MiniWindowController: ObservableObject {
     private var resignObserver: NSObjectProtocol?
     /// While a file picker, the permission guide or a menu is open the capsule must not hide.
     private var suppressFocusLoss = 0
+    /// Where the input bar's bottom-left corner sits; the window grows up from here.
+    private var inputCorner = CGPoint.zero
     private lazy var panel: MiniPanel = makePanel()
 
     init(app: AppModel, composer: ComposerModel, inputActions: InputActions, placementStore: PlacementStore? = nil) {
@@ -107,7 +109,8 @@ final class MiniWindowController: ObservableObject {
     }
 
     func panelWasDragged() {
-        placementStore.save(topLeft: WindowPlacement.topLeft(of: panel.frame), screen: panel.screen)
+        inputCorner = WindowPlacement.bottomLeft(of: panel.frame)
+        placementStore.save(bottomLeft: inputCorner, screen: panel.screen)
     }
 
     /// Runs work that shows another window without the capsule hiding meanwhile.
@@ -194,26 +197,25 @@ final class MiniWindowController: ObservableObject {
         }
     }
 
+    /// Places the window by the input bar's bottom-left corner, so the card grows up from the input and
+    /// shrinks back to it. The size changes in one step: animating a window frame around SwiftUI content
+    /// stutters, so the content fades instead.
     private func present(height: CGFloat) {
         if NSApp.isHidden {
             NSApp.unhideWithoutActivation()
         }
-        if panel.isVisible {
-            let visible = (panel.screen ?? NSScreen.main)?.visibleFrame ?? panel.frame
-            let target = height > panel.frame.height
-                ? WindowPlacement.expandedFrame(from: panel.frame, toHeight: height, visibleFrame: visible)
-                : WindowPlacement.collapsedFrame(from: panel.frame, toHeight: height)
-            panel.setFrame(target, display: true, animate: true)
-        } else {
-            let screen = Self.screenUnderMouse()
-            let visible = screen?.visibleFrame ?? CGRect(x: 0, y: 0, width: 1440, height: 900)
-            let frame = WindowPlacement.initialFrame(
-                size: CGSize(width: Self.width, height: height),
-                savedTopLeft: placementStore.savedTopLeft(for: screen),
-                visibleFrame: visible
-            )
-            panel.setFrame(frame, display: false)
+        let screen = panel.isVisible ? (panel.screen ?? NSScreen.main) : Self.screenUnderMouse()
+        let visible = screen?.visibleFrame ?? CGRect(x: 0, y: 0, width: 1440, height: 900)
+        if !panel.isVisible {
+            inputCorner = placementStore.savedBottomLeft(for: screen)
+                ?? WindowPlacement.defaultBottomLeft(width: Self.width, visibleFrame: visible)
         }
+        let frame = WindowPlacement.frame(
+            bottomLeft: inputCorner,
+            size: CGSize(width: Self.width, height: height),
+            visibleFrame: visible
+        )
+        panel.setFrame(frame, display: true, animate: false)
         panel.makeKeyAndOrderFront(nil)
         DispatchQueue.main.async { [weak self] in
             self?.panel.invalidateShadow()

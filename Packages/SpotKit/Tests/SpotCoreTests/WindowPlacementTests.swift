@@ -8,51 +8,44 @@ import Testing
 @Suite struct WindowPlacementTests {
     let screen = CGRect(x: 0, y: 0, width: 1440, height: 900)
     let capsule = CGSize(width: 480, height: 56)
+    let card = CGSize(width: 480, height: 560)
 
-    @Test func defaultPositionIsCenteredNearTheTop() {
-        let frame = WindowPlacement.initialFrame(size: capsule, savedTopLeft: nil, visibleFrame: screen)
+    @Test func defaultPositionIsCenteredInTheLowerPart() {
+        let corner = WindowPlacement.defaultBottomLeft(width: 480, visibleFrame: screen)
+        let frame = WindowPlacement.frame(bottomLeft: corner, size: capsule, visibleFrame: screen)
         #expect(frame.midX == screen.midX)
-        #expect(frame.maxY == 720)
+        #expect(frame.minY == 198)
+        #expect(frame.minY + card.height <= screen.maxY, "The card fits above")
     }
 
-    @Test func usesTheDraggedPosition() {
-        let saved = CGPoint(x: 100, y: 500)
-        let frame = WindowPlacement.initialFrame(size: capsule, savedTopLeft: saved, visibleFrame: screen)
-        #expect(WindowPlacement.topLeft(of: frame) == saved)
+    @Test func cardGrowsUpFromTheInputAndShrinksBackToIt() {
+        let corner = CGPoint(x: 300, y: 150)
+        let capsuleFrame = WindowPlacement.frame(bottomLeft: corner, size: capsule, visibleFrame: screen)
+        let cardFrame = WindowPlacement.frame(bottomLeft: corner, size: card, visibleFrame: screen)
+        #expect(cardFrame.minY == capsuleFrame.minY)
+        #expect(cardFrame.maxY == capsuleFrame.minY + 560)
+        #expect(cardFrame.minX == capsuleFrame.minX)
+        #expect(WindowPlacement.frame(bottomLeft: corner, size: capsule, visibleFrame: screen) == capsuleFrame)
     }
 
-    @Test func draggedPositionOffScreenIsPulledBack() {
-        let frame = WindowPlacement.initialFrame(size: capsule, savedTopLeft: CGPoint(x: 2000, y: 1200), visibleFrame: screen)
+    @Test func aCardWithoutRoomAboveSlidesDown() {
+        let corner = CGPoint(x: 300, y: 600)
+        let cardFrame = WindowPlacement.frame(bottomLeft: corner, size: card, visibleFrame: screen)
+        #expect(cardFrame.maxY == screen.maxY)
+        #expect(cardFrame.height == 560)
+    }
+
+    @Test func aPositionOffScreenIsPulledBack() {
+        let frame = WindowPlacement.frame(bottomLeft: CGPoint(x: 2000, y: -300), size: capsule, visibleFrame: screen)
         #expect(screen.contains(frame))
     }
 
     @Test func secondaryScreenWithOffsetOrigin() {
         let external = CGRect(x: 1440, y: -200, width: 1920, height: 1080)
-        let frame = WindowPlacement.initialFrame(size: capsule, savedTopLeft: nil, visibleFrame: external)
+        let corner = WindowPlacement.defaultBottomLeft(width: 480, visibleFrame: external)
+        let frame = WindowPlacement.frame(bottomLeft: corner, size: capsule, visibleFrame: external)
         #expect(frame.midX == external.midX)
         #expect(external.contains(frame))
-    }
-
-    @Test func expandingKeepsTopEdgeAndGrowsDown() {
-        let start = WindowPlacement.initialFrame(size: capsule, savedTopLeft: nil, visibleFrame: screen)
-        let card = WindowPlacement.expandedFrame(from: start, toHeight: 560, visibleFrame: screen)
-        #expect(card.maxY == start.maxY)
-        #expect(card.height == 560)
-        #expect(card.minX == start.minX)
-    }
-
-    @Test func expandingNearTheBottomMovesTheCardUp() {
-        let low = CGRect(x: 200, y: 100, width: 480, height: 56)
-        let card = WindowPlacement.expandedFrame(from: low, toHeight: 560, visibleFrame: screen)
-        #expect(card.minY == screen.minY)
-        #expect(card.height == 560)
-    }
-
-    @Test func collapsingKeepsTopEdge() {
-        let card = CGRect(x: 200, y: 160, width: 480, height: 560)
-        let collapsed = WindowPlacement.collapsedFrame(from: card, toHeight: 56)
-        #expect(collapsed.maxY == card.maxY)
-        #expect(collapsed.height == 56)
     }
 }
 

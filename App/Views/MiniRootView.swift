@@ -9,15 +9,20 @@ struct MiniRootView: View {
     @ObservedObject var composer: ComposerModel
 
     var body: some View {
-        Group {
+        ZStack(alignment: .bottom) {
             switch controller.mode {
             case .card:
                 CardView(controller: controller, session: session, app: app, composer: composer)
+                    .transition(.opacity)
             case .capsule, .hidden:
                 CapsuleView(controller: controller, session: session, app: app, composer: composer)
+                    .transition(.opacity)
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+        // The window takes the card's size at once and the card fades in over the input, which stays put.
+        // Closing the card is immediate, as in Gemini.
+        .animation(controller.mode == .card ? .easeOut(duration: 0.18) : nil, value: controller.mode)
         .onDrop(of: [.fileURL], isTargeted: nil) { providers in
             Self.loadFileURLs(from: providers) { composer.add(fileURLs: $0) }
             return true
@@ -46,10 +51,10 @@ struct CapsuleView: View {
             composer: composer, session: session, app: app, actions: controller.capsuleActions,
             onTextHeightChange: controller.composerTextHeightChanged
         )
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(WindowDragArea(onDragEnd: controller.panelWasDragged))
             .background(VisualEffectBackground(material: .popover))
             .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
     }
 }
 
@@ -143,7 +148,7 @@ struct ModelMenu: View {
         Group {
             if let current = app.currentModel {
                 Menu {
-                    ForEach(app.providers.filter { !$0.models.isEmpty }) { provider in
+                    ForEach(app.providers.filter { $0.isEnabled && !$0.models.isEmpty }) { provider in
                         Section(provider.name) {
                             ForEach(provider.models) { model in
                                 Toggle(model.modelID, isOn: Binding(

@@ -251,16 +251,6 @@
         }
       }
     },
-    "Custom Provider": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "自定义服务商"
-          }
-        }
-      }
-    },
     "Default Model": {
       "localizations": {
         "zh-Hans": {
@@ -800,6 +790,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "上传图片…"
+          }
+        }
+      }
+    },
+    "Use %@": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用 %@"
           }
         }
       }

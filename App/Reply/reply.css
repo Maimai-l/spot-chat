@@ -255,3 +255,18 @@ img {
 :hover::-webkit-scrollbar-thumb {
   background: var(--quote-bar);
 }
+
+/* New blocks in a streaming reply fade in. */
+.appear {
+  animation: appear 0.25s ease-out;
+}
+@keyframes appear {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .appear {
+    animation: none;
+  }
+}

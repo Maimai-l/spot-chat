@@ -27,6 +27,9 @@ struct ReplyView: View {
         }
         .frame(height: max(height, 1))
         .frame(maxWidth: .infinity, alignment: .leading)
+        // Fades in once the page has rendered instead of popping in.
+        .opacity(height > 0 ? 1 : 0)
+        .animation(.easeOut(duration: 0.2), value: height > 0)
     }
 }
 

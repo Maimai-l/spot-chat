@@ -5,6 +5,7 @@ import SpotCore
 public enum DataError: Error, Equatable {
     case notFound
     case invalidModelID
+    case builtInProvider
 }
 
 // MARK: Topics
@@ -264,14 +265,52 @@ public struct ProviderService: Sendable {
                 .order(Column("order_key"))
                 .fetchAll(db)
             let byProvider = Dictionary(grouping: models, by: \.providerId)
-            return providers.map { record in
+            let listed = providers.map { record in
                 Provider(
                     id: record.providerId, name: record.name, baseURL: record.baseURL, apiKey: record.apiKey,
+                    isEnabled: record.isEnabled,
                     models: (byProvider[record.providerId] ?? []).map {
                         ProviderModel(providerID: $0.providerId, modelID: $0.modelId)
                     }
                 )
             }
+            // Built-in providers first, in their own order; then the user's, in the order added.
+            let builtIn = ProviderTemplate.all.compactMap { template in listed.first { $0.id == template.id } }
+            return builtIn + listed.filter { !$0.isBuiltIn }
+        }
+    }
+
+    /// Adds the built-in providers that are missing. Empty copies of them left by an earlier alpha,
+    /// with no key and no models, are removed; copies with a key stay as the user's own providers.
+    public func ensureBuiltInProviders() throws {
+        try database.writer.write { db in
+            for template in ProviderTemplate.all {
+                let leftovers = try UserProviderRecord
+                    .filter(Column("name") == template.name && Column("providerId") != template.id)
+                    .fetchAll(db)
+                    .filter { $0.baseURL == template.baseURL && $0.apiKey.isEmpty }
+                for leftover in leftovers {
+                    let models = try UserModelRecord.filter(Column("providerId") == leftover.providerId).fetchCount(db)
+                    if models == 0 { try leftover.delete(db) }
+                }
+                guard try !UserProviderRecord.exists(db, key: template.id) else { continue }
+                let now = Timestamp.milliseconds(Date())
+                let count = try UserProviderRecord.fetchCount(db)
+                try UserProviderRecord(
+                    providerId: template.id, name: template.name,
+                    endpointConfigs: [UserProviderRecord.chatEndpoint: .init(baseUrl: template.baseURL)],
+                    apiKeys: [], isEnabled: true, orderKey: OrderKey.make(count), createdAt: now, updatedAt: now
+                ).insert(db)
+            }
+        }
+    }
+
+    public func setEnabled(_ id: String, _ isEnabled: Bool) throws {
+        try database.writer.write { db in
+            guard var record = try UserProviderRecord.fetchOne(db, key: id) else { throw DataError.notFound }
+            record.isEnabled = isEnabled
+            record.updatedAt = Timestamp.milliseconds(Date())
+            try record.update(db)
         }
     }
 
@@ -303,8 +342,9 @@ public struct ProviderService: Sendable {
         }
     }
 
-    /// Deletes the provider and its models.
+    /// Deletes the provider and its models. Built-in providers can only be turned off.
     public func delete(_ id: String) throws {
+        guard !ProviderTemplate.all.contains(where: { $0.id == id }) else { throw DataError.builtInProvider }
         _ = try database.writer.write { db in
             try UserProviderRecord.deleteOne(db, key: id)
         }
@@ -364,8 +404,6 @@ public enum PreferenceKey {
     public static let miniRetentionMinutes = "mini_window.retention_minutes"
     /// Height of the expanded card in points.
     public static let cardHeight = "mini_window.card_height"
-    /// Set once the built-in provider templates were added, so deleted ones don't come back.
-    public static let providerTemplatesAdded = "providers.templates_added"
 }
 
 /// Key-value settings, stored as JSON like Cherry Studio's preference table.

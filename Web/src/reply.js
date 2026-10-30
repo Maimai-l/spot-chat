@@ -36,6 +36,11 @@ function apply() {
   morphdom(content, next, {
     childrenOnly: true,
     onBeforeElUpdated: (from, to) => !from.isEqualNode(to),
+    // While a reply streams, each new paragraph, list item, row or code block fades in.
+    onNodeAdded: (node) => {
+      if (streaming && node.nodeType === Node.ELEMENT_NODE) node.classList.add('appear')
+      return node
+    },
   })
   reportHeight()
 }

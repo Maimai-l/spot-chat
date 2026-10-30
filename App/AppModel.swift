@@ -32,16 +32,17 @@ final class AppModel: ObservableObject {
         providerService = ProviderService(database: database)
         modelService = ModelService(database: database)
         preferenceService = PreferenceService(database: database)
+        try? providerService.ensureBuiltInProviders()
         reloadProviders()
-        addProviderTemplatesOnFirstLaunch()
         reloadPreferences()
         reloadTopics()
     }
 
     // MARK: Models
 
+    /// The models of the providers that are turned on.
     var allModels: [ProviderModel] {
-        providers.flatMap(\.models)
+        providers.filter(\.isEnabled).flatMap(\.models)
     }
 
     /// The model new messages use: the default if it still exists, otherwise the first one.
@@ -84,21 +85,9 @@ final class AppModel: ObservableObject {
         return provider
     }
 
-    @discardableResult
-    func addProvider(from template: ProviderTemplate) -> Provider? {
-        addProvider(name: template.name, baseURL: template.baseURL, apiKey: "")
-    }
-
-    /// With no provider yet, the built-in ones are listed ready for a key. Only ever done once.
-    private func addProviderTemplatesOnFirstLaunch() {
-        let added = (try? preferenceService.value(PreferenceKey.providerTemplatesAdded, as: Bool.self)) ?? false
-        guard !added else { return }
-        if providers.isEmpty {
-            for template in ProviderTemplate.all {
-                addProvider(from: template)
-            }
-        }
-        try? preferenceService.set(PreferenceKey.providerTemplatesAdded, to: true)
+    func setProviderEnabled(_ id: String, _ isEnabled: Bool) {
+        try? providerService.setEnabled(id, isEnabled)
+        reloadProviders()
     }
 
     func updateProvider(_ provider: Provider) {

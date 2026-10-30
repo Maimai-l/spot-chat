@@ -185,6 +185,39 @@ struct TestStore {
     }
 }
 
+@Suite struct BuiltInProviderTests {
+    @Test func builtInProvidersAreAddedOnceAndListedFirst() throws {
+        let store = try TestStore()
+        let own = try store.providers.create(name: "Mine", baseURL: "https://mine.example/v1", apiKey: "k")
+        try store.providers.ensureBuiltInProviders()
+        try store.providers.ensureBuiltInProviders()
+        let listed = try store.providers.list()
+        #expect(listed.map(\.id) == ["deepseek", "openai", own.id])
+        #expect(listed[0].baseURL == "https://api.deepseek.com/v1")
+        #expect(listed[0].isBuiltIn)
+        #expect(!listed[2].isBuiltIn)
+    }
+
+    @Test func builtInProvidersCanBeTurnedOffButNotDeleted() throws {
+        let store = try TestStore()
+        try store.providers.ensureBuiltInProviders()
+        try store.providers.setEnabled("openai", false)
+        #expect(try store.providers.list().first { $0.id == "openai" }?.isEnabled == false)
+        #expect(throws: DataError.builtInProvider) {
+            try store.providers.delete("openai")
+        }
+    }
+
+    @Test func emptyCopiesFromAnEarlierAlphaAreReplaced() throws {
+        let store = try TestStore()
+        _ = try store.providers.create(name: "DeepSeek", baseURL: "https://api.deepseek.com/v1", apiKey: "")
+        let keyed = try store.providers.create(name: "OpenAI", baseURL: "https://api.openai.com/v1", apiKey: "sk-1")
+        try store.providers.ensureBuiltInProviders()
+        let listed = try store.providers.list()
+        #expect(listed.map(\.id) == ["deepseek", "openai", keyed.id], "The one with a key stays")
+    }
+}
+
 @Suite struct PreferenceServiceTests {
     @Test func valuesRoundTripAsJSON() throws {
         let store = try TestStore()
