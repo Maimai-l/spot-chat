@@ -1,6 +1,5 @@
 import AppKit
 import SwiftUI
-import Textual
 import SpotCore
 
 /// The conversation, scrolled to the newest message.
@@ -36,6 +35,12 @@ struct MessageList: View {
             }
             .onChange(of: scrollRequest) {
                 proxy.scrollTo(Self.bottomID, anchor: .bottom)
+            }
+            // A reply's height is known only once its page has rendered, after the message changed.
+            .environment(\.replyDidResize) { id in
+                if id == session.messages.last?.id {
+                    proxy.scrollTo(Self.bottomID, anchor: .bottom)
+                }
             }
             .onAppear {
                 proxy.scrollTo(Self.bottomID, anchor: .bottom)
@@ -105,13 +110,7 @@ struct AssistantMessageView: View {
         VStack(alignment: .leading, spacing: 10) {
             SpotMark(size: 22)
             if !message.text.isEmpty {
-                StructuredText(markdown: ReplyMarkdown.prepare(message.text, isStreaming: message.status == .pending), syntaxExtensions: [.math])
-                    .textual.textSelection(.enabled)
-                    .chatMarkdownStyle()
-                    .overlayPreferenceValue(CodeCopyTargetsKey.self) { targets in
-                        CodeCopyButtons(targets: targets)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                ReplyView(id: message.id, markdown: message.text, isStreaming: message.status == .pending)
             } else if message.status == .pending {
                 ProgressView()
                     .controlSize(.small)

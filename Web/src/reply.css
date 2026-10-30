@@ -1,0 +1,257 @@
+/* Reply typography, after Claude's chat view: blocks carry no margins of their own and are
+   separated by one 20px gap; 16px text at 1.375 line height; medium-weight bold; code blocks as cards. */
+
+:root {
+  color-scheme: light dark;
+  --text: rgba(0, 0, 0, 0.85);
+  --secondary: rgba(0, 0, 0, 0.5);
+  --rule: rgba(0, 0, 0, 0.1);
+  --code-card: rgba(0, 0, 0, 0.03);
+  --code-border: rgba(0, 0, 0, 0.08);
+  --inline-code: rgba(0, 0, 0, 0.05);
+  --hover: rgba(0, 0, 0, 0.06);
+  --quote-bar: rgba(0, 0, 0, 0.15);
+  --gap: 20px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text: rgba(255, 255, 255, 0.88);
+    --secondary: rgba(255, 255, 255, 0.55);
+    --rule: rgba(255, 255, 255, 0.12);
+    --code-card: rgba(255, 255, 255, 0.04);
+    --code-border: rgba(255, 255, 255, 0.1);
+    --inline-code: rgba(255, 255, 255, 0.08);
+    --hover: rgba(255, 255, 255, 0.08);
+    --quote-bar: rgba(255, 255, 255, 0.2);
+  }
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  overflow: hidden;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif;
+  font-size: 16px;
+  line-height: 1.375;
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+#content {
+  /* A float or margin inside must not leak out of the measured height. */
+  display: flow-root;
+}
+
+/* One gap between blocks, set here rather than on each block. */
+#content > *,
+li > *,
+blockquote > * {
+  margin: 0;
+}
+#content > * + *,
+blockquote > * + * {
+  margin-top: var(--gap);
+}
+li > * + * {
+  margin-top: 8px;
+}
+
+p {
+  margin: 0;
+}
+
+strong,
+b {
+  font-weight: 500;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-weight: 600;
+  line-height: 1.3;
+}
+h1 {
+  font-size: 1.25em;
+}
+h2 {
+  font-size: 1.125em;
+}
+h3,
+h4,
+h5,
+h6 {
+  font-size: 1em;
+}
+
+ul,
+ol {
+  padding-left: 32px;
+}
+li {
+  margin: 0;
+}
+li::marker {
+  color: var(--secondary);
+}
+
+a {
+  color: -apple-system-control-accent;
+  color: AccentColor;
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+hr {
+  border: none;
+  border-top: 1px solid var(--rule);
+}
+
+blockquote {
+  padding-left: 14px;
+  border-left: 3px solid var(--quote-bar);
+  color: var(--secondary);
+}
+
+/* Inline code: a faint tint and a small radius. */
+:not(pre) > code {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 0.875em;
+  background: var(--inline-code);
+  border-radius: 4px;
+  padding: 0.1em 0.3em;
+}
+
+/* Code blocks as cards. */
+.code-block {
+  background: var(--code-card);
+  border: 0.5px solid var(--code-border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 8px 0 14px;
+  min-height: 24px;
+}
+.code-language {
+  font-size: 12px;
+  color: var(--secondary);
+}
+.copy-code {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 6px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--secondary);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.copy-code:hover {
+  background: var(--hover);
+}
+.copy-code svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.25;
+}
+pre {
+  margin: 0;
+  padding: 8px 14px 14px;
+  overflow-x: auto;
+}
+pre code {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre;
+}
+pre code.hljs {
+  background: transparent;
+  padding: 0;
+}
+
+/* Tables: full width, a rule under the header and between rows. */
+.table-scroll {
+  overflow-x: auto;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+th,
+td {
+  text-align: left;
+  padding: 8px 12px 8px 0;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+}
+th {
+  font-weight: 600;
+}
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Math */
+.katex {
+  font-size: 1.05em;
+}
+.katex-block {
+  margin: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.katex-display {
+  margin: 0;
+}
+.math-source {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 0.875em;
+  color: var(--secondary);
+}
+
+img {
+  max-width: 100%;
+  border-radius: 8px;
+}
+
+/* Thin scrollbars inside code, tables and wide formulas, without a track. */
+::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 3px;
+}
+:hover::-webkit-scrollbar-thumb {
+  background: var(--quote-bar);
+}

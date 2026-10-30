@@ -198,8 +198,9 @@ final class SpotChatUITests: XCTestCase {
         send("markdown", in: app)
         waitForReply(in: app, "SELF CONTAINS %@", "| WAL | concurrent |")
 
-        let copy = element("copyCode", in: app)
-        XCTAssertTrue(copy.waitForExistence(timeout: 5))
+        // The button is inside the reply's web page; its label comes from the app's strings.
+        let copy = app.webViews.buttons.matching(NSPredicate(format: "label == %@", "Copy Code")).firstMatch
+        XCTAssertTrue(copy.waitForExistence(timeout: 10))
         NSPasteboard.general.clearContents()
         tap(copy)
         XCTAssertEqual(NSPasteboard.general.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines), "PRAGMA journal_mode = WAL;")

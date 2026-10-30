@@ -20,15 +20,18 @@ packages:
   KeyboardShortcuts:
     url: https://github.com/sindresorhus/KeyboardShortcuts
     from: "2.0.0"
-  Textual:
-    url: https://github.com/gonzalezreal/textual
-    minorVersion: 0.5.0
 targets:
   SpotChat:
     type: application
     platform: macOS
     sources:
-      - App
+      - path: App
+        excludes:
+          - Reply/**
+      # The reply page, built from Web/ by `npm run build`, kept as a folder in the app bundle.
+      - path: App/Reply
+        type: folder
+        buildPhase: resources
     dependencies:
       - package: SpotKit
         product: SpotCore
@@ -37,7 +40,6 @@ targets:
       - package: SpotKit
         product: SpotAI
       - package: KeyboardShortcuts
-      - package: Textual
     info:
       path: App/Info.plist
       properties:

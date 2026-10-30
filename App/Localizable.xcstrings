@@ -231,6 +231,16 @@
         }
       }
     },
+    "Copy Code": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "复制代码"
+          }
+        }
+      }
+    },
     "Couldn't reach the service. Check the API address and your connection.": {
       "localizations": {
         "zh-Hans": {

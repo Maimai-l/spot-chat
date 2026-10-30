@@ -6,7 +6,7 @@
   "scripts": {
     "build": "node build.mjs",
     "check": "node build.mjs --check",
-    "test": "node --test test/"
+    "test": "node --test test/*.test.mjs"
   },
   "dependencies": {
     "@vscode/markdown-it-katex": "1.1.2",

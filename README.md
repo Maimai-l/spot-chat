@@ -27,6 +27,12 @@ xcodegen generate
 open SpotChat.xcodeproj
 ```
 
+Replies are rendered by a small web page in `App/Reply`, built from `Web/`. After changing anything in `Web/src`, rebuild it and run its tests:
+
+```bash
+cd Web && npm ci && npm run build && npm test
+```
+
 The logic, storage and API tests run without the Xcode project. The API tests talk to a local mock server:
 
 ```bash
@@ -40,6 +46,9 @@ MOCK_OPENAI_BASE_URL=http://127.0.0.1:8765/v1 swift test --package-path Packages
 | --- | --- |
 | Global shortcuts and shortcut recording | [KeyboardShortcuts](https://github.com/sindresorhus/KeyboardShortcuts) |
 | OpenAI-compatible API calls and streaming | [OpenAI](https://github.com/MacPaw/OpenAI) by MacPaw |
-| Markdown rendering | [Textual](https://github.com/gonzalezreal/textual) |
+| Markdown in replies, shown in a web view | [markdown-it](https://github.com/markdown-it/markdown-it), with [markdown-it-cjk-friendly](https://github.com/tats-u/markdown-cjk-friendly) |
+| Math in replies | [KaTeX](https://github.com/KaTeX/KaTeX) through [@vscode/markdown-it-katex](https://github.com/microsoft/vscode-markdown-it-katex) |
+| Code highlighting in replies | [highlight.js](https://github.com/highlightjs/highlight.js) |
+| Updating a streaming reply in place | [morphdom](https://github.com/patrick-steele-idem/morphdom) |
 | SQLite | [GRDB.swift](https://github.com/groue/GRDB.swift) |
 | Xcode project generation | [XcodeGen](https://github.com/yonaskolb/XcodeGen) |

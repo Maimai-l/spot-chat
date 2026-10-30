@@ -27,6 +27,12 @@ jobs:
         env:
           MOCK_OPENAI_BASE_URL: http://127.0.0.1:8765/v1
         run: swift test --package-path Packages/SpotKit
+      - name: Test the reply page and check its build is committed
+        working-directory: Web
+        run: |
+          npm ci
+          npm test
+          npm run check
 
   app:
     name: Build app and run UI tests
