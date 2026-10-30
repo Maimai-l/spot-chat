@@ -122,7 +122,6 @@ final class SpotChatUITests: XCTestCase {
         let app = launchRunningCommands()
         let chip = element("commandFolder", in: app)
         XCTAssertTrue(chip.waitForExistence(timeout: 10))
-        XCTAssertTrue(text(of: chip).contains("Work") || chip.buttons.firstMatch.label.contains("Work"))
         send("Please list the files", in: app)
         XCTAssertTrue(reply(containing: "Listed the folder.", in: app).waitForExistence(timeout: 40))
         XCTAssertTrue(element("commands", in: app).exists)

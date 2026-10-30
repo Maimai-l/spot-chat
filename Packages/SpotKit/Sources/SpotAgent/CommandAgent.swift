@@ -152,23 +152,32 @@ public actor CommandAgent {
             return await self.answer(request)
         }
         try await rpc.start()
-        _ = try await rpc.initialize(request: InitializeRequest(
+        // Replies are read only for what is used: the SDK's models require fields that ACP leaves
+        // optional and dsh leaves out, such as `mcpCapabilities.sse`.
+        _ = try await rpc.sendRequest(method: "initialize", params: InitializeRequest(
             protocolVersion: .current,
             // No file or terminal access through Spot Chat: dsh uses its own sandboxed tools.
             clientCapabilities: ClientCapabilities(),
             clientInfo: Implementation(name: "spot-chat", version: Self.appVersion)
         ))
 
-        if let earlier {
-            if let resumed = try? await rpc.resumeSession(request: ResumeSessionRequest(sessionId: SessionId(value: earlier), cwd: folder.path)) {
-                sessionID = earlier
-                configOptions = resumed.configOptions ?? []
-            }
+        if let earlier,
+           let resumed = try? await rpc.sendRequest(
+               method: "session/resume",
+               params: ResumeSessionRequest(sessionId: SessionId(value: earlier), cwd: folder.path, mcpServers: [])
+           ) {
+            sessionID = earlier
+            configOptions = Self.configOptions(in: resumed.result)
         }
         if sessionID == nil {
-            let created = try await rpc.createSession(request: NewSessionRequest(cwd: folder.path, mcpServers: []))
-            sessionID = created.sessionId.value
-            configOptions = created.configOptions ?? []
+            let created = try await rpc.sendRequest(
+                method: "session/new", params: NewSessionRequest(cwd: folder.path, mcpServers: [])
+            )
+            guard case let .object(result) = created.result, case let .string(id)? = result["sessionId"] else {
+                throw CommandAgentError.noSession
+            }
+            sessionID = id
+            configOptions = Self.configOptions(in: created.result)
         }
         appliedModel = nil
         appliedEffort = nil
@@ -196,8 +205,13 @@ public actor CommandAgent {
         runs = [:]
         isCancelling = false
         defer { self.onEvent = nil }
-        let response = try await rpc.prompt(request: PromptRequest(sessionId: SessionId(value: sessionID), prompt: blocks))
-        let stopped = response.stopReason == .cancelled
+        let response = try await rpc.sendRequest(
+            method: "session/prompt", params: PromptRequest(sessionId: SessionId(value: sessionID), prompt: blocks)
+        )
+        var stopped = isCancelling
+        if case let .object(result) = response.result, case let .string(reason)? = result["stopReason"] {
+            stopped = reason == "cancelled"
+        }
         for (id, var run) in runs where !run.isFinished {
             run.state = stopped ? .stopped : .succeeded
             run.duration = Date().timeIntervalSince(run.startedAt)
@@ -345,16 +359,24 @@ public actor CommandAgent {
     private func applyOptions() async throws {
         guard let rpc, let sessionID else { return }
         if let model = options.model, model != appliedModel, let value = value(of: "model", matching: model) {
-            _ = try? await rpc.setSessionConfigOption(request: SetSessionConfigOptionRequest(
+            _ = try? await rpc.sendRequest(method: "session/set_config_option", params: SetSessionConfigOptionRequest(
                 sessionId: SessionId(value: sessionID), configId: SessionConfigId(value: "model"), value: .string(value)
             ))
             appliedModel = model
         }
         if let effort = options.effort, effort != appliedEffort, let value = value(of: "reasoning_effort", matching: effort) {
-            _ = try? await rpc.setSessionConfigOption(request: SetSessionConfigOptionRequest(
+            _ = try? await rpc.sendRequest(method: "session/set_config_option", params: SetSessionConfigOptionRequest(
                 sessionId: SessionId(value: sessionID), configId: SessionConfigId(value: "reasoning_effort"), value: .string(value)
             ))
             appliedEffort = effort
+        }
+    }
+
+    /// The session's options that the SDK can read; one it can't is skipped rather than failing them all.
+    static func configOptions(in result: JsonValue) -> [SessionConfigOption] {
+        guard case let .object(object) = result, case let .array(items)? = object["configOptions"] else { return [] }
+        return items.compactMap { item in
+            (try? JSONEncoder().encode(item)).flatMap { try? JSONDecoder().decode(SessionConfigOption.self, from: $0) }
         }
     }
 

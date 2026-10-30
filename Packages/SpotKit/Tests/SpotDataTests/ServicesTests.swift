@@ -314,7 +314,8 @@ struct TestStore {
         var reply = ChatMessage(role: .assistant, text: "Done.")
         reply.commands = [CommandRun(
             id: "toolu_1", tool: .shell, summary: "Compress the video", detail: "ffmpeg -i trip.mov out.mp4",
-            output: "frame= 10", exitCode: 0, state: .succeeded, duration: 1.5
+            output: "frame= 10", exitCode: 0, state: .succeeded,
+            startedAt: Date(timeIntervalSince1970: 1_800_000_000), duration: 1.5
         )]
         try store.messages.append(question, to: topic.id)
         try store.messages.append(reply, to: topic.id)
