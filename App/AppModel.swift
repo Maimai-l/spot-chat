@@ -62,12 +62,19 @@ final class AppModel: ObservableObject {
         providers.first { $0.id == model.providerID }
     }
 
+    /// The level chosen for the model, or the one it starts at.
     func thinking(for model: ProviderModel) -> ThinkingLevel {
-        thinkingLevels[model.id] ?? .automatic
+        thinkingLevels[model.id] ?? ThinkingLevel.standard(isDeepSeek: isDeepSeek(model))
+    }
+
+    /// What a request sends. DeepSeek always gets its level, as dsh sends it. Elsewhere nothing is sent
+    /// until a level is chosen, since models without reasoning reject the field.
+    func requestThinking(for model: ProviderModel) -> ThinkingLevel {
+        thinkingLevels[model.id] ?? (isDeepSeek(model) ? ThinkingLevel.standard(isDeepSeek: true) : .automatic)
     }
 
     func setThinking(_ level: ThinkingLevel, for model: ProviderModel) {
-        thinkingLevels[model.id] = level == .automatic ? nil : level
+        thinkingLevels[model.id] = level
         try? preferenceService.set(PreferenceKey.thinkingLevels, to: thinkingLevels)
     }
 

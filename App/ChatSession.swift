@@ -100,7 +100,7 @@ final class ChatSession: ObservableObject {
                     messages: try ChatRequestBuilder.messages(from: history, loadAttachment: AttachmentLoader.load),
                     systemPrompt: (preset?.prompt.isEmpty == false ? preset?.prompt ?? "" : app.systemPrompt)
                         .trimmingCharacters(in: .whitespacesAndNewlines),
-                    thinking: preset?.thinking ?? model.map { app.thinking(for: $0) } ?? .automatic
+                    thinking: preset?.thinking ?? model.map { app.requestThinking(for: $0) } ?? .automatic
                 )
             } catch {
                 reply.status = .error

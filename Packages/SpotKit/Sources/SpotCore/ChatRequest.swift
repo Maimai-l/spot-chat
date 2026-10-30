@@ -29,7 +29,13 @@ public enum ThinkingLevel: String, Codable, CaseIterable, Sendable {
     /// The levels a service offers. DeepSeek's are low, high and max
     /// (api-docs.deepseek.com/guides/thinking_mode); OpenAI-style services take low, medium and high.
     public static func choices(isDeepSeek: Bool) -> [ThinkingLevel] {
-        isDeepSeek ? [.automatic, .off, .low, .high, .max] : [.automatic, .off, .low, .medium, .high]
+        isDeepSeek ? [.off, .low, .high, .max] : [.off, .low, .medium, .high]
+    }
+
+    /// The level shown before one is chosen: dsh's default for DeepSeek, and the middle one elsewhere
+    /// (Cherry Studio's "auto" for OpenAI-style services).
+    public static func standard(isDeepSeek: Bool) -> ThinkingLevel {
+        isDeepSeek ? .high : .medium
     }
 }
 

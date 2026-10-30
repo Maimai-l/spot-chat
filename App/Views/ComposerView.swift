@@ -105,7 +105,10 @@ struct ComposerView: View {
             } else if composer.hasContent {
                 CircleIconButton(
                     label: "Send",
-                    icon: SendIcon().fill().frame(width: 18, height: 16).offset(x: 1),
+                    // The stroke rounds the corners slightly, as in Gemini's arrow.
+                    icon: SendIcon().fill()
+                        .overlay(SendIcon().stroke(style: StrokeStyle(lineWidth: 1.5, lineJoin: .round)))
+                        .frame(width: 17, height: 15).offset(x: 1),
                     action: actions.submit
                 )
                 .frame(width: 32, height: 32)
@@ -210,10 +213,13 @@ struct SendIcon: Shape {
         func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
             CGPoint(x: rect.minX + x * rect.width, y: rect.minY + y * rect.height)
         }
-        path.move(to: point(0.04, 0.04))
+        // Gemini's send arrow: straight left edges and a notch reaching almost halfway in.
+        path.move(to: point(0, 0))
         path.addLine(to: point(1, 0.5))
-        path.addLine(to: point(0.04, 0.96))
-        path.addLine(to: point(0.18, 0.5))
+        path.addLine(to: point(0, 1))
+        path.addLine(to: point(0, 0.635))
+        path.addLine(to: point(0.46, 0.5))
+        path.addLine(to: point(0, 0.365))
         path.closeSubpath()
         return path
     }
