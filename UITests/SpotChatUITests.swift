@@ -615,6 +615,8 @@ final class SpotChatUITests: XCTestCase {
         let conversation = composer(in: app).coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0))
             .withOffset(CGVector(dx: 0, dy: -150))
         conversation.scroll(byDeltaX: 0, deltaY: 120)
+        // The scroll lands a moment after the call returns.
+        RunLoop.current.run(until: Date().addingTimeInterval(0.4))
         attachScreenshot("Scrolling")
         RunLoop.current.run(until: Date().addingTimeInterval(2))
         attachScreenshot("After scrolling")
