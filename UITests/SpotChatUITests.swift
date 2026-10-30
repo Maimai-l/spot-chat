@@ -611,7 +611,9 @@ final class SpotChatUITests: XCTestCase {
         attachScreenshot("Card")
 
         // The scroll bar shows while scrolling and is gone a moment after.
-        let conversation = app.webViews.firstMatch
+        // A point in the conversation just above the input, which is always on screen.
+        let conversation = composer(in: app).coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0))
+            .withOffset(CGVector(dx: 0, dy: -150))
         conversation.scroll(byDeltaX: 0, deltaY: 120)
         attachScreenshot("Scrolling")
         RunLoop.current.run(until: Date().addingTimeInterval(2))
