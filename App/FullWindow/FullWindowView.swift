@@ -7,9 +7,11 @@ struct FullWindowView: View {
     @ObservedObject var app: AppModel
     @ObservedObject var composer: ComposerModel
     let actions: ComposerActions
+    /// Opens with the history showing; SwiftUI would otherwise hide it on its own in a narrow window.
+    @State private var columns = NavigationSplitViewVisibility.all
 
     var body: some View {
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $columns) {
             HistorySidebar(controller: controller, session: session, app: app)
                 .navigationSplitViewColumnWidth(min: 200, ideal: 250, max: 340)
         } detail: {
@@ -48,7 +50,7 @@ struct FullWindowView: View {
                     .padding(.bottom, 18)
                     .padding(.top, 6)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(minWidth: 420, maxWidth: .infinity, maxHeight: .infinity)
             .background(Color(nsColor: .textBackgroundColor))
             // As in Gemini: no title and no bar background, just the button at the end. An empty title
             // (rather than none) keeps the button at the trailing edge.
