@@ -167,6 +167,12 @@ struct HistorySidebar: View {
         matches = (try? app.messageService.topicIDs(containing: query)) ?? []
     }
 
+    private static func accessibilityName(of topic: TopicSummary, activity: TopicActivity?) -> String {
+        let name = topic.name.isEmpty ? String(localized: "New Chat") : topic.name
+        let doing = ActivityDot.description(of: activity)
+        return doing.isEmpty ? name : "\(name), \(doing)"
+    }
+
     @ViewBuilder
     private func row(for topic: TopicSummary) -> some View {
         if controller.renamingTopic == topic.id {
@@ -191,10 +197,9 @@ struct HistorySidebar: View {
                 Spacer(minLength: 4)
                 ActivityDot(activity: app.activity[topic.id])
             }
-                // One element for assistive apps: the name, with what the conversation is doing as its value.
+                // One element for assistive apps: the name, then what the conversation is doing.
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel(Text(topic.name.isEmpty ? String(localized: "New Chat") : topic.name))
-                .accessibilityValue(Text(ActivityDot.description(of: app.activity[topic.id])))
+                .accessibilityLabel(Text(Self.accessibilityName(of: topic, activity: app.activity[topic.id])))
                 .contextMenu {
                     Button("Rename…") { controller.beginRename(topic) }
                     Button("Export as Markdown…") { controller.export(topic) }

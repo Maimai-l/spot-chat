@@ -897,7 +897,7 @@ final class SpotChatUITests: XCTestCase {
         send("slow", in: app)
         let row = element("historyItem", in: app)
         XCTAssertTrue(row.waitForExistence(timeout: 10))
-        waitForText(of: row, "SELF == %@", "Working")
+        waitForText(of: row, "SELF == %@", "slow, Working")
         element("stop", in: app).click()
         waitForText(of: row, "SELF == %@", "slow", timeout: 5)
     }
