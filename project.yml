@@ -59,6 +59,8 @@ targets:
       properties:
         CFBundleDisplayName: Spot Chat
         CFBundleName: Spot Chat
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSUIElement: true
         NSServices:
           - NSMenuItem:
