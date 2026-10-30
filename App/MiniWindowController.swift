@@ -46,7 +46,11 @@ final class MiniWindowController: ObservableObject {
                 self?.handle(generating ? .generationStarted : .generationFinished)
             }
             .store(in: &observers)
+        // A new message or another conversation scrolls to the end; a reply growing doesn't, so a reader
+        // who scrolled up while it streams stays where they are.
         session.$messages
+            .map { messages in messages.map(\.id) }
+            .removeDuplicates()
             .sink { [weak self] _ in self?.scrollRequest += 1 }
             .store(in: &observers)
         app.$retentionPolicy
