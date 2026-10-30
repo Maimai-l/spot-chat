@@ -18,6 +18,7 @@ Everything is black, white and gray, as in Claude. The one color marks a step th
 - A reply shows its text, then **Ran 2 commands**, folded under one line like Thinking. It is open while the reply is being written.
 - Each command is a gray line: the tool's icon (a spinner while it runs), dsh's summary, and the time it took. Below are the command in a code box and the end of its output. A running command has a Stop button.
 - How a command ended is said in gray words, not colors: Stopped by the sandbox, Denied, Stopped, Ran outside the folder, Exited with code 1.
+- When the sandbox stops a command and dsh asks to run the same command outside the folder, only the question is shown: the stopped try says nothing the question doesn't.
 - A command that waits for the user shows **Needs your input**: an orange dot and an outlined label, the only color on screen.
 
 ## Asking before going outside the folder

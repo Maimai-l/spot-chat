@@ -143,7 +143,7 @@ final class SpotChatUITests: XCTestCase {
         send("Write outside the folder", in: app)
         let card = element("commandApproval", in: app)
         XCTAssertTrue(card.waitForExistence(timeout: 40))
-        XCTAssertTrue(element("command.blocked", in: app).exists, "The sandbox stopped the first try")
+        XCTAssertFalse(element("command.blocked", in: app).exists, "The try the sandbox stopped gives way to the question")
         XCTAssertTrue(element("needsInput", in: app).exists, "The waiting command is marked in the conversation")
         RunLoop.current.run(until: Date().addingTimeInterval(0.5))
         attachScreenshot("Command approval")

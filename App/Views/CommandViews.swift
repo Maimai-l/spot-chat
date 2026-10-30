@@ -25,7 +25,7 @@ struct CommandRunsView: View {
                 withAnimation(.easeOut(duration: 0.18)) { isOpen.toggle() }
             } label: {
                 HStack(spacing: 4) {
-                    Text("Ran \(runs.count) commands")
+                    Text("Ran \(shown.count) commands")
                         .font(.system(size: 14))
                         .foregroundStyle(hovering ? .primary : .secondary)
                     Image(systemName: "chevron.right")
@@ -41,7 +41,7 @@ struct CommandRunsView: View {
 
             if isOpen {
                 VStack(alignment: .leading, spacing: 14) {
-                    ForEach(runs) { run in
+                    ForEach(shown) { run in
                         CommandRunRow(run: run, stop: stop)
                     }
                 }
@@ -54,6 +54,15 @@ struct CommandRunsView: View {
         }
         .onChange(of: isLive) { _, live in
             if live { isOpen = true }
+        }
+    }
+
+    /// The commands without a try the sandbox stopped when dsh then asked to run the same command
+    /// outside it: the question says all that try did.
+    private var shown: [CommandRun] {
+        runs.enumerated().compactMap { index, run in
+            let retried = run.state == .blocked && runs[(index + 1)...].contains { $0.detail == run.detail }
+            return retried ? nil : run
         }
     }
 }
