@@ -364,6 +364,8 @@ public enum PreferenceKey {
     public static let miniRetentionMinutes = "mini_window.retention_minutes"
     /// Height of the expanded card in points.
     public static let cardHeight = "mini_window.card_height"
+    /// Set once the built-in provider templates were added, so deleted ones don't come back.
+    public static let providerTemplatesAdded = "providers.templates_added"
 }
 
 /// Key-value settings, stored as JSON like Cherry Studio's preference table.

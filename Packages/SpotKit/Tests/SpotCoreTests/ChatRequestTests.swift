@@ -87,6 +87,14 @@ import Testing
         #expect(endpoint == ProviderEndpoint(scheme: "https", host: "api.openai.com", port: 443, basePath: "/v1"))
     }
 
+    @Test func builtInTemplatesHaveValidEndpoints() {
+        #expect(ProviderEndpoint(baseURL: ProviderTemplate.deepSeek.baseURL)
+            == ProviderEndpoint(scheme: "https", host: "api.deepseek.com", port: 443, basePath: "/v1"))
+        #expect(ProviderEndpoint(baseURL: ProviderTemplate.openAI.baseURL)
+            == ProviderEndpoint(scheme: "https", host: "api.openai.com", port: 443, basePath: "/v1"))
+        #expect(ProviderTemplate.all.map(\.name) == ["DeepSeek", "OpenAI"])
+    }
+
     @Test func parsesALocalServerWithPort() {
         let endpoint = ProviderEndpoint(baseURL: "http://localhost:11434/v1/")
         #expect(endpoint == ProviderEndpoint(scheme: "http", host: "localhost", port: 11434, basePath: "/v1"))

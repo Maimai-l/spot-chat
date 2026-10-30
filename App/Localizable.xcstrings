@@ -251,6 +251,16 @@
         }
       }
     },
+    "Custom Provider": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自定义服务商"
+          }
+        }
+      }
+    },
     "Default Model": {
       "localizations": {
         "zh-Hans": {

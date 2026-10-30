@@ -22,9 +22,18 @@ struct ProvidersSettingsView: View {
                 .accessibilityIdentifier("providerList")
                 Divider()
                 HStack(spacing: 0) {
-                    Button(action: addProvider) {
+                    Menu {
+                        ForEach(ProviderTemplate.all) { template in
+                            Button(template.name) { add(template) }
+                        }
+                        Divider()
+                        Button("Custom Provider", action: addProvider)
+                    } label: {
                         Image(systemName: "plus").frame(width: 26, height: 22)
                     }
+                    .menuStyle(.borderlessButton)
+                    .menuIndicator(.hidden)
+                    .fixedSize()
                     .accessibilityLabel(Text("Add Provider"))
                     .accessibilityIdentifier("addProvider")
                     Button {
@@ -51,7 +60,12 @@ struct ProvidersSettingsView: View {
                     Text(app.providers.isEmpty ? "Add a provider to start chatting." : "Select a provider.")
                         .foregroundStyle(.secondary)
                     if app.providers.isEmpty {
-                        Button("Add Provider", action: addProvider)
+                        HStack {
+                            ForEach(ProviderTemplate.all) { template in
+                                Button(template.name) { add(template) }
+                            }
+                            Button("Custom Provider", action: addProvider)
+                        }
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -73,6 +87,12 @@ struct ProvidersSettingsView: View {
             }
         } message: { _ in
             Text("Its models are removed too. Conversations stay in history.")
+        }
+    }
+
+    private func add(_ template: ProviderTemplate) {
+        if let provider = app.addProvider(from: template) {
+            selection = provider.id
         }
     }
 

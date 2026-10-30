@@ -33,7 +33,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             PlacementStore().reset()
             try? FileManager.default.removeItem(at: AppStorageLocation.dataDirectory())
         }
-        if let url = defaults.string(forKey: LaunchOption.testProviderURL), app.providers.isEmpty {
+        if let url = defaults.string(forKey: LaunchOption.testProviderURL), !app.providers.contains(where: { $0.baseURL == url }) {
             seedTestProvider(baseURL: url, apiKey: defaults.string(forKey: LaunchOption.testProviderKey) ?? "")
         }
 

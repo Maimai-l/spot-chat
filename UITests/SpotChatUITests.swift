@@ -319,7 +319,12 @@ final class SpotChatUITests: XCTestCase {
 
         let addProvider = element("addProvider", in: app)
         XCTAssertTrue(addProvider.waitForExistence(timeout: 10), "Settings opens")
+        XCTAssertTrue(element("providerList", in: app).staticTexts["DeepSeek"].exists, "Built-in providers are listed")
+        XCTAssertTrue(element("providerList", in: app).staticTexts["OpenAI"].exists)
         addProvider.click()
+        let custom = app.menuItems["Custom Provider"]
+        XCTAssertTrue(custom.waitForExistence(timeout: 5))
+        custom.click()
 
         let url = app.textFields["providerURL"]
         XCTAssertTrue(url.waitForExistence(timeout: 5))

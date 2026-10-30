@@ -33,6 +33,7 @@ final class AppModel: ObservableObject {
         modelService = ModelService(database: database)
         preferenceService = PreferenceService(database: database)
         reloadProviders()
+        addProviderTemplatesOnFirstLaunch()
         reloadPreferences()
         reloadTopics()
     }
@@ -81,6 +82,23 @@ final class AppModel: ObservableObject {
         let provider = try? providerService.create(name: name, baseURL: baseURL, apiKey: apiKey)
         reloadProviders()
         return provider
+    }
+
+    @discardableResult
+    func addProvider(from template: ProviderTemplate) -> Provider? {
+        addProvider(name: template.name, baseURL: template.baseURL, apiKey: "")
+    }
+
+    /// With no provider yet, the built-in ones are listed ready for a key. Only ever done once.
+    private func addProviderTemplatesOnFirstLaunch() {
+        let added = (try? preferenceService.value(PreferenceKey.providerTemplatesAdded, as: Bool.self)) ?? false
+        guard !added else { return }
+        if providers.isEmpty {
+            for template in ProviderTemplate.all {
+                addProvider(from: template)
+            }
+        }
+        try? preferenceService.set(PreferenceKey.providerTemplatesAdded, to: true)
     }
 
     func updateProvider(_ provider: Provider) {

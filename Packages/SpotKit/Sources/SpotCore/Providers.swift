@@ -17,6 +17,19 @@ public struct Provider: Identifiable, Equatable, Sendable {
     }
 }
 
+/// A provider the app knows, so adding it only needs a key.
+public struct ProviderTemplate: Identifiable, Equatable, Sendable {
+    public var id: String { name }
+    public let name: String
+    public let baseURL: String
+
+    public static let deepSeek = ProviderTemplate(name: "DeepSeek", baseURL: "https://api.deepseek.com/v1")
+    public static let openAI = ProviderTemplate(name: "OpenAI", baseURL: "https://api.openai.com/v1")
+
+    /// In the order they are offered and added on first launch.
+    public static let all: [ProviderTemplate] = [.deepSeek, .openAI]
+}
+
 public struct ProviderModel: Identifiable, Equatable, Hashable, Sendable {
     /// "providerId::modelId", like Cherry Studio's user_model primary key.
     public let id: String
