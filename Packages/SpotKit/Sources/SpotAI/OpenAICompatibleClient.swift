@@ -113,6 +113,7 @@ public struct OpenAICompatibleClient: ChatResponder {
             "messages": "\(request.messages.count)",
             "tools": "\(request.tools.map(\.name).joined(separator: ","))",
             "thinking": "\(request.thinking)",
+            "systemPromptInFirstQuestion": "\(endpoint.isDeepSeek && !request.systemPrompt.isEmpty && request.messages.first?.role == .user)",
         ])
         log.debug("Request body", metadata: ["body": "\(SpotLog.body(urlRequest.httpBody ?? Data()))"])
         return AsyncThrowingStream { continuation in
@@ -202,9 +203,22 @@ public struct OpenAICompatibleClient: ChatResponder {
     /// The same bytes for the same conversation, so a service's prompt cache can match the prefix:
     /// keys are sorted and nothing in the body changes from one request to the next.
     func makeStreamRequest(_ request: ChatRequest) throws -> URLRequest {
-        var messages = request.messages.compactMap(Self.messageParam)
-        if !request.systemPrompt.isEmpty {
-            messages.insert(.system(.init(content: .textContent(request.systemPrompt))), at: 0)
+        var requestMessages = request.messages
+        var systemPrompt = request.systemPrompt
+        if endpoint.isDeepSeek, !systemPrompt.isEmpty, let first = requestMessages.first, first.role == .user {
+            // deepseek-flash (V4.1-Flash-1017) given a system message often breaks off a short reply mid-word
+            // with a stray token, such as "帮S助" or "<eos>": in tests, 22 of 30 greetings. The same prompt at
+            // the start of the first question gave 1 in 30, so for DeepSeek it goes there instead.
+            if case let .text(question)? = first.parts.first {
+                requestMessages[0].parts[0] = .text(systemPrompt + "\n\n" + question)
+            } else {
+                requestMessages[0].parts.insert(.text(systemPrompt), at: 0)
+            }
+            systemPrompt = ""
+        }
+        var messages = requestMessages.compactMap(Self.messageParam)
+        if !systemPrompt.isEmpty {
+            messages.insert(.system(.init(content: .textContent(systemPrompt))), at: 0)
         }
         let query = ChatQuery(
             messages: messages,
@@ -237,19 +251,13 @@ public struct OpenAICompatibleClient: ChatResponder {
         return urlRequest
     }
 
-    /// DeepSeek's sampling temperature when thinking is off (its default is 1.0).
-    static let nonThinkingTemperature = 0.7
-
     /// The request fields for a thinking level, after Cherry Studio's provider registry
     /// (packages/provider-registry/src/providers/deepseek.ts and reasoningProfiles.ts).
     static func thinkingFields(_ level: ThinkingLevel, isDeepSeek: Bool) -> [String: Any] {
         if isDeepSeek {
             switch level {
             case .automatic: return [:]
-            // Without thinking, deepseek-flash fixes top_p at 1.0, so at the default temperature of 1.0 it
-            // samples from the whole tail and now and then drops a stray token mid-word ("帮S助"). A lower
-            // temperature trims that tail; it has no effect when thinking is on.
-            case .off: return ["thinking": ["type": "disabled"], "temperature": Self.nonThinkingTemperature]
+            case .off: return ["thinking": ["type": "disabled"]]
             // DeepSeek has no medium; Cherry Studio sends high for it.
             case .low: return ["thinking": ["type": "enabled"], "reasoning_effort": "low"]
             case .medium, .high: return ["thinking": ["type": "enabled"], "reasoning_effort": "high"]

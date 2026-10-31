@@ -206,13 +206,10 @@ struct StreamLineTests {
             return try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
         }
         let deepSeek = "https://api.deepseek.com/v1"
-        func openAI() -> String { "https://api.openai.com/v1" }
         #expect(try body(deepSeek, .automatic)["thinking"] == nil)
         #expect((try body(deepSeek, .off)["thinking"] as? [String: String]) == ["type": "disabled"])
         #expect(try body(deepSeek, .off)["reasoning_effort"] == nil)
-        #expect(try body(deepSeek, .off)["temperature"] as? Double == 0.7, "Without thinking the tail is trimmed")
-        #expect(try body(deepSeek, .high)["temperature"] == nil, "Thinking ignores temperature")
-        #expect(try body(openAI(), .off)["temperature"] == nil, "Only DeepSeek gets it")
+        #expect(try body(deepSeek, .off)["temperature"] == nil, "The model's own sampling is kept")
         #expect((try body(deepSeek, .max)["thinking"] as? [String: String]) == ["type": "enabled"])
         #expect(try body(deepSeek, .max)["reasoning_effort"] as? String == "max")
         #expect(try body(deepSeek, .medium)["reasoning_effort"] as? String == "high")
@@ -226,6 +223,12 @@ struct StreamLineTests {
         let messages = try body(openAI, .automatic, system: "Be brief.")["messages"] as? [[String: Any]]
         #expect(messages?.first?["role"] as? String == "system")
         #expect(messages?.first?["content"] as? String == "Be brief.")
+
+        // DeepSeek breaks off short replies when given a system message, so the prompt opens the first question.
+        let folded = try body(deepSeek, .automatic, system: "Be brief.")["messages"] as? [[String: Any]]
+        #expect(folded?.count == 1)
+        #expect(folded?.first?["role"] as? String == "user")
+        #expect(folded?.first?["content"] as? String == "Be brief.\n\nHi")
     }
 }
 
