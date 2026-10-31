@@ -1,7 +1,8 @@
 name: CI
 
 # While iterating, a commit can run only some UI tests by naming them in its message, for example
-# "[ui: testLayoutScreenshots testSendButtonAppearsOnlyWithText]". Without that, every UI test runs.
+# "[ui: testLayoutScreenshots testSendButtonAppearsOnlyWithText]". Without that, every UI test runs
+# and the release app is built and packaged as an alpha; a run of only some tests skips the release build.
 # The core tests run only when the core package, the reply page or the mock server changed.
 on:
   push:
@@ -88,7 +89,14 @@ jobs:
         if: steps.agent-cache.outputs.cache-hit != 'true'
         run: python3 scripts/build_agent_runtime.py --node "$(dirname "$(dirname "$(which node)")")" --out build/AgentRuntime
       - name: Test the command runtime and its macOS sandbox
+        if: steps.agent-cache.outputs.cache-hit != 'true'
         run: bash scripts/agent_smoke_test.sh build/AgentRuntime
+      - name: Restore Swift packages
+        uses: actions/cache@v4
+        with:
+          path: build/SourcePackages
+          key: spm-${{ runner.os }}-${{ hashFiles('project.yml', 'Packages/SpotKit/Package.swift', 'Packages/SpotKit/Package.resolved') }}
+          restore-keys: spm-${{ runner.os }}-
       - name: Generate Xcode project
         run: xcodegen generate
       - name: Start mock OpenAI server
@@ -110,6 +118,7 @@ jobs:
           done
           echo "ONLY_TESTING=$only" >> "$GITHUB_ENV"
           echo "UI tests: ${tests:-all}"
+          if [ -z "$tests" ]; then echo "RELEASE=true" >> "$GITHUB_ENV"; else echo "RELEASE=false" >> "$GITHUB_ENV"; fi
       - name: Run UI tests
         run: |
           set -o pipefail
@@ -118,9 +127,11 @@ jobs:
             -scheme SpotChat \
             -destination 'platform=macOS' \
             -derivedDataPath build/DerivedData \
+            -clonedSourcePackagesDirPath build/SourcePackages \
             -resultBundlePath build/UITests.xcresult \
             $ONLY_TESTING
       - name: Build release app
+        if: env.RELEASE == 'true'
         run: |
           set -o pipefail
           xcodebuild build \
@@ -129,13 +140,16 @@ jobs:
             -configuration Release \
             -destination 'generic/platform=macOS' \
             -derivedDataPath build/DerivedData \
+            -clonedSourcePackagesDirPath build/SourcePackages \
             CURRENT_PROJECT_VERSION=${{ github.run_number }}
       - name: Package alpha build
+        if: env.RELEASE == 'true'
         run: |
           VERSION="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' build/DerivedData/Build/Products/Release/SpotChat.app/Contents/Info.plist)"
           echo "ALPHA_NAME=SpotChat-$VERSION-alpha.${{ github.run_number }}" >> "$GITHUB_ENV"
           ditto -c -k --keepParent build/DerivedData/Build/Products/Release/SpotChat.app "build/SpotChat-$VERSION-alpha.${{ github.run_number }}.zip"
       - name: Upload alpha build
+        if: env.RELEASE == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.ALPHA_NAME }}
