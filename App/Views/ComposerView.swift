@@ -459,14 +459,16 @@ final class ModeMenuItem: ClosureMenuItem {
     func render(highlighted: Bool) {
         let font = NSFont.menuFont(ofSize: 0)
         let style = NSMutableParagraphStyle()
-        // Past the title, at the end of the row where a submenu's arrow sits.
-        style.tabStops = [NSTextTab(textAlignment: .right, location: Self.menuWidth - 62)]
+        // Near the end of the row; further would wrap the check mark onto a second line.
+        style.tabStops = [NSTextTab(textAlignment: .right, location: Self.menuWidth - 96)]
+        style.lineBreakMode = .byClipping
         let color: NSColor = !isEnabled ? .disabledControlTextColor : highlighted ? .selectedMenuItemTextColor : .labelColor
         let text = NSMutableAttributedString(
             string: title, attributes: [.font: font, .paragraphStyle: style, .foregroundColor: color]
         )
-        if isOn {
-            let checkColor: NSColor = !isEnabled ? .disabledControlTextColor : highlighted ? .selectedMenuItemTextColor : .controlAccentColor
+        // A mode that can't be used now shows no check mark, as it has no effect.
+        if isOn, isEnabled {
+            let checkColor: NSColor = highlighted ? .selectedMenuItemTextColor : .controlAccentColor
             let configuration = NSImage.SymbolConfiguration(pointSize: font.pointSize, weight: .semibold)
                 .applying(NSImage.SymbolConfiguration(paletteColors: [checkColor]))
             let attachment = NSTextAttachment()
