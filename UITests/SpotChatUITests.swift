@@ -325,6 +325,7 @@ final class SpotChatUITests: XCTestCase {
     func testChineseScreenshotTour() {
         let app = launch(resetState: true, language: "zh-Hans", arguments: [
             "-SpotChatCommandFolder", dataDirectory + "/Movies",
+            "-SpotChatDefaultCommandFolder", dataDirectory + "/Spot Chat",
             "-SpotChatAgentBaseURL", "http://127.0.0.1:8765/anthropic",
         ])
         XCTAssertTrue(element("commandFolder", in: app).waitForExistence(timeout: 10))
@@ -333,7 +334,15 @@ final class SpotChatUITests: XCTestCase {
         element("plusMenu", in: app).click()
         XCTAssertTrue(app.menuItems["运行命令"].waitForExistence(timeout: 5))
         attachScreenshot("zh Plus menu")
-        app.typeKey(.escape, modifierFlags: [])
+        // Turned off, and the menu again.
+        app.menuItems["运行命令"].click()
+        XCTAssertTrue(element("commandFolder", in: app).waitForNonExistence(timeout: 5))
+        element("plusMenu", in: app).click()
+        XCTAssertTrue(app.menuItems["运行命令"].waitForExistence(timeout: 5))
+        attachScreenshot("zh Plus menu off")
+        // Back on, in the folder the test set as the default.
+        app.menuItems["运行命令"].click()
+        XCTAssertTrue(element("commandFolder", in: app).waitForExistence(timeout: 5))
 
         send("Please list the files", in: app)
         XCTAssertTrue(reply(containing: "Listed the folder.", in: app).waitForExistence(timeout: 40))
@@ -358,6 +367,11 @@ final class SpotChatUITests: XCTestCase {
         general.click()
         RunLoop.current.run(until: Date().addingTimeInterval(0.5))
         attachScreenshot("zh General settings")
+        let folder = element("defaultCommandFolder", in: app)
+        XCTAssertTrue(folder.waitForExistence(timeout: 5))
+        folder.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).scroll(byDeltaX: 0, deltaY: -400)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.8))
+        attachScreenshot("zh General settings lower")
     }
 
     // MARK: Replies
