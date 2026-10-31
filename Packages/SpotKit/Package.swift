@@ -17,6 +17,8 @@ let package = Package(
         .package(url: "https://github.com/aptove/swift-sdk", .upToNextMinor(from: "0.2.2")),
         // Apple's logging API; the app decides where the lines go. Later versions need a newer Swift than CI's.
         .package(url: "https://github.com/apple/swift-log", .upToNextMinor(from: "1.9.1")),
+        // Used by the ACP SDK; held at the last version CI's Swift 6.1 can build.
+        .package(url: "https://github.com/apple/swift-collections.git", .upToNextMinor(from: "1.2.1")),
     ],
     targets: [
         .target(name: "SpotCore", dependencies: [.product(name: "Logging", package: "swift-log")]),

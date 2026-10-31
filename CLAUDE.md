@@ -42,6 +42,8 @@ the values of environment variables. Errors are logged where they are caught, ne
 ## Code
 
 - Prefer maintained libraries and dsh's own code over writing equivalents.
+- CI builds with Xcode 16.4 (Swift 6.1). A dependency, direct or not, is held at a version whose manifest
+  that Swift can read, since a newer local toolchain resolves to versions CI can't build.
 - SpotKit holds the logic in packages (SpotCore, SpotData, SpotAI, SpotAgent); the app target holds the interface.
 - Comments say what and why in plain words.
 
