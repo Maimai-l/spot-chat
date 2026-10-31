@@ -154,53 +154,22 @@ struct StopButton: View {
 /// A light rounded background shows under the pointer, as in Gemini.
 /// The model, as a light chip with a chevron like Codex's composer. Its menu lists only models.
 /// The model and its reasoning effort in one button, as Gemini picks both from one list: the button shows
-/// the model, and its menu lists the models, then the current model's levels. Levels and their tooltips
-/// are dsh's; each model keeps its own, as in Cherry Studio.
+/// the model, and its menu lists the models, then the current model's levels, with check marks at the
+/// end of the row as in the + menu. Levels and their tooltips are dsh's; each model keeps its own.
 struct ModelMenu: View {
     @ObservedObject var app: AppModel
     var openSettings: () -> Void
+    var menuWillOpen: () -> Void = {}
+    var menuDidClose: () -> Void = {}
+    @State private var anchor = MenuAnchor.Reference()
 
     var body: some View {
         if let current = app.currentModel {
-            let providers = app.providers.filter { $0.isEnabled && !$0.models.isEmpty }
-            Menu {
-                Section("Model") {
-                    ForEach(providers) { provider in
-                        ForEach(provider.models) { model in
-                            Toggle(isOn: Binding(
-                                get: { app.currentModel?.id == model.id },
-                                set: { isOn in if isOn { app.setDefaultModel(model.id) } }
-                            )) {
-                                Text(verbatim: model.modelID)
-                                // With one provider its name would repeat on every row.
-                                if providers.count > 1 {
-                                    Text(verbatim: provider.name)
-                                }
-                            }
-                        }
-                    }
-                }
-                // Left out for a model whose service turned effort levels down, as dsh shows none for it.
-                if app.supportsEffort(current) {
-                    let level = app.thinking(for: current)
-                    Section("Effort") {
-                        ForEach(ThinkingLevel.choices(isDeepSeek: app.isDeepSeek(current)), id: \.self) { choice in
-                            Toggle(choice.label, isOn: Binding(
-                                get: { level == choice },
-                                set: { isOn in if isOn { app.setThinking(choice, for: current) } }
-                            ))
-                            .help(choice.detail ?? "")
-                        }
-                    }
-                }
-                Divider()
-                Button("Manage Models…", action: openSettings)
-            } label: {
+            Button { showMenu(for: current) } label: {
                 ComposerChip(verbatim: current.modelID, chevron: false)
             }
-            .menuStyle(.button)
             .buttonStyle(.plain)
-            .menuIndicator(.hidden)
+            .background(MenuAnchor(reference: anchor))
             .fixedSize()
             .accessibilityIdentifier("modelMenu")
         } else {
@@ -210,6 +179,75 @@ struct ModelMenu: View {
             .buttonStyle(.plain)
             .accessibilityIdentifier("addModel")
         }
+    }
+
+    private func showMenu(for current: ProviderModel) {
+        guard let view = anchor.view else { return }
+        let menu = makeMenu(current: current)
+        let delegate = ModeMenuDelegate()
+        menu.delegate = delegate
+        menuWillOpen()
+        // Returns once the menu closes.
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: view.isFlipped ? view.bounds.height + 4 : -4), in: view)
+        menuDidClose()
+        withExtendedLifetime(delegate) {}
+    }
+
+    private func makeMenu(current: ProviderModel) -> NSMenu {
+        let providers = app.providers.filter { $0.isEnabled && !$0.models.isEmpty }
+        let levels = app.supportsEffort(current) ? ThinkingLevel.choices(isDeepSeek: app.isDeepSeek(current)) : []
+        let titles = providers.flatMap { $0.models.map(\.modelID) } + levels.map(\.title)
+        let width = ModeMenuItem.width(fitting: titles)
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+        menu.minimumWidth = width
+
+        menu.addItem(.sectionHeader(title: String(localized: "Model")))
+        for provider in providers {
+            for model in provider.models {
+                let item = ModeMenuItem(title: model.modelID, symbol: nil, isOn: current.id == model.id, width: width) { [app] in
+                    app.setDefaultModel(model.id)
+                }
+                // With one provider its name would repeat on every row.
+                if providers.count > 1 { item.subtitle = provider.name }
+                menu.addItem(item)
+            }
+        }
+        // Left out for a model whose service turned effort levels down, as dsh shows none for it.
+        if !levels.isEmpty {
+            let level = app.thinking(for: current)
+            menu.addItem(.separator())
+            menu.addItem(.sectionHeader(title: String(localized: "Effort")))
+            for choice in levels {
+                let item = ModeMenuItem(title: choice.title, symbol: nil, isOn: level == choice, width: width) { [app] in
+                    app.setThinking(choice, for: current)
+                }
+                item.toolTip = choice.detail
+                menu.addItem(item)
+            }
+        }
+        menu.addItem(.separator())
+        menu.addItem(ClosureMenuItem(title: String(localized: "Manage Models…"), symbol: nil, handler: openSettings))
+        return menu
+    }
+}
+
+/// The view a menu opened from a SwiftUI button pops up from.
+struct MenuAnchor: NSViewRepresentable {
+    final class Reference {
+        weak var view: NSView?
+    }
+
+    let reference: Reference
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        reference.view = view
+        return view
+    }
+
+    func updateNSView(_ view: NSView, context: Context) {
+        reference.view = view
     }
 }
 
@@ -370,24 +408,24 @@ struct HoverCircle: ViewModifier {
 
 extension ThinkingLevel {
     /// Names as in Cherry Studio and dsh.
-    var label: LocalizedStringKey {
+    var title: String {
         switch self {
-        case .automatic: "Default"
-        case .off: "Off"
-        case .low: "Low"
-        case .medium: "Medium"
-        case .high: "High"
-        case .max: "Max"
+        case .automatic: String(localized: "Default")
+        case .off: String(localized: "Off")
+        case .low: String(localized: "Low")
+        case .medium: String(localized: "Medium")
+        case .high: String(localized: "High")
+        case .max: String(localized: "Max")
         }
     }
 
-    /// dsh's description of each level (packages/llm/llm-deepseek/src/model-info.ts).
-    var detail: LocalizedStringKey? {
+    /// dsh's description of each level (packages/llm/llm-deepseek/src/model-info.ts), shown as a tooltip.
+    var detail: String? {
         switch self {
-        case .off: "Use for simple tasks that do not need reasoning."
-        case .low: "Prefer for routine or latency-sensitive tasks."
-        case .high: "The default balance for most tasks."
-        case .max: "Reserve for the hardest quality-first tasks."
+        case .off: String(localized: "Use for simple tasks that do not need reasoning.")
+        case .low: String(localized: "Prefer for routine or latency-sensitive tasks.")
+        case .high: String(localized: "The default balance for most tasks.")
+        case .max: String(localized: "Reserve for the hardest quality-first tasks.")
         case .automatic, .medium: nil
         }
     }

@@ -363,7 +363,7 @@ final class SpotChatUITests: XCTestCase {
         attachScreenshot("zh Capsule")
 
         element("modelMenu", in: app).click()
-        XCTAssertTrue(app.menuItems["高"].waitForExistence(timeout: 5))
+        XCTAssertTrue(menuItem("高", in: app).waitForExistence(timeout: 5))
         attachScreenshot("zh Model menu")
         app.typeKey(.escape, modifierFlags: [])
 
@@ -611,7 +611,7 @@ final class SpotChatUITests: XCTestCase {
         let menu = element("modelMenu", in: app)
         XCTAssertTrue(menu.waitForExistence(timeout: 10))
         menu.click()
-        let item = app.menuItems["mock-vision"]
+        let item = menuItem("mock-vision", in: app)
         XCTAssertTrue(item.waitForExistence(timeout: 5))
         item.click()
 
@@ -627,7 +627,7 @@ final class SpotChatUITests: XCTestCase {
         let menu = element("modelMenu", in: app)
         XCTAssertTrue(menu.waitForExistence(timeout: 10))
         menu.click()
-        let high = app.menuItems["High"]
+        let high = menuItem("High", in: app)
         XCTAssertTrue(high.waitForExistence(timeout: 5))
         attachScreenshot("Model menu")
         high.click()
@@ -673,17 +673,18 @@ final class SpotChatUITests: XCTestCase {
         let menu = element("modelMenu", in: app)
         XCTAssertTrue(menu.waitForExistence(timeout: 10))
         menu.click()
-        app.menuItems["mock-vision"].click()
+        menuItem("mock-vision", in: app).click()
         menu.click()
-        XCTAssertTrue(app.menuItems["High"].waitForExistence(timeout: 5), "The model offers levels at first")
+        XCTAssertTrue(menuItem("High", in: app).waitForExistence(timeout: 5), "The model offers levels at first")
         app.typeKey(.escape, modifierFlags: [])
 
         send("hi", in: app)
         waitForReply(in: app, "SELF == %@", "Echo: hi")
         XCTAssertNil(try lastRequest()["reasoning_effort"], "The retry leaves the level out")
         menu.click()
-        XCTAssertTrue(app.menuItems["mock-vision"].waitForExistence(timeout: 5))
-        XCTAssertFalse(app.menuItems["High"].exists, "The model offers no levels from then on")
+        XCTAssertTrue(menuItem("mock-vision", in: app).waitForExistence(timeout: 5))
+        let high = menuItem("High", in: app)
+        XCTAssertFalse(high.exists && high.isHittable, "The model offers no levels from then on")
         app.typeKey(.escape, modifierFlags: [])
     }
 

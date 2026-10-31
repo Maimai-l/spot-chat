@@ -127,7 +127,10 @@ struct ComposerView: View {
 
     private var trailingControls: some View {
         HStack(spacing: 6) {
-            ModelMenu(app: app, openSettings: actions.openSettings)
+            ModelMenu(
+                app: app, openSettings: actions.openSettings,
+                menuWillOpen: actions.menuWillOpen, menuDidClose: actions.menuDidClose
+            )
             if session.isGenerating {
                 StopButton(action: actions.escape)
             } else if composer.hasContent {
@@ -411,11 +414,8 @@ struct PlusMenuButton: NSViewRepresentable {
             return menu
         }
 
-        /// The check mark of a highlighted mode turns white with its title.
         func menu(_ menu: NSMenu, willHighlight item: NSMenuItem?) {
-            for case let mode as ModeMenuItem in menu.items {
-                mode.render(highlighted: mode === item)
-            }
+            ModeMenuDelegate.highlight(item, in: menu)
         }
 
         private static func appIcon(processID: Int32) -> NSImage? {
@@ -448,16 +448,25 @@ class ClosureMenuItem: NSMenuItem {
     }
 }
 
-/// A mode in the + menu, such as Search the Web: a check mark at the end of the row when it is on,
-/// as Claude's menu shows it.
+/// A choice in a menu, such as Search the Web in the + menu or a model: a check mark at the end of the row
+/// when it is on, as Claude's menu shows it.
 final class ModeMenuItem: ClosureMenuItem {
     static let menuWidth: CGFloat = 230
     let isOn: Bool
+    private let width: CGFloat
 
-    init(title: String, symbol: String, isOn: Bool, handler: @escaping () -> Void) {
+    init(title: String, symbol: String?, isOn: Bool, width: CGFloat = ModeMenuItem.menuWidth, handler: @escaping () -> Void) {
         self.isOn = isOn
+        self.width = width
         super.init(title: title, symbol: symbol, handler: handler)
         render(highlighted: false)
+    }
+
+    /// A menu width that fits the longest title with room for the check mark.
+    static func width(fitting titles: [String]) -> CGFloat {
+        let font = NSFont.menuFont(ofSize: 0)
+        let longest = titles.map { ($0 as NSString).size(withAttributes: [.font: font]).width }.max() ?? 0
+        return max(menuWidth - 40, (longest + 120).rounded(.up))
     }
 
     required init(coder: NSCoder) {
@@ -468,7 +477,7 @@ final class ModeMenuItem: ClosureMenuItem {
         let font = NSFont.menuFont(ofSize: 0)
         let style = NSMutableParagraphStyle()
         // Near the end of the row; further would wrap the check mark onto a second line.
-        style.tabStops = [NSTextTab(textAlignment: .right, location: Self.menuWidth - 96)]
+        style.tabStops = [NSTextTab(textAlignment: .right, location: width - 96)]
         style.lineBreakMode = .byClipping
         let color: NSColor = !isEnabled ? .disabledControlTextColor : highlighted ? .selectedMenuItemTextColor : .labelColor
         let text = NSMutableAttributedString(
@@ -486,6 +495,20 @@ final class ModeMenuItem: ClosureMenuItem {
             text.append(NSAttributedString(attachment: attachment))
         }
         attributedTitle = text
+    }
+}
+
+/// Turns a highlighted choice's check mark white with its title.
+@MainActor
+final class ModeMenuDelegate: NSObject, NSMenuDelegate {
+    static func highlight(_ item: NSMenuItem?, in menu: NSMenu) {
+        for case let mode as ModeMenuItem in menu.items {
+            mode.render(highlighted: mode === item)
+        }
+    }
+
+    func menu(_ menu: NSMenu, willHighlight item: NSMenuItem?) {
+        Self.highlight(item, in: menu)
     }
 }
 
