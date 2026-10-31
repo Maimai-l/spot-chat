@@ -128,7 +128,6 @@ struct ComposerView: View {
     private var trailingControls: some View {
         HStack(spacing: 6) {
             ModelMenu(app: app, openSettings: actions.openSettings)
-            EffortMenu(app: app)
             if session.isGenerating {
                 StopButton(action: actions.escape)
             } else if composer.hasContent {

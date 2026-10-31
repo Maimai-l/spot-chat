@@ -362,6 +362,11 @@ final class SpotChatUITests: XCTestCase {
         XCTAssertTrue(element("commandFolder", in: app).waitForExistence(timeout: 10))
         attachScreenshot("zh Capsule")
 
+        element("modelMenu", in: app).click()
+        XCTAssertTrue(app.menuItems["高"].waitForExistence(timeout: 5))
+        attachScreenshot("zh Model menu")
+        app.typeKey(.escape, modifierFlags: [])
+
         element("plusMenu", in: app).click()
         XCTAssertTrue(menuItem("运行命令", in: app).waitForExistence(timeout: 5))
         attachScreenshot("zh Plus menu")
@@ -616,12 +621,12 @@ final class SpotChatUITests: XCTestCase {
         XCTAssertEqual(try lastRequest()["model"] as? String, "mock-vision")
     }
 
-    func testEffortIsChosenBesideTheModel() throws {
+    func testEffortIsChosenInTheModelMenu() throws {
         let app = launch(resetState: true)
-        // As in Codex, the effort is its own chip beside the model, with a flat list of levels.
-        let effort = element("effortMenu", in: app)
-        XCTAssertTrue(effort.waitForExistence(timeout: 10))
-        effort.click()
+        // As in Gemini, one button lists the models and then the current model's levels.
+        let menu = element("modelMenu", in: app)
+        XCTAssertTrue(menu.waitForExistence(timeout: 10))
+        menu.click()
         let high = app.menuItems["High"]
         XCTAssertTrue(high.waitForExistence(timeout: 5))
         attachScreenshot("Model menu")
@@ -669,12 +674,17 @@ final class SpotChatUITests: XCTestCase {
         XCTAssertTrue(menu.waitForExistence(timeout: 10))
         menu.click()
         app.menuItems["mock-vision"].click()
-        XCTAssertTrue(element("effortMenu", in: app).waitForExistence(timeout: 5))
+        menu.click()
+        XCTAssertTrue(app.menuItems["High"].waitForExistence(timeout: 5), "The model offers levels at first")
+        app.typeKey(.escape, modifierFlags: [])
 
         send("hi", in: app)
         waitForReply(in: app, "SELF == %@", "Echo: hi")
         XCTAssertNil(try lastRequest()["reasoning_effort"], "The retry leaves the level out")
-        XCTAssertTrue(element("effortMenu", in: app).waitForNonExistence(timeout: 5), "The model shows no effort from then on")
+        menu.click()
+        XCTAssertTrue(app.menuItems["mock-vision"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.menuItems["High"].exists, "The model offers no levels from then on")
+        app.typeKey(.escape, modifierFlags: [])
     }
 
     func testWithoutAModelTheReplyExplainsWhatToDo() {

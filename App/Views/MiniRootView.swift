@@ -153,6 +153,9 @@ struct StopButton: View {
 /// Shows the current model; picking another one applies from the next message and becomes the default.
 /// A light rounded background shows under the pointer, as in Gemini.
 /// The model, as a light chip with a chevron like Codex's composer. Its menu lists only models.
+/// The model and its reasoning effort in one button, as Gemini picks both from one list: the button shows
+/// the model, and its menu lists the models, then the current model's levels. Levels and their tooltips
+/// are dsh's; each model keeps its own, as in Cherry Studio.
 struct ModelMenu: View {
     @ObservedObject var app: AppModel
     var openSettings: () -> Void
@@ -161,16 +164,39 @@ struct ModelMenu: View {
         if let current = app.currentModel {
             let providers = app.providers.filter { $0.isEnabled && !$0.models.isEmpty }
             Menu {
-                ForEach(providers) { provider in
-                    // One provider needs no heading, so the list stays short.
-                    if providers.count > 1 {
-                        Section(provider.name) { modelItems(provider) }
-                    } else {
-                        modelItems(provider)
+                Section("Model") {
+                    ForEach(providers) { provider in
+                        ForEach(provider.models) { model in
+                            Toggle(isOn: Binding(
+                                get: { app.currentModel?.id == model.id },
+                                set: { isOn in if isOn { app.setDefaultModel(model.id) } }
+                            )) {
+                                Text(verbatim: model.modelID)
+                                // With one provider its name would repeat on every row.
+                                if providers.count > 1 {
+                                    Text(verbatim: provider.name)
+                                }
+                            }
+                        }
                     }
                 }
+                // Left out for a model whose service turned effort levels down, as dsh shows none for it.
+                if app.supportsEffort(current) {
+                    let level = app.thinking(for: current)
+                    Section("Effort") {
+                        ForEach(ThinkingLevel.choices(isDeepSeek: app.isDeepSeek(current)), id: \.self) { choice in
+                            Toggle(choice.label, isOn: Binding(
+                                get: { level == choice },
+                                set: { isOn in if isOn { app.setThinking(choice, for: current) } }
+                            ))
+                            .help(choice.detail ?? "")
+                        }
+                    }
+                }
+                Divider()
+                Button("Manage Models…", action: openSettings)
             } label: {
-                ComposerChip(verbatim: current.modelID)
+                ComposerChip(verbatim: current.modelID, chevron: false)
             }
             .menuStyle(.button)
             .buttonStyle(.plain)
@@ -183,46 +209,6 @@ struct ModelMenu: View {
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("addModel")
-        }
-    }
-
-    private func modelItems(_ provider: Provider) -> some View {
-        ForEach(provider.models) { model in
-            Toggle(model.modelID, isOn: Binding(
-                get: { app.currentModel?.id == model.id },
-                set: { isOn in if isOn { app.setDefaultModel(model.id) } }
-            ))
-        }
-    }
-}
-
-/// The current model's reasoning effort, as its own chip beside the model, as Codex shows it.
-/// Levels and descriptions are dsh's; each model keeps its own, as in Cherry Studio.
-struct EffortMenu: View {
-    @ObservedObject var app: AppModel
-
-    var body: some View {
-        // Hidden for a model whose service turned effort levels down, as dsh shows none for it.
-        if let current = app.currentModel, app.supportsEffort(current) {
-            let level = app.thinking(for: current)
-            Menu {
-                ForEach(ThinkingLevel.choices(isDeepSeek: app.isDeepSeek(current)), id: \.self) { choice in
-                    Toggle(choice.label, isOn: Binding(
-                        get: { level == choice },
-                        set: { isOn in if isOn { app.setThinking(choice, for: current) } }
-                    ))
-                    .help(choice.detail ?? "")
-                }
-            } label: {
-                ComposerChip(level.label, secondary: true)
-            }
-            .menuStyle(.button)
-            .buttonStyle(.plain)
-            .menuIndicator(.hidden)
-            .fixedSize()
-            .help(Text("Effort"))
-            .accessibilityLabel(Text("Effort"))
-            .accessibilityIdentifier("effortMenu")
         }
     }
 }
