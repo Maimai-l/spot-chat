@@ -498,24 +498,23 @@ final class ModeMenuItem: ClosureMenuItem {
 
     func render(highlighted: Bool) {
         let font = NSFont.menuFont(ofSize: 0)
-        let style = NSMutableParagraphStyle()
-        // Near the end of the row; further would wrap the check mark onto a second line.
-        style.tabStops = [NSTextTab(textAlignment: .right, location: width - 96)]
-        style.lineBreakMode = .byClipping
         let color: NSColor = !isEnabled ? .disabledControlTextColor : highlighted ? .selectedMenuItemTextColor : .labelColor
-        let text = NSMutableAttributedString(
-            string: title, attributes: [.font: font, .paragraphStyle: style, .foregroundColor: color]
-        )
+        let text = NSMutableAttributedString(string: title, attributes: [.font: font, .foregroundColor: color])
         // A mode that can't be used now shows no check mark, as it has no effect.
         if isOn, isEnabled {
             let checkColor: NSColor = highlighted ? .selectedMenuItemTextColor : .controlAccentColor
             let configuration = NSImage.SymbolConfiguration(pointSize: font.pointSize, weight: .semibold)
                 .applying(NSImage.SymbolConfiguration(paletteColors: [checkColor]))
-            let attachment = NSTextAttachment()
-            attachment.image = NSImage(systemSymbolName: "checkmark", accessibilityDescription: nil)?
+            let check = NSTextAttachment()
+            check.image = NSImage(systemSymbolName: "checkmark", accessibilityDescription: nil)?
                 .withSymbolConfiguration(configuration)
-            text.append(NSAttributedString(string: "\t", attributes: [.font: font, .paragraphStyle: style]))
-            text.append(NSAttributedString(attachment: attachment))
+            // A spacer of measured width puts every row's check mark at the same place near the end.
+            let titleWidth = (title as NSString).size(withAttributes: [.font: font]).width
+            let checkWidth = check.image?.size.width ?? 0
+            let spacer = NSTextAttachment()
+            spacer.bounds = CGRect(x: 0, y: 0, width: max(12, width - 96 - titleWidth - checkWidth), height: 1)
+            text.append(NSAttributedString(attachment: spacer))
+            text.append(NSAttributedString(attachment: check))
         }
         attributedTitle = text
     }
