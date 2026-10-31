@@ -146,8 +146,8 @@ enum ComposerLayout {
     /// As in Gemini, text above the buttons has its first line's center 27 from the top and its last
     /// line's 41 above the buttons' center, and the buttons sit 26 from the bottom, a little lower than
     /// in a single row: one line makes the bar 94 tall and each further line adds 20.
-    static let textTop: CGFloat = 4
-    static let textGap: CGFloat = 9.5
+    static let textTop: CGFloat = 5.5
+    static let textGap: CGFloat = 8
     static let expandedRowDrop: CGFloat = 1.5
 
     /// What text above the buttons adds to the bar's height.
