@@ -21,8 +21,10 @@ careful engineer would obviously include, and ask only when a choice really belo
   - buttons are verbs, states are short and standard, one name per concept everywhere;
   - no 句号 on buttons, titles, hints or table cells, and a space between CJK and Latin text or numbers;
   - no " · " or similar separators joining items.
-- The input bar matches Gemini: 54 tall, 28 buttons, corners circular arcs of radius 24, lines 20 apart.
-  See `docs/design/composer-vs-gemini.png`.
+- The mini window matches Gemini: 400 wide; the input bar 54 tall with 28 buttons, corners circular arcs of
+  radius 24 and lines 20 apart. See `docs/design/composer-vs-gemini.png`.
+- Surfaces are light gray told apart by a 0.5 point light rim and a faint shadow, not white fills.
+- While a reply is on its way an arc circles the reply mark; there are no stock spinners in replies.
 
 ## Privacy
 

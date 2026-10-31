@@ -1010,6 +1010,17 @@ final class SpotChatUITests: XCTestCase {
     // MARK: Layout
 
     /// Keeps screenshots of each window state in the test results for reviewing the layout.
+    /// The mark circles while the reply is on its way, then the reply shows in the card.
+    func testReplyShowsTheLoadingMark() {
+        let app = launch(resetState: true)
+        send("wait", in: app)
+        RunLoop.current.run(until: Date().addingTimeInterval(1.2))
+        attachScreenshot("Loading")
+        waitForReply(in: app, "SELF == %@", "Echo: wait")
+        RunLoop.current.run(until: Date().addingTimeInterval(0.8))
+        attachScreenshot("Card after reply")
+    }
+
     func testLayoutScreenshots() {
         let app = launch(resetState: true)
         XCTAssertTrue(composer(in: app).waitForExistence(timeout: 10))

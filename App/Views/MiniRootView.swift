@@ -52,8 +52,10 @@ struct CapsuleView: View {
             onTextHeightChange: controller.composerTextHeightChanged
         )
             .background(WindowDragArea(onDragEnd: controller.panelWasDragged))
+            .background(Color(nsColor: .windowBackgroundColor).opacity(0.5))
             .background(VisualEffectBackground(material: .popover))
             .clipShape(ComposerLayout.shape)
+            .rim(ComposerLayout.shape)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
     }
 }
@@ -97,16 +99,18 @@ struct CardView: View {
             )
                 .background(
                     ComposerLayout.shape
-                        .fill(Color(nsColor: .textBackgroundColor))
-                        .shadow(color: .black.opacity(0.1), radius: 6, y: 1)
+                        .fill(Color(nsColor: .windowBackgroundColor))
+                        .shadow(color: .black.opacity(0.08), radius: 4, y: 1)
                 )
+                .rim(ComposerLayout.shape)
                 .padding(10)
         }
         .animation(.easeOut(duration: 0.18), value: session.pendingApproval?.id)
         .background(WindowDragArea(onDragEnd: controller.panelWasDragged))
-        .background(Color(nsColor: .windowBackgroundColor).opacity(0.72))
+        .background(Color(nsColor: .windowBackgroundColor).opacity(0.92))
         .background(VisualEffectBackground(material: .popover))
         .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .rim(RoundedRectangle(cornerRadius: 28, style: .continuous))
     }
 
     private var header: some View {
@@ -306,8 +310,9 @@ struct CircleIconButton: View {
                 .background {
                     if filled {
                         Circle()
-                            .fill(Color(nsColor: .textBackgroundColor))
-                            .shadow(color: .black.opacity(0.12), radius: 5, y: 1)
+                            .fill(Color(nsColor: .windowBackgroundColor))
+                            .shadow(color: .black.opacity(0.08), radius: 4, y: 1)
+                            .rim(Circle())
                     }
                     Circle().fill(Color.primary.opacity(hovering ? 0.07 : 0))
                 }
@@ -348,6 +353,25 @@ struct CornersIcon: Shape {
 }
 
 /// A faint circle behind a borderless button while the pointer is over it.
+/// A thin light edge around a surface, as Gemini draws its bars, buttons and cards instead of white fills.
+struct Rim<S: InsettableShape>: ViewModifier {
+    let shape: S
+    @Environment(\.colorScheme) private var colorScheme
+
+    func body(content: Content) -> some View {
+        content.overlay(
+            shape.strokeBorder(Color.white.opacity(colorScheme == .dark ? 0.14 : 0.9), lineWidth: 0.5)
+                .allowsHitTesting(false)
+        )
+    }
+}
+
+extension View {
+    func rim<S: InsettableShape>(_ shape: S) -> some View {
+        modifier(Rim(shape: shape))
+    }
+}
+
 struct HoverCircle: ViewModifier {
     @State private var hovering = false
 

@@ -6,7 +6,8 @@ import SpotCore
 /// Owns the mini window: feeds events to `MiniWindowState` and performs the effects it returns.
 @MainActor
 final class MiniWindowController: ObservableObject {
-    static let width: CGFloat = 480
+    /// As wide as Gemini's.
+    static let width: CGFloat = 400
 
     @Published private(set) var mode: MiniWindowMode = .hidden
     @Published private(set) var scrollRequest = 0

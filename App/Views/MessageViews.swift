@@ -416,7 +416,7 @@ struct AssistantMessageView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            SpotMark(size: 22)
+            SpotMark(size: 22, isLoading: message.status == .pending && message.text.isEmpty)
             if !message.reasoning.isEmpty {
                 ThinkingView(
                     reasoning: message.reasoning,
@@ -426,9 +426,6 @@ struct AssistantMessageView: View {
             }
             if !message.text.isEmpty {
                 ReplyView(id: message.id, markdown: message.text, isStreaming: message.status == .pending)
-            } else if message.status == .pending, message.reasoning.isEmpty, message.commands.isEmpty {
-                ProgressView()
-                    .controlSize(.small)
             }
             if !message.commands.isEmpty {
                 CommandRunsView(runs: message.commands, isLive: message.status == .pending, stop: stop)
@@ -627,22 +624,69 @@ struct SmallIconButton: View {
     }
 }
 
-/// The app's mark shown above each reply: a blue dot with a highlight.
+/// The app's mark shown above each reply: a blue dot with a highlight. While the reply is on its way an
+/// arc circles the dot, growing and shrinking as it turns, as Gemini's mark does; when the first words
+/// arrive the arc fades and the dot gives a small bounce.
 struct SpotMark: View {
     var size: CGFloat
+    var isLoading = false
+
+    static let color = Color(red: 0.18, green: 0.44, blue: 0.92)
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var bounces = 0
 
     var body: some View {
         ZStack {
-            Circle()
-                .fill(Color(red: 0.18, green: 0.44, blue: 0.92))
-            Circle()
-                .fill(.white)
-                .frame(width: size * 0.22, height: size * 0.22)
-                .offset(x: size * 0.15, y: -size * 0.15)
+            if isLoading {
+                LoadingArc(reduceMotion: reduceMotion)
+                    .frame(width: size * 1.2, height: size * 1.2)
+                    .transition(.opacity)
+            }
+            ZStack {
+                Circle()
+                    .fill(Self.color)
+                Circle()
+                    .fill(.white)
+                    .frame(width: size * 0.22, height: size * 0.22)
+                    .offset(x: size * 0.15, y: -size * 0.15)
+            }
+            .frame(width: size * 0.75, height: size * 0.75)
+            .keyframeAnimator(initialValue: 1.0, trigger: bounces) { mark, scale in
+                mark.scaleEffect(scale)
+            } keyframes: { _ in
+                KeyframeTrack {
+                    SpringKeyframe(1.18, duration: 0.16)
+                    SpringKeyframe(1.0, duration: 0.3)
+                }
+            }
         }
-        .frame(width: size * 0.75, height: size * 0.75)
         .frame(width: size, height: size)
+        .animation(.easeOut(duration: 0.2), value: isLoading)
+        .onChange(of: isLoading) { wasLoading, loading in
+            if wasLoading, !loading, !reduceMotion { bounces += 1 }
+        }
         .accessibilityHidden(true)
+    }
+}
+
+/// An arc that turns while it grows to most of a circle and shrinks back, like an indeterminate
+/// circular progress indicator. With reduced motion it stays still and gently fades in and out.
+private struct LoadingArc: View {
+    let reduceMotion: Bool
+
+    var body: some View {
+        TimelineView(.animation) { context in
+            let time = context.date.timeIntervalSinceReferenceDate
+            // One grow and shrink takes 1.6 seconds while the arc turns once every 1.2 seconds.
+            let phase = (sin(time * 2 * .pi / 1.6) + 1) / 2
+            let length = reduceMotion ? 0.75 : 0.12 + 0.6 * phase
+            let turn = reduceMotion ? 0 : (time / 1.2).truncatingRemainder(dividingBy: 1) * 360
+            Circle()
+                .trim(from: 0, to: length)
+                .stroke(SpotMark.color, style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                .rotationEffect(.degrees(turn - 90 - length * 180))
+                .opacity(reduceMotion ? 0.5 + 0.5 * phase : 1)
+        }
     }
 }
 

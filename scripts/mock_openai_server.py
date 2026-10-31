@@ -8,6 +8,7 @@ The reply depends on the last user message:
   contains an image        -> "I can see N image(s)."
   contains "[File: name]"  -> "I read name."
   "slow"                   -> 60 chunks, 0.2 s apart
+  "wait"                   -> nothing for 3 s, then "Echo: wait"
   "fail"                   -> HTTP 500 with an error message
   "markdown"               -> a heading, a list, a code block and a table
   "math"                   -> inline and display LaTeX next to prices
@@ -276,6 +277,9 @@ class Handler(BaseHTTPRequestHandler):
         try:
             self.wfile.write(b": keep-alive\n\n")
             self.wfile.flush()
+            question = "\n".join(p.get("text", "") for p in last_user_parts(body) if p.get("type") == "text")
+            if question.strip() == "wait":
+                time.sleep(3)
             for index, chunk in enumerate(chunks):
                 # A ("reasoning", text) pair is sent the way DeepSeek sends its thinking.
                 delta = {"reasoning_content": chunk[1]} if isinstance(chunk, tuple) else {"content": chunk}
