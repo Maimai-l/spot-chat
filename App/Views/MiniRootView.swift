@@ -53,7 +53,7 @@ struct CapsuleView: View {
         )
             .background(WindowDragArea(onDragEnd: controller.panelWasDragged))
             .background(VisualEffectBackground(material: .popover))
-            .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+            .clipShape(ComposerLayout.shape)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
     }
 }
@@ -96,7 +96,7 @@ struct CardView: View {
                 onTextHeightChange: controller.composerTextHeightChanged
             )
                 .background(
-                    RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    ComposerLayout.shape
                         .fill(Color(nsColor: .textBackgroundColor))
                         .shadow(color: .black.opacity(0.1), radius: 6, y: 1)
                 )

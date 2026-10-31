@@ -1,3 +1,4 @@
+import SwiftUI
 import AppKit
 import SpotCore
 
@@ -133,6 +134,8 @@ final class ComposerModel: ObservableObject {
 /// Heights of the input area, which grows a row for attachments and one for the sharing tag.
 enum ComposerLayout {
     static let baseHeight: CGFloat = 56
+    /// The input's corners are circular arcs of the same radius at every height, as in Gemini.
+    static let shape = RoundedRectangle(cornerRadius: 24, style: .circular)
     /// The + glyph and the text field's text sit about a point above the row's center;
     /// the model name and icons at the end are raised by the same amount so the row reads level.
     static let trailingLift: CGFloat = 1
