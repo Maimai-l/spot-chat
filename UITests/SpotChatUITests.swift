@@ -145,6 +145,8 @@ final class SpotChatUITests: XCTestCase {
         let app = launchRunningCommands()
         send("Please search the web", in: app)
         XCTAssertTrue(reply(containing: "Here is what I found.", in: app).waitForExistence(timeout: 40))
+        // The reply's page grows once it has rendered, moving the lines below it.
+        RunLoop.current.run(until: Date().addingTimeInterval(1))
         let summary = element("commands", in: app)
         XCTAssertTrue(summary.waitForExistence(timeout: 5))
         XCTAssertEqual(text(of: summary), "Searched the web, read 1 page")
