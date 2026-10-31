@@ -21,6 +21,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var topics: [TopicSummary] = []
     @Published private(set) var systemPrompt = AppModel.defaultSystemPrompt
     @Published private(set) var bringsSelection = true
+    /// Whether chats with DeepSeek may search the web; the model decides when.
+    @Published private(set) var searchesTheWeb = true
     /// Where commands run unless a conversation picks another folder, as dsh keeps a default workspace.
     @Published private(set) var defaultCommandFolder = AppModel.standardCommandFolder
     private(set) var askedForSelectionAccess = false
@@ -111,6 +113,20 @@ final class AppModel: ObservableObject {
     func setDefaultModel(_ id: String) {
         defaultModelID = id
         try? preferenceService.set(PreferenceKey.defaultModel, to: id)
+    }
+
+    func setSearchesTheWeb(_ on: Bool) {
+        searchesTheWeb = on
+        try? preferenceService.set(PreferenceKey.webSearch, to: on)
+    }
+
+    /// Web search for a chat with the model: DeepSeek's Search and Fetch API, with the model's own key.
+    func webTools(for model: ProviderModel) -> DeepSeekWebTools? {
+        guard searchesTheWeb, let provider = provider(for: model), !provider.apiKey.isEmpty else { return nil }
+        if let url = UserDefaults.standard.string(forKey: AppDelegate.LaunchOption.webToolsURL), !url.isEmpty {
+            return DeepSeekWebTools(apiKey: provider.apiKey, baseURL: url)
+        }
+        return isDeepSeek(model) ? DeepSeekWebTools(apiKey: provider.apiKey) : nil
     }
 
     /// A client for the model, or the reason there is none.
@@ -248,6 +264,7 @@ final class AppModel: ObservableObject {
         }
         systemPrompt = (try? preferenceService.value(PreferenceKey.systemPrompt, as: String.self)) ?? Self.defaultSystemPrompt
         bringsSelection = (try? preferenceService.value(PreferenceKey.bringSelection, as: Bool.self)) ?? true
+        searchesTheWeb = (try? preferenceService.value(PreferenceKey.webSearch, as: Bool.self)) ?? true
         if let path = UserDefaults.standard.string(forKey: AppDelegate.LaunchOption.defaultCommandFolder)
             ?? (try? preferenceService.value(PreferenceKey.commandFolder, as: String.self)), !path.isEmpty {
             defaultCommandFolder = URL(fileURLWithPath: path, isDirectory: true)

@@ -547,6 +547,8 @@ public enum PreferenceKey {
     public static let thinkingLevels = "chat.thinking_levels"
     /// `user_model` ids whose service turned down an effort level; none is sent to them.
     public static let modelsWithoutEffort = "chat.models_without_effort"
+    /// Whether chats with DeepSeek may search the web.
+    public static let webSearch = "chat.web_search"
     /// The folder new conversations run commands in.
     public static let commandFolder = "commands.default_folder"
 }

@@ -1587,6 +1587,16 @@
           }
         }
       }
+    },
+    "Search the Web": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "联网搜索"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

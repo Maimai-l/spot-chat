@@ -18,6 +18,10 @@ Spot Chat is in alpha. There are no releases yet; every build is an alpha build 
 
 The interface follows the system language, Simplified Chinese or English. Settings › General › Language sets it for Spot Chat alone.
 
+## Searching the web
+
+Chats with a DeepSeek model can search the web and read pages when the model needs to, through DeepSeek's Search API with the same key. Settings › General › Search the Web turns it off.
+
 ## Running commands
 
 With a DeepSeek API key, a conversation can run commands in a folder: choose **Run Commands** in the + menu. Files you add go in by their path. Commands run in a sandbox that keeps them inside the folder; when one needs to go outside it, Spot Chat asks first.

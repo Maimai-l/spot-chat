@@ -245,6 +245,20 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json(500, {"error": {"message": "The server had an error.", "type": "server_error"}})
             return
 
+        # With tools offered, a question about searching makes the model search, then read a page.
+        if body.get("tools") and not is_title_request(body):
+            question = "\n".join(p.get("text", "") for p in last_user_parts(body))
+            results = [m for m in body.get("messages", []) if m.get("role") == "tool"]
+            if "search" in question and len(results) == 0:
+                self.stream_tool_call("web_search", {"queries": ["DaVinci Resolve MCP server"]})
+                return
+            if "search" in question and len(results) == 1:
+                self.stream_tool_call("web_fetch", {"url": "https://example.com/resolve-mcp"})
+                return
+            if "search" in question:
+                self.stream_text("Here is what I found.")
+                return
+
         chunks, delay = reply_chunks(body)
         usage = None
         if (body.get("stream_options") or {}).get("include_usage"):
@@ -281,6 +295,41 @@ class Handler(BaseHTTPRequestHandler):
             if usage:
                 self.write_event({"id": "chatcmpl-mock", "object": "chat.completion.chunk", "created": 0,
                                   "model": model, "choices": [], "usage": usage})
+            self.wfile.write(b"data: [DONE]\n\n")
+            self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+
+    def stream_tool_call(self, name, arguments):
+        """A tool call split over several chunks, as DeepSeek streams it: the id and name first, later
+        pieces with an empty id, then the arguments in parts."""
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.end_headers()
+        call_id = f"call_{name}"
+        text = json.dumps(arguments)
+        half = len(text) // 2
+        pieces = [
+            {"index": 0, "id": call_id, "type": "function", "function": {"name": name, "arguments": ""}},
+            {"index": 0, "id": "", "function": {"arguments": text[:half]}},
+            {"index": 0, "function": {"arguments": text[half:]}},
+        ]
+        try:
+            for piece in pieces:
+                self.write_event({"choices": [{"index": 0, "delta": {"tool_calls": [piece]}, "finish_reason": None}]})
+            self.write_event({"choices": [{"index": 0, "delta": {}, "finish_reason": "tool_calls"}]})
+            self.wfile.write(b"data: [DONE]\n\n")
+            self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+
+    def stream_text(self, text):
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.end_headers()
+        try:
+            self.write_event({"choices": [{"index": 0, "delta": {"role": "assistant", "content": text}, "finish_reason": None}]})
+            self.write_event({"choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}]})
             self.wfile.write(b"data: [DONE]\n\n")
             self.wfile.flush()
         except (BrokenPipeError, ConnectionResetError):

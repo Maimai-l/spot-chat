@@ -259,6 +259,8 @@ struct GeneralSettingsView: View {
                 }
                 .disabled(app.allModels.isEmpty)
                 .accessibilityIdentifier("defaultModel")
+                Toggle("Search the Web", isOn: Binding(get: { app.searchesTheWeb }, set: { app.setSearchesTheWeb($0) }))
+                    .accessibilityIdentifier("searchTheWeb")
             }
 
             Section {

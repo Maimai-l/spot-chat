@@ -4,6 +4,8 @@ import SpotCore
 /// One line of a chat completions event stream.
 enum StreamLine: Equatable {
     case chunks([ReplyChunk])
+    /// Pieces of tool calls, which arrive split over many lines, with any text in the same line.
+    case toolDeltas([ReplyChunk], [ToolCallDelta])
     case done
     /// A comment such as DeepSeek's ": keep-alive", an event name, or a chunk with nothing in it.
     case ignored
@@ -20,7 +22,13 @@ enum StreamLine: Equatable {
             throw ChatServiceError.api(message: message)
         }
         var result: [ReplyChunk] = []
+        var deltas: [ToolCallDelta] = []
         for choice in chunk.choices ?? [] {
+            for call in choice.delta?.toolCalls ?? [] {
+                deltas.append(ToolCallDelta(
+                    index: call.index ?? 0, id: call.id, name: call.function?.name, arguments: call.function?.arguments
+                ))
+            }
             if let reasoning = choice.delta?.reasoningContent ?? choice.delta?.reasoning, !reasoning.isEmpty {
                 result.append(.reasoning(reasoning))
             }
@@ -35,6 +43,7 @@ enum StreamLine: Equatable {
                 promptTokens: prompt, completionTokens: usage.completionTokens ?? 0, cachedTokens: cached
             )))
         }
+        if !deltas.isEmpty { return .toolDeltas(result, deltas) }
         return result.isEmpty ? .ignored : .chunks(result)
     }
 
@@ -48,9 +57,19 @@ enum StreamLine: Equatable {
     private struct Chunk: Decodable {
         struct Choice: Decodable {
             struct Delta: Decodable {
+                struct ToolCallPart: Decodable {
+                    struct Function: Decodable {
+                        var name: String?
+                        var arguments: String?
+                    }
+                    var index: Int?
+                    var id: String?
+                    var function: Function?
+                }
                 var content: String?
                 var reasoningContent: String?
                 var reasoning: String?
+                var toolCalls: [ToolCallPart]?
             }
             var delta: Delta?
         }
@@ -69,5 +88,36 @@ enum StreamLine: Equatable {
         var choices: [Choice]?
         var usage: Usage?
         var error: APIError?
+    }
+}
+
+/// One piece of a streamed tool call. The first piece of a call has its id and name; the arguments
+/// arrive over the following ones. Calls are told apart by `index`.
+struct ToolCallDelta: Equatable {
+    var index: Int
+    var id: String?
+    var name: String?
+    var arguments: String?
+}
+
+/// Puts streamed tool calls back together.
+struct ToolCallAssembler {
+    private var calls: [Int: ToolCall] = [:]
+
+    mutating func add(_ delta: ToolCallDelta) {
+        var call = calls[delta.index] ?? ToolCall(id: "", name: "", arguments: "")
+        // Later pieces may carry an empty id or name; the first non-empty one counts.
+        if let id = delta.id, !id.isEmpty, call.id.isEmpty { call.id = id }
+        if let name = delta.name, !name.isEmpty, call.name.isEmpty { call.name = name }
+        call.arguments += delta.arguments ?? ""
+        calls[delta.index] = call
+    }
+
+    var result: [ToolCall] {
+        calls.sorted { $0.key < $1.key }.map { index, call in
+            var call = call
+            if call.id.isEmpty { call.id = "call_\(index)" }
+            return call
+        }
     }
 }

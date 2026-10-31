@@ -119,16 +119,23 @@ public struct OpenAICompatibleClient: ChatResponder {
                     }
                     // Services that put the thinking inside the reply as <think>…</think> get it folded too.
                     var tags = ThinkTagSplitter()
+                    var toolCalls = ToolCallAssembler()
+                    func pass(_ chunks: [ReplyChunk]) {
+                        for chunk in chunks {
+                            if case let .text(text) = chunk {
+                                for part in tags.feed(text) { continuation.yield(part) }
+                            } else {
+                                continuation.yield(chunk)
+                            }
+                        }
+                    }
                     lines: for try await line in bytes.lines {
                         switch try StreamLine.decode(line) {
                         case let .chunks(chunks):
-                            for chunk in chunks {
-                                if case let .text(text) = chunk {
-                                    for part in tags.feed(text) { continuation.yield(part) }
-                                } else {
-                                    continuation.yield(chunk)
-                                }
-                            }
+                            pass(chunks)
+                        case let .toolDeltas(chunks, deltas):
+                            pass(chunks)
+                            deltas.forEach { toolCalls.add($0) }
                         case .done:
                             break lines
                         case .ignored:
@@ -136,6 +143,8 @@ public struct OpenAICompatibleClient: ChatResponder {
                         }
                     }
                     for part in tags.finish() { continuation.yield(part) }
+                    let calls = toolCalls.result
+                    if !calls.isEmpty { continuation.yield(.toolCalls(calls)) }
                     continuation.finish()
                 } catch is CancellationError {
                     continuation.finish(throwing: CancellationError())
@@ -172,9 +181,15 @@ public struct OpenAICompatibleClient: ChatResponder {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
         var body = try encoder.encode(query)
-        let thinking = Self.thinkingFields(request.thinking, isDeepSeek: endpoint.isDeepSeek)
-        if !thinking.isEmpty, var object = try JSONSerialization.jsonObject(with: body) as? [String: Any] {
-            object.merge(thinking) { _, new in new }
+        var extra = Self.thinkingFields(request.thinking, isDeepSeek: endpoint.isDeepSeek)
+        if !request.tools.isEmpty {
+            extra["tools"] = try request.tools.map { tool -> [String: Any] in
+                let parameters = try JSONSerialization.jsonObject(with: Data(tool.parameters.utf8))
+                return ["type": "function", "function": ["name": tool.name, "description": tool.description, "parameters": parameters]]
+            }
+        }
+        if !extra.isEmpty, var object = try JSONSerialization.jsonObject(with: body) as? [String: Any] {
+            object.merge(extra) { _, new in new }
             body = try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys, .withoutEscapingSlashes])
         }
         urlRequest.httpBody = body
@@ -214,13 +229,26 @@ public struct OpenAICompatibleClient: ChatResponder {
     }
 
     static func messageParam(_ message: ChatRequestMessage) -> ChatQuery.ChatCompletionMessageParam? {
+        let text = message.parts.compactMap { part -> String? in
+            if case let .text(text) = part { return text }
+            return nil
+        }.joined(separator: "\n")
+        if let callID = message.toolCallID {
+            return .tool(.init(content: .textContent(text), toolCallId: callID))
+        }
         switch message.role {
         case .assistant:
-            let text = message.parts.compactMap { part -> String? in
-                if case let .text(text) = part { return text }
-                return nil
-            }.joined(separator: "\n")
-            return .assistant(.init(content: .textContent(text)))
+            guard !message.toolCalls.isEmpty else {
+                return .assistant(.init(content: .textContent(text)))
+            }
+            // DeepSeek needs the thinking behind tool calls back until the question is answered.
+            return .assistant(.init(
+                content: text.isEmpty ? nil : .textContent(text),
+                reasoningContent: message.reasoning,
+                toolCalls: message.toolCalls.map { call in
+                    .init(id: call.id, function: .init(arguments: call.arguments, name: call.name))
+                }
+            ))
         case .user:
             if message.parts.count == 1, case let .text(text) = message.parts[0] {
                 return .user(.init(content: .string(text)))

@@ -224,3 +224,48 @@ struct StreamLineTests {
         #expect(messages?.first?["content"] as? String == "Be brief.")
     }
 }
+
+@Suite struct ToolCallTests {
+    @Test func toolsAndTheToolLoopAreSent() throws {
+        let client = try OpenAICompatibleClient(baseURL: "https://api.deepseek.com/v1", apiKey: "key")
+        let call = ToolCall(id: "call_1", name: "web_search", arguments: #"{"queries":["swift"]}"#)
+        let request = ChatRequest(
+            model: "deepseek-v4-flash",
+            messages: [
+                ChatRequestMessage(role: .user, parts: [.text("Search for Swift")]),
+                ChatRequestMessage(role: .assistant, parts: [], toolCalls: [call], reasoning: "I should search."),
+                .toolResult("Sources:\n- [Swift](https://swift.org)", for: "call_1"),
+            ],
+            tools: DeepSeekWebTools.definitions
+        )
+        let data = try #require(try client.makeStreamRequest(request).httpBody)
+        let body = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let tools = try #require(body["tools"] as? [[String: Any]])
+        #expect(tools.compactMap { ($0["function"] as? [String: Any])?["name"] as? String } == ["web_search", "web_fetch"])
+        #expect(body["tool_choice"] == nil, "DeepSeek's thinking mode refuses tool_choice other than auto")
+        let messages = try #require(body["messages"] as? [[String: Any]])
+        // DeepSeek needs the thinking behind a tool call back within the question.
+        #expect(messages[1]["reasoning_content"] as? String == "I should search.")
+        let calls = try #require(messages[1]["tool_calls"] as? [[String: Any]])
+        #expect(calls.first?["id"] as? String == "call_1")
+        #expect(messages[2]["role"] as? String == "tool")
+        #expect(messages[2]["tool_call_id"] as? String == "call_1")
+    }
+
+    @Test func streamedToolCallsArePutBackTogether() throws {
+        var assembler = ToolCallAssembler()
+        let lines = [
+            #"data: {"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call_1","type":"function","function":{"name":"web_search","arguments":""}}]}}]}"#,
+            #"data: {"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"","function":{"arguments":"{\"queries\":"}}]}}]}"#,
+            #"data: {"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"[\"swift\"]}"}}]}}]}"#,
+        ]
+        for line in lines {
+            guard case let .toolDeltas(_, deltas) = try StreamLine.decode(line) else {
+                Issue.record("Not a tool delta: \(line)")
+                return
+            }
+            deltas.forEach { assembler.add($0) }
+        }
+        #expect(assembler.result == [ToolCall(id: "call_1", name: "web_search", arguments: #"{"queries":["swift"]}"#)])
+    }
+}

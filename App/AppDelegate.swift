@@ -22,6 +22,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         static let agentBaseURL = "SpotChatAgentBaseURL"
         /// Starts the mini window's conversation running commands in this folder.
         static let commandFolder = "SpotChatCommandFolder"
+        /// Points web search at a stand-in for DeepSeek's Search and Fetch API, for any model.
+        static let webToolsURL = "SpotChatWebToolsURL"
         /// Uses this folder in place of ~/Documents/Spot Chat.
         static let defaultCommandFolder = "SpotChatDefaultCommandFolder"
     }

@@ -141,6 +141,22 @@ final class SpotChatUITests: XCTestCase {
         attachScreenshot("Commands full window")
     }
 
+    func testChatSearchesTheWebWhenItNeedsTo() throws {
+        let app = launch(resetState: true, arguments: ["-SpotChatWebToolsURL", "http://127.0.0.1:8765/v1/tools"])
+        send("Please search the web", in: app)
+        XCTAssertTrue(reply(containing: "Here is what I found.", in: app).waitForExistence(timeout: 20))
+        RunLoop.current.run(until: Date().addingTimeInterval(1))
+        XCTAssertEqual(text(of: element("commands", in: app)), "Searched the web, read 1 page")
+        let search = elements("toolRow", in: app).element(boundBy: 0)
+        XCTAssertTrue(text(of: search).contains("DaVinci Resolve MCP server"), text(of: search))
+        search.click()
+        XCTAssertTrue(element("searchResult", in: app).waitForExistence(timeout: 5))
+        XCTAssertEqual(elements("searchResult", in: app).count, 2)
+        let tools = try lastRequest()["tools"] as? [[String: Any]]
+        XCTAssertEqual(tools?.count, 2, "The model is offered web_search and web_fetch and decides itself")
+        attachScreenshot("Chat web search")
+    }
+
     func testWebSearchShowsItsResults() {
         let app = launchRunningCommands()
         send("Please search the web", in: app)

@@ -158,3 +158,34 @@ public enum WebResult {
         return nil
     }
 }
+
+/// A web search or page read in a chat, shown as the steps of a command conversation are.
+public enum WebStep {
+    public static func started(_ call: ToolCall, at date: Date = Date()) -> CommandRun {
+        let arguments = (try? JSONSerialization.jsonObject(with: Data(call.arguments.utf8))) as? [String: Any] ?? [:]
+        switch call.name {
+        case "web_search":
+            let query = (arguments["queries"] as? [String])?.first ?? ""
+            return CommandRun(id: call.id, tool: .webSearch, summary: "", detail: query, startedAt: date)
+        case "web_fetch":
+            return CommandRun(id: call.id, tool: .webFetch, summary: "", detail: arguments["url"] as? String ?? "", startedAt: date)
+        default:
+            return CommandRun(id: call.id, tool: .other, summary: call.name, detail: "", startedAt: date)
+        }
+    }
+
+    /// Records what the tool returned to the model.
+    public static func finish(_ step: inout CommandRun, output: String, at date: Date = Date()) {
+        step.duration = date.timeIntervalSince(step.startedAt)
+        guard !output.hasPrefix("Error:") else {
+            step.state = .failed
+            return
+        }
+        step.state = .succeeded
+        switch step.tool {
+        case .webSearch: step.sources = WebResult.sources(in: output)
+        case .webFetch: step.pageTitle = WebResult.pageTitle(in: output)
+        case .shell, .other: break
+        }
+    }
+}

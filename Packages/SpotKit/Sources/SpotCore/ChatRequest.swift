@@ -7,12 +7,44 @@ public struct ChatRequest: Equatable, Sendable {
     /// Sent first, as the system message. Empty sends none.
     public var systemPrompt: String
     public var thinking: ThinkingLevel
+    /// Tools the model may call, such as web search. The model decides whether to.
+    public var tools: [ToolDefinition]
 
-    public init(model: String, messages: [ChatRequestMessage], systemPrompt: String = "", thinking: ThinkingLevel = .automatic) {
+    public init(
+        model: String, messages: [ChatRequestMessage], systemPrompt: String = "", thinking: ThinkingLevel = .automatic,
+        tools: [ToolDefinition] = []
+    ) {
         self.model = model
         self.messages = messages
         self.systemPrompt = systemPrompt
         self.thinking = thinking
+        self.tools = tools
+    }
+}
+
+/// A function the model may call. `parameters` is its JSON Schema as JSON text.
+public struct ToolDefinition: Equatable, Sendable {
+    public var name: String
+    public var description: String
+    public var parameters: String
+
+    public init(name: String, description: String, parameters: String) {
+        self.name = name
+        self.description = description
+        self.parameters = parameters
+    }
+}
+
+/// A call the model made; `arguments` is JSON text.
+public struct ToolCall: Equatable, Sendable, Codable {
+    public var id: String
+    public var name: String
+    public var arguments: String
+
+    public init(id: String, name: String, arguments: String) {
+        self.id = id
+        self.name = name
+        self.arguments = arguments
     }
 }
 
@@ -47,10 +79,24 @@ public struct ChatRequestMessage: Equatable, Sendable {
 
     public var role: ChatRole
     public var parts: [Part]
+    /// For a reply that called tools within the current question.
+    public var toolCalls: [ToolCall]
+    /// The thinking behind those calls, which DeepSeek needs back until the question is answered.
+    public var reasoning: String?
+    /// Set on a tool's result, which goes back to the model as a message of its own.
+    public var toolCallID: String?
 
-    public init(role: ChatRole, parts: [Part]) {
+    public init(role: ChatRole, parts: [Part], toolCalls: [ToolCall] = [], reasoning: String? = nil, toolCallID: String? = nil) {
         self.role = role
         self.parts = parts
+        self.toolCalls = toolCalls
+        self.reasoning = reasoning
+        self.toolCallID = toolCallID
+    }
+
+    /// A tool's result.
+    public static func toolResult(_ text: String, for callID: String) -> ChatRequestMessage {
+        ChatRequestMessage(role: .assistant, parts: [.text(text)], toolCallID: callID)
     }
 }
 
@@ -60,6 +106,8 @@ public enum ReplyChunk: Equatable, Sendable {
     case reasoning(String)
     case text(String)
     case usage(TokenUsage)
+    /// The tools the model called, once its message is complete.
+    case toolCalls([ToolCall])
 }
 
 /// Tokens a reply used. `cachedTokens` of the prompt were served from the service's prompt cache,

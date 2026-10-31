@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import SpotCore
 
@@ -52,5 +53,20 @@ import Testing
         let text = "Fetched https://example.com/a (HTTP 200)\n\nExternal web content follows.\n\n# Resolve MCP\n\nBody"
         #expect(WebResult.pageTitle(in: text) == "Resolve MCP")
         #expect(WebResult.pageTitle(in: "No heading here") == nil)
+    }
+}
+
+@Suite struct WebStepTests {
+    @Test func aSearchShowsItsQueryAndResults() {
+        let start = Date(timeIntervalSince1970: 0)
+        var step = WebStep.started(ToolCall(id: "c", name: "web_search", arguments: #"{"queries":["swift"]}"#), at: start)
+        #expect(step.tool == .webSearch)
+        #expect(step.detail == "swift")
+        WebStep.finish(&step, output: "Sources:\n- [Swift](https://swift.org)", at: start.addingTimeInterval(1))
+        #expect(step.state == .succeeded)
+        #expect(step.sources == [WebSource(title: "Swift", url: "https://swift.org")])
+        var failed = WebStep.started(ToolCall(id: "d", name: "web_fetch", arguments: #"{"url":"https://a.b"}"#))
+        WebStep.finish(&failed, output: "Error: offline")
+        #expect(failed.state == .failed)
     }
 }
