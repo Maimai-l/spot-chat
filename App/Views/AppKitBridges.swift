@@ -105,6 +105,7 @@ struct ComposerField: NSViewRepresentable {
         textView.font = ComposerTextMetrics.font
         textView.defaultParagraphStyle = ComposerTextMetrics.paragraphStyle
         textView.typingAttributes[.paragraphStyle] = ComposerTextMetrics.paragraphStyle
+        textView.typingAttributes[.baselineOffset] = ComposerTextMetrics.baselineOffset
         textView.isRichText = false
         textView.importsGraphics = false
         textView.allowsUndo = true
@@ -129,10 +130,11 @@ struct ComposerField: NSViewRepresentable {
         guard let textView = coordinator.textView else { return }
         if textView.string != text, !textView.hasMarkedText() {
             textView.string = text
-            textView.textStorage?.addAttribute(
-                .paragraphStyle, value: ComposerTextMetrics.paragraphStyle,
+            textView.textStorage?.addAttributes(
+                [.paragraphStyle: ComposerTextMetrics.paragraphStyle, .baselineOffset: ComposerTextMetrics.baselineOffset],
                 range: NSRange(location: 0, length: (text as NSString).length)
             )
+            textView.keepLineAttributes()
         }
         textView.placeholder = placeholder
         textView.onPasteFiles = onPasteFiles
@@ -227,14 +229,22 @@ final class ComposerTextView: NSTextView {
             .font: font ?? ComposerTextMetrics.font,
             .foregroundColor: NSColor.placeholderTextColor,
             .paragraphStyle: ComposerTextMetrics.paragraphStyle,
+            .baselineOffset: ComposerTextMetrics.baselineOffset,
         ]
         let x = textContainerOrigin.x + (textContainer?.lineFragmentPadding ?? 0)
-        let rect = NSRect(x: x, y: textContainerOrigin.y, width: max(bounds.width - x, 0), height: ComposerTextMetrics.lineHeight)
+        let rect = NSRect(x: x, y: textContainerOrigin.y, width: max(bounds.width - x, 0), height: ComposerTextMetrics.lineHeight + 4)
         (placeholder as NSString).draw(with: rect, options: [.usesLineFragmentOrigin], attributes: attributes)
     }
 
     override func didChangeText() {
         super.didChangeText()
+        keepLineAttributes()
         needsDisplay = true
+    }
+
+    /// Clearing the text can reset what new typing looks like; keep the 20 point lines and raised glyphs.
+    func keepLineAttributes() {
+        typingAttributes[.paragraphStyle] = ComposerTextMetrics.paragraphStyle
+        typingAttributes[.baselineOffset] = ComposerTextMetrics.baselineOffset
     }
 }

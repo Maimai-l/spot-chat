@@ -207,6 +207,10 @@ enum ComposerTextMetrics {
     /// Lines are 20 apart, as in Gemini.
     static let lineHeight: CGFloat = 20
 
+    /// With lines fixed at 20 the extra height goes above the glyphs; this raises them back to the
+    /// line's middle, level with the + and the buttons.
+    static let baselineOffset: CGFloat = 1.5
+
     static var paragraphStyle: NSParagraphStyle {
         let style = NSMutableParagraphStyle()
         style.minimumLineHeight = lineHeight

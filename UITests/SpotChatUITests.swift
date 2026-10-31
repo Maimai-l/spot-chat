@@ -1014,6 +1014,14 @@ final class SpotChatUITests: XCTestCase {
         let app = launch(resetState: true)
         XCTAssertTrue(composer(in: app).waitForExistence(timeout: 10))
         attachScreenshot("Capsule")
+        // Typed text beside the buttons, for checking it sits level with the + and the model.
+        let input = composer(in: app)
+        input.click()
+        input.typeText("cranberry有几个")
+        RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        attachScreenshot("Capsule with text")
+        input.typeKey("a", modifierFlags: .command)
+        input.typeKey(.delete, modifierFlags: [])
 
         send("markdown", in: app)
         waitForReply(in: app, "SELF CONTAINS %@", "| WAL | concurrent |")
