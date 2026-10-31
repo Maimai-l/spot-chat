@@ -21,6 +21,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var topics: [TopicSummary] = []
     @Published private(set) var systemPrompt = AppModel.defaultSystemPrompt
     @Published private(set) var bringsSelection = true
+    /// Where commands run unless a conversation picks another folder, as dsh keeps a default workspace.
+    @Published private(set) var defaultCommandFolder = AppModel.standardCommandFolder
     private(set) var askedForSelectionAccess = false
     /// Thinking level by model; a model not listed thinks as its service decides.
     @Published private(set) var thinkingLevels: [String: ThinkingLevel] = [:]
@@ -162,6 +164,23 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// ~/Documents/Spot Chat, as dsh puts its own under Documents.
+    static var standardCommandFolder: URL {
+        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        return documents.appendingPathComponent("Spot Chat", isDirectory: true)
+    }
+
+    func setDefaultCommandFolder(_ folder: URL) {
+        defaultCommandFolder = folder
+        try? preferenceService.set(PreferenceKey.commandFolder, to: folder.path)
+    }
+
+    /// The default folder, made if it isn't there yet.
+    func readyDefaultCommandFolder() -> URL {
+        try? FileManager.default.createDirectory(at: defaultCommandFolder, withIntermediateDirectories: true)
+        return defaultCommandFolder
+    }
+
     // MARK: Providers
 
     func reloadProviders() {
@@ -228,6 +247,10 @@ final class AppModel: ObservableObject {
         }
         systemPrompt = (try? preferenceService.value(PreferenceKey.systemPrompt, as: String.self)) ?? Self.defaultSystemPrompt
         bringsSelection = (try? preferenceService.value(PreferenceKey.bringSelection, as: Bool.self)) ?? true
+        if let path = UserDefaults.standard.string(forKey: AppDelegate.LaunchOption.defaultCommandFolder)
+            ?? (try? preferenceService.value(PreferenceKey.commandFolder, as: String.self)), !path.isEmpty {
+            defaultCommandFolder = URL(fileURLWithPath: path, isDirectory: true)
+        }
         askedForSelectionAccess = (try? preferenceService.value(PreferenceKey.selectionAccessRequested, as: Bool.self)) ?? false
         thinkingLevels = (try? preferenceService.value(PreferenceKey.thinkingLevels, as: [String: ThinkingLevel].self)) ?? [:]
         modelsWithoutEffort = Set((try? preferenceService.value(PreferenceKey.modelsWithoutEffort, as: [String].self)) ?? [])

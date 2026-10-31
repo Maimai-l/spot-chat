@@ -50,7 +50,7 @@ final class InputActions {
             menuDidClose: menuDidClose,
             toggleCommands: { [weak self, weak session] in
                 guard let self, let session else { return }
-                self.toggleCommands(in: session, presenting: presenting)
+                self.toggleCommands(in: session)
             },
             chooseCommandFolder: { [weak self, weak session] in
                 guard let session else { return }
@@ -67,19 +67,13 @@ final class InputActions {
         )
     }
 
-    /// Turns commands off, or on in a folder: the folder of the first file the input points to,
-    /// otherwise one the user picks.
-    private func toggleCommands(in session: ChatSession, presenting: @escaping ((@escaping () -> Void) -> Void) -> Void) {
+    /// Turns commands off, or on in the default folder.
+    private func toggleCommands(in session: ChatSession) {
         if session.commandFolder != nil {
             session.setCommandFolder(nil)
-            return
+        } else {
+            session.setCommandFolder(app.readyDefaultCommandFolder())
         }
-        if let first = composer.paths.first {
-            let isFolder = (try? first.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
-            session.setCommandFolder(isFolder ? first : first.deletingLastPathComponent())
-            return
-        }
-        chooseFolder(for: session, presenting: presenting)
     }
 
     private func chooseFolder(for session: ChatSession, presenting: @escaping ((@escaping () -> Void) -> Void) -> Void) {

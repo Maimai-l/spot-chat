@@ -114,6 +114,7 @@ final class SpotChatUITests: XCTestCase {
     func launchRunningCommands() -> XCUIApplication {
         launch(resetState: true, arguments: [
             "-SpotChatCommandFolder", dataDirectory + "/Work",
+            "-SpotChatDefaultCommandFolder", dataDirectory + "/Default",
             "-SpotChatAgentBaseURL", "http://127.0.0.1:8765/anthropic",
         ])
     }
@@ -186,8 +187,8 @@ final class SpotChatUITests: XCTestCase {
         XCTAssertTrue(element("commandFolder", in: app).waitForNonExistence(timeout: 5))
         element("plusMenu", in: app).click()
         XCTAssertTrue(app.menuItems["Upload Image…"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.menuItems["Run Commands"].exists)
-        app.typeKey(.escape, modifierFlags: [])
+        app.menuItems["Run Commands"].click()
+        XCTAssertTrue(element("commandFolder", in: app).waitForExistence(timeout: 5), "Turning it on uses the default folder, with no folder to pick")
     }
 
     // MARK: Mini window

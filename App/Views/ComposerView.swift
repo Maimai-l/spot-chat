@@ -336,7 +336,6 @@ struct PlusMenuButton: NSViewRepresentable {
             let menu = NSMenu()
             menu.autoenablesItems = false
             let commands = ClosureMenuItem(title: String(localized: "Run Commands"), symbol: "apple.terminal", handler: actions.toggleCommands)
-            commands.subtitle = String(localized: "Runs in a folder you choose and asks before going outside it")
             commands.state = commandsOn ? .on : .off
             if commandsOn {
                 // dsh reads files where they are, so they go in by path.

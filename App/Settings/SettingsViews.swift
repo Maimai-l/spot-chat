@@ -61,11 +61,12 @@ struct ProvidersSettingsView: View {
                 ProviderDetailView(app: app, provider: provider)
                     .id(provider.id)
             } else {
-                VStack(spacing: 12) {
-                    Text(app.providers.isEmpty ? "Add a provider to start chatting." : "Select a provider.")
-                        .foregroundStyle(.secondary)
+                Group {
                     if app.providers.isEmpty {
                         Button("Add Provider", action: addProvider)
+                    } else {
+                        Text("Select a provider.")
+                            .foregroundStyle(.secondary)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -233,10 +234,8 @@ struct GeneralSettingsView: View {
                 .accessibilityIdentifier("interfaceLanguage")
                 if language != InterfaceLanguage.atLaunch {
                     HStack {
-                        Text("Restart Spot Chat to use the new language.")
-                            .foregroundStyle(.secondary)
                         Spacer()
-                        Button("Restart", action: InterfaceLanguage.relaunch)
+                        Button("Restart Spot Chat", action: InterfaceLanguage.relaunch)
                             .accessibilityIdentifier("restartForLanguage")
                     }
                 }
@@ -296,6 +295,24 @@ struct GeneralSettingsView: View {
                             .accessibilityIdentifier("restoreSystemPrompt")
                     }
                 }
+            }
+
+            Section("Run Commands") {
+                LabeledContent("Default Folder") {
+                    HStack(spacing: 8) {
+                        Text(PathTile.shortPath(of: app.defaultCommandFolder))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        Button("Change…") {
+                            FolderPicker.pick(files: false) { urls in
+                                if let folder = urls.first { app.setDefaultCommandFolder(folder) }
+                            }
+                        }
+                        .accessibilityIdentifier("changeCommandFolder")
+                    }
+                }
+                .accessibilityIdentifier("defaultCommandFolder")
             }
 
             Section("Shortcuts") {

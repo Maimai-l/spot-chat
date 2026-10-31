@@ -159,9 +159,6 @@ enum FolderPicker {
         panel.canChooseFiles = files
         panel.allowsMultipleSelection = files
         panel.prompt = files ? String(localized: "Add") : String(localized: "Choose")
-        if !files {
-            panel.message = String(localized: "Commands run in this folder and ask before going outside it.")
-        }
         NSApp.activate()
         panel.begin { response in
             completion(response == .OK ? panel.urls : [])

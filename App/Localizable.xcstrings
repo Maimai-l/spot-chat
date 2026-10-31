@@ -121,16 +121,6 @@
         }
       }
     },
-    "Add a provider to start chatting.": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "添加服务商后即可开始对话"
-          }
-        }
-      }
-    },
     "Allowed": {
       "localizations": {
         "zh-Hans": {
@@ -1174,16 +1164,6 @@
         }
       }
     },
-    "Commands run in this folder and ask before going outside it.": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "命令将在此文件夹中运行，超出时先询问"
-          }
-        }
-      }
-    },
     "Denied": {
       "localizations": {
         "zh-Hans": {
@@ -1288,16 +1268,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "运行命令需要 DeepSeek API 密钥，请在设置中添加。"
-          }
-        }
-      }
-    },
-    "Runs in a folder you choose and asks before going outside it": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "在所选文件夹中运行，超出时先询问"
           }
         }
       }
@@ -1472,26 +1442,6 @@
         }
       }
     },
-    "Restart Spot Chat to use the new language.": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "重新启动 Spot Chat 后生效"
-          }
-        }
-      }
-    },
-    "Restart": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "重新启动"
-          }
-        }
-      }
-    },
     "Commands stopped unexpectedly.": {
       "localizations": {
         "zh-Hans": {
@@ -1518,6 +1468,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "无法开始运行命令。"
+          }
+        }
+      }
+    },
+    "Restart Spot Chat": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重新启动 Spot Chat"
+          }
+        }
+      }
+    },
+    "Default Folder": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "默认文件夹"
+          }
+        }
+      }
+    },
+    "Change…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更改…"
           }
         }
       }

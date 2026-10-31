@@ -6,8 +6,8 @@ The mini window and the full window use the same parts: the input, the list of c
 
 ## Turning it on
 
-- The + menu has **Run Commands**, with the line "Runs in a folder you choose and asks before going outside it". It is a menu item with a check mark, not a separate control.
-- Turning it on uses the folder of the first file in the input, or asks for a folder.
+- The + menu has **Run Commands**, a menu item with a check mark.
+- Turning it on runs commands in the default folder, ~/Documents/Spot Chat, as dsh keeps its default workspace under Documents. Settings › General › Run Commands › Default Folder changes it.
 - The input then shows a chip with the folder's name, **Run Commands Movies**, next to the +. Its menu: Choose Another Folder…, Show in Finder, Stop Running Commands.
 - While commands run, files dropped or added go in **by path**. dsh reads them where they are, and only the path goes into the question. The + menu shows **Add File Path…** in place of the uploads.
 
