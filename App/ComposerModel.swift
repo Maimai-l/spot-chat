@@ -143,14 +143,16 @@ enum ComposerLayout {
     static let tagRowHeight: CGFloat = 26
     static let noticeRowHeight: CGFloat = 16
     static let rowSpacing: CGFloat = 6
-    /// Above the buttons, the first line's center is as far from the top as the buttons' center is in
-    /// a single row, and the last line's center sits 41 above the buttons' center, as in Gemini.
-    static let textTop: CGFloat = 5
-    static let textGap: CGFloat = 8
+    /// As in Gemini, text above the buttons has its first line's center 27 from the top and its last
+    /// line's 41 above the buttons' center, and the buttons sit 26 from the bottom, a little lower than
+    /// in a single row: one line makes the bar 94 tall and each further line adds 20.
+    static let textTop: CGFloat = 4
+    static let textGap: CGFloat = 9.5
+    static let expandedRowDrop: CGFloat = 1.5
 
     /// What text above the buttons adds to the bar's height.
     static func expandedExtra(textHeight: CGFloat) -> CGFloat {
-        textHeight > 0 ? textTop + textHeight + textGap : 0
+        textHeight > 0 ? textTop + textHeight + textGap - expandedRowDrop : 0
     }
 
     /// `textHeight` is the height of text that moved above the buttons, or 0.

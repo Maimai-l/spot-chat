@@ -115,9 +115,9 @@ struct ComposerView: View {
             }
         }
         .padding(.vertical, 8)
-        // The centers of the + and of the last button sit 26 and 24 from the ends, as in Gemini.
+        // The + and the last button's glyphs sit 25.5 and 24 from the ends, as in Gemini.
         .padding(.leading, 12)
-        .padding(.trailing, 10)
+        .padding(.trailing, 11)
         .onChange(of: textHeight, initial: true) { onTextHeightChange(textHeight) }
     }
 
@@ -177,7 +177,9 @@ struct ComposerRowLayout: Layout {
         // The + and the folder chip get what the buttons at the end leave; the chip's name shortens first.
         let leadingRoom = ProposedViewSize(width: max(bounds.width - trailingSize.width - Self.gap * 2, 32), height: nil)
         let plusSize = plus.sizeThatFits(leadingRoom)
-        let rowMidY = (textHeight > 0 ? bounds.maxY - Self.rowHeight : bounds.minY) + Self.rowHeight / 2
+        let rowMidY = textHeight > 0
+            ? bounds.maxY - Self.rowHeight / 2 + ComposerLayout.expandedRowDrop
+            : bounds.minY + Self.rowHeight / 2
         plus.place(at: CGPoint(x: bounds.minX, y: rowMidY), anchor: .leading, proposal: ProposedViewSize(plusSize))
         trailing.place(at: CGPoint(x: bounds.maxX, y: rowMidY), anchor: .trailing, proposal: ProposedViewSize(trailingSize))
         if textHeight > 0 {
