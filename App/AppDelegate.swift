@@ -49,6 +49,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             seedTestProvider(baseURL: url, apiKey: defaults.string(forKey: LaunchOption.testProviderKey) ?? "")
         }
 
+        ReplyPageWarmup.start()
+
         // Opening the mini window brings the text selected in the app in front, quoted in the input.
         KeyboardShortcuts.onKeyDown(for: .toggleMiniWindow) { [weak self] in
             guard let self else { return }

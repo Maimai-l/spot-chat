@@ -1017,7 +1017,14 @@ final class SpotChatUITests: XCTestCase {
         RunLoop.current.run(until: Date().addingTimeInterval(1.2))
         attachScreenshot("Loading")
         waitForReply(in: app, "SELF == %@", "Echo: wait")
-        RunLoop.current.run(until: Date().addingTimeInterval(0.8))
+        // The reply shows once its page has measured it.
+        let reply = element("reply", in: app)
+        let deadline = Date().addingTimeInterval(5)
+        while reply.frame.height < 10, Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+        XCTAssertGreaterThan(reply.frame.height, 10, "The reply's text shows")
+        RunLoop.current.run(until: Date().addingTimeInterval(0.4))
         attachScreenshot("Card after reply")
     }
 

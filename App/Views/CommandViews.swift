@@ -554,6 +554,9 @@ struct CommandFolderChip: View {
             ViewThatFits(in: .horizontal) {
                 label(Text("Run Commands \(folder.lastPathComponent)"))
                 label(Text(folder.lastPathComponent))
+                Image(systemName: "apple.terminal")
+                    .font(.system(size: 12))
+                    .accessibilityLabel(Text("Run Commands \(folder.lastPathComponent)"))
             }
             .foregroundStyle(Color(nsColor: .controlAccentColor))
             .padding(.horizontal, 11)
@@ -576,7 +579,7 @@ struct CommandFolderChip: View {
             text
                 .font(.system(size: 13))
                 .lineLimit(1)
-                .truncationMode(.middle)
+                .fixedSize()
         }
     }
 }

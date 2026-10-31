@@ -50,6 +50,20 @@ extension EnvironmentValues {
     @Entry var replyDidResize: (UUID) -> Void = { _ in }
 }
 
+/// Loads the reply page once, out of sight, when the app starts, so the web content process is running and
+/// the page's scripts are cached before the first reply: otherwise its first words show a second late.
+@MainActor
+enum ReplyPageWarmup {
+    private static var webView: WKWebView?
+
+    static func start() {
+        guard webView == nil, let page = ReplyWebView.Coordinator.pageURL else { return }
+        let view = WKWebView(frame: NSRect(x: 0, y: 0, width: 400, height: 100))
+        view.loadFileURL(page, allowingReadAccessTo: page.deletingLastPathComponent())
+        webView = view
+    }
+}
+
 struct ReplyWebView: NSViewRepresentable {
     let markdown: String
     let isStreaming: Bool
