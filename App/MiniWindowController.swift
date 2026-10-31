@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import Logging
 import SwiftUI
 import SpotCore
 
@@ -121,6 +122,9 @@ final class MiniWindowController: ObservableObject {
 
     func handle(_ event: MiniWindowEvent) {
         let effects = state.handle(event, isKey: panel.isKeyWindow)
+        SpotLog.window.debug("Mini window", metadata: [
+            "event": "\(event)", "mode": "\(state.mode)", "effects": "\(effects)",
+        ])
         mode = state.mode
         for effect in effects {
             perform(effect)

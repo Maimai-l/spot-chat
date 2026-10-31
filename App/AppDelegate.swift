@@ -26,6 +26,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         static let webToolsURL = "SpotChatWebToolsURL"
         /// Uses this folder in place of ~/Documents/Spot Chat.
         static let defaultCommandFolder = "SpotChatDefaultCommandFolder"
+        /// Export Logs writes here instead of asking where.
+        static let logExportPath = "SpotChatLogExportPath"
     }
 
     private(set) lazy var app = makeAppModel()
@@ -35,6 +37,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private(set) lazy var miniController = makeMiniController()
     private(set) lazy var fullWindow = makeFullWindow()
     private(set) lazy var settings = SettingsWindowController(app: app)
+
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        AppLogging.start()
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let defaults = UserDefaults.standard

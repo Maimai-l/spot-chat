@@ -1,4 +1,5 @@
 import AppKit
+import Logging
 import SpotAgent
 import SpotCore
 
@@ -11,7 +12,7 @@ extension ChatSession {
         stop()
         endAgent()
         if let topicID {
-            try? app.topicService.setCommandFolder(folder, for: topicID)
+            logged { try app.topicService.setCommandFolder(folder, for: topicID) }
             app.historyDidChange()
         }
         setCommandFolderShown(folder)
@@ -47,6 +48,7 @@ extension ChatSession {
         let options: CommandAgentOptions
         switch app.commandOptions() {
         case let .failure(reason):
+            SpotLog.reply.error("Commands unavailable", metadata: ["reason": "\(reason.errorDescription ?? "")"])
             reply.status = .error
             reply.errorMessage = reason.errorDescription
             store(reply)
@@ -68,6 +70,10 @@ extension ChatSession {
         let earlierSession = (try? app.topicService.commandSetup(of: topicID))?.sessionID
         store(reply)
         let replyID = reply.id
+        SpotLog.reply.info("Command reply started", metadata: [
+            "reply": "\(replyID)", "topic": "\(topicID)", "folder": "\(folder.path)",
+            "resumes": "\(earlierSession ?? "")",
+        ])
         isGenerating = true
 
         generation = Task { [weak self] in

@@ -22,6 +22,10 @@ packages:
   KeyboardShortcuts:
     url: https://github.com/sindresorhus/KeyboardShortcuts
     from: "2.0.0"
+  # Writes the app's log to rolling files and the system log. 3.9.1 and later need a newer Swift than CI's.
+  CocoaLumberjack:
+    url: https://github.com/CocoaLumberjack/CocoaLumberjack
+    exactVersion: "3.9.0"
 targets:
   SpotChat:
     type: application
@@ -44,6 +48,10 @@ targets:
       - package: SpotKit
         product: SpotAgent
       - package: KeyboardShortcuts
+      - package: CocoaLumberjack
+        product: CocoaLumberjackSwift
+      - package: CocoaLumberjack
+        product: CocoaLumberjackSwiftLogBackend
     postBuildScripts:
       # The dsh runtime for running commands, built into build/AgentRuntime by
       # scripts/build_agent_runtime.py. Builds without it simply leave the feature unavailable.

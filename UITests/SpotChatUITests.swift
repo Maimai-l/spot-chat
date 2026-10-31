@@ -639,6 +639,38 @@ final class SpotChatUITests: XCTestCase {
         XCTAssertNil(try lastRequest()["thinking"])
     }
 
+    /// Export Logs writes the whole conversation as it went over the wire, and never the API key.
+    func testExportedLogRecordsTheConversation() throws {
+        let path = dataDirectory + "/exported.log"
+        try? FileManager.default.removeItem(atPath: path)
+        let app = launch(resetState: true, fullWindow: true, arguments: ["-SpotChatLogExportPath", path])
+        send("log me", in: app)
+        waitForReply(in: app, "SELF == %@", "Echo: log me")
+        RunLoop.current.run(until: Date().addingTimeInterval(1))
+
+        let gear = element("openSettings", in: app)
+        XCTAssertTrue(gear.waitForExistence(timeout: 10))
+        gear.click()
+        let general = app.toolbars.buttons["General"]
+        XCTAssertTrue(general.waitForExistence(timeout: 5))
+        general.click()
+        let export = element("exportLogs", in: app)
+        XCTAssertTrue(export.waitForExistence(timeout: 5))
+        attachScreenshot("Logs settings")
+        export.click()
+
+        let deadline = Date().addingTimeInterval(10)
+        while !FileManager.default.fileExists(atPath: path), Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+        }
+        let log = try String(contentsOfFile: path, encoding: .utf8)
+        XCTAssertTrue(log.contains("[network] Request body"), "The request is logged")
+        XCTAssertTrue(log.contains("[network] Line"), "Each streamed line is logged")
+        XCTAssertTrue(log.contains("Echo: log me"), "The reply's text is logged")
+        XCTAssertTrue(log.contains("[reply] Shown text"), "The text the page showed is logged")
+        XCTAssertFalse(log.contains("test-key"), "The API key is never logged")
+    }
+
     func testSystemPromptIsSentFirst() throws {
         let app = launch(resetState: true, fullWindow: true)
         let gear = element("openSettings", in: app)

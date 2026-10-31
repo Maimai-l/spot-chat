@@ -31,6 +31,14 @@ careful engineer would obviously include, and ask only when a choice really belo
 - Telemetry and log uploads stay off, including in the bundled dsh runtime (`agent/profile/cordis.patch.yml`).
 - Commands outside the chosen folder always ask first; nothing is approved automatically.
 
+## Logging
+
+Every feature logs what it does through `SpotLog` (swift-log), by category, as it is built, not after a bug
+needs it. The log stays on the Mac (`~/Library/Logs/Spot Chat` and the system log) and Settings exports it, so it
+records everything that helps trace a bug: requests in full, every streamed line, the reply as saved and as
+shown, tool calls, dsh's traffic and errors, setting changes and failed writes. It never records API keys or
+the values of environment variables. Errors are logged where they are caught, never dropped with a bare `try?`.
+
 ## Code
 
 - Prefer maintained libraries and dsh's own code over writing equivalents.

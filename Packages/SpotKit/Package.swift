@@ -15,16 +15,18 @@ let package = Package(
         .package(url: "https://github.com/MacPaw/OpenAI", .upToNextMinor(from: "0.5.3")),
         // The Agent Client Protocol (a Swift port of the official Kotlin SDK), for talking to dsh.
         .package(url: "https://github.com/aptove/swift-sdk", .upToNextMinor(from: "0.2.2")),
+        // Apple's logging API; the app decides where the lines go. Later versions need a newer Swift than CI's.
+        .package(url: "https://github.com/apple/swift-log", .upToNextMinor(from: "1.9.1")),
     ],
     targets: [
-        .target(name: "SpotCore"),
+        .target(name: "SpotCore", dependencies: [.product(name: "Logging", package: "swift-log")]),
         .target(
             name: "SpotData",
-            dependencies: ["SpotCore", .product(name: "GRDB", package: "GRDB.swift")]
+            dependencies: ["SpotCore", .product(name: "GRDB", package: "GRDB.swift"), .product(name: "Logging", package: "swift-log")]
         ),
         .target(
             name: "SpotAI",
-            dependencies: ["SpotCore", .product(name: "OpenAI", package: "OpenAI")]
+            dependencies: ["SpotCore", .product(name: "OpenAI", package: "OpenAI"), .product(name: "Logging", package: "swift-log")]
         ),
         .target(
             name: "SpotAgent",
@@ -32,10 +34,11 @@ let package = Package(
                 "SpotCore",
                 .product(name: "ACP", package: "swift-sdk"),
                 .product(name: "ACPModel", package: "swift-sdk"),
+                .product(name: "Logging", package: "swift-log"),
             ]
         ),
         .testTarget(name: "SpotCoreTests", dependencies: ["SpotCore"]),
         .testTarget(name: "SpotDataTests", dependencies: ["SpotData"]),
-        .testTarget(name: "SpotAITests", dependencies: ["SpotAI"]),
+        .testTarget(name: "SpotAITests", dependencies: ["SpotAI", .product(name: "Logging", package: "swift-log")]),
     ]
 )

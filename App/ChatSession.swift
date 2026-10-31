@@ -1,3 +1,4 @@
+import Logging
 import AppKit
 import PDFKit
 import SpotAgent
@@ -171,6 +172,11 @@ final class ChatSession: ObservableObject {
         store(reply)
         let replyID = reply.id
         let firstRequest = request
+        SpotLog.reply.info("Reply started", metadata: [
+            "reply": "\(replyID)", "topic": "\(topicID?.uuidString ?? "new")", "model": "\(request.model)",
+            "messages": "\(request.messages.count)", "thinking": "\(request.thinking)", "web": "\(webTools != nil)",
+            "preset": "\(preset?.name ?? "")",
+        ])
         isGenerating = true
         generation = Task { [weak self] in
             var text = ""
@@ -222,6 +228,7 @@ final class ChatSession: ObservableObject {
                     } catch let error as ChatServiceError
                         where error.rejectsThinking && request.thinking != .automatic && text.isEmpty && reasoning.isEmpty {
                         // A model without reasoning turned the effort down: ask again without it, and from now on.
+                        SpotLog.reply.notice("The model turned the effort down; asking again without it", metadata: ["reply": "\(replyID)"])
                         request.thinking = .automatic
                         if let modelID = model?.id { self?.app.markWithoutEffort(modelID) }
                         continue attempts
@@ -235,6 +242,9 @@ final class ChatSession: ObservableObject {
                 guard let webTools, !calls.isEmpty, failure == nil, !Task.isCancelled else { break rounds }
 
                 // The model searched or read a page: run each call and give it the results.
+                SpotLog.reply.info("Tool round", metadata: [
+                    "reply": "\(replyID)", "calls": "\(calls.map(\.name).joined(separator: ","))",
+                ])
                 request.messages.append(ChatRequestMessage(
                     role: .assistant, parts: roundText.isEmpty ? [] : [.text(roundText)],
                     toolCalls: calls, reasoning: roundReasoning.isEmpty ? nil : roundReasoning
@@ -267,11 +277,17 @@ final class ChatSession: ObservableObject {
 
     func saveReply(_ id: UUID) {
         if let reply = messages.first(where: { $0.id == id }) {
-            try? app.messageService.update(reply)
+            logged { try app.messageService.update(reply) }
         }
     }
 
     func finishReply(_ id: UUID, text: String, reasoningDuration: TimeInterval?, failure: String?, cancelled: Bool) {
+        let outcome = failure != nil ? "failed" : cancelled ? "stopped" : "finished"
+        SpotLog.reply.info("Reply \(outcome)", metadata: [
+            "reply": "\(id)", "characters": "\(text.count)", "error": "\(failure ?? "")",
+        ])
+        // The text as saved, to compare with what the service sent and what the page showed.
+        SpotLog.reply.debug("Reply text", metadata: ["reply": "\(id)", "text": "\(SpotLog.clip(text))"])
         updateReply(id) { reply in
             reply.text = text
             reply.reasoningDuration = reasoningDuration
@@ -283,7 +299,7 @@ final class ChatSession: ObservableObject {
             }
         }
         if let reply = messages.first(where: { $0.id == id }) {
-            try? app.messageService.update(reply)
+            logged { try app.messageService.update(reply) }
         }
         generation = nil
         isGenerating = false
@@ -313,7 +329,7 @@ final class ChatSession: ObservableObject {
                 return
             }
             guard let title = TopicTitle.clean(reply) else { return }
-            try? app.topicService.setAutomaticName(topicID, to: title)
+            logged { try app.topicService.setAutomaticName(topicID, to: title) }
             app.historyDidChange()
         }
     }
@@ -325,7 +341,7 @@ final class ChatSession: ObservableObject {
 
     func store(_ message: ChatMessage) {
         guard let topicID else { return }
-        try? app.messageService.append(message, to: topicID)
+        logged { try app.messageService.append(message, to: topicID) }
         messages.append(message)
     }
 
@@ -339,7 +355,7 @@ final class ChatSession: ObservableObject {
         let attachments = messages[index].attachments
         let paths = messages[index].paths
         for message in messages[index...] {
-            try? app.messageService.delete(message.id)
+            logged { try app.messageService.delete(message.id) }
         }
         messages.removeSubrange(index...)
         store(ChatMessage(role: .user, text: text, attachments: attachments, paths: paths))
@@ -349,7 +365,7 @@ final class ChatSession: ObservableObject {
 
     private func removeLastReply() {
         guard let last = messages.last, last.role == .assistant else { return }
-        try? app.messageService.delete(last.id)
+        logged { try app.messageService.delete(last.id) }
         messages.removeLast()
     }
 }

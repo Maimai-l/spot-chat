@@ -1,5 +1,5 @@
 {
-  "originHash" : "3f618dee20801f4e41e9237ea0b98d5caadc7647b1480841abe6d2d26c408ff7",
+  "originHash" : "cc7e6e9a01d7dd00927ed76186862a224a631d210b23f6efb42c80f36f69d3d1",
   "pins" : [
     {
       "identity" : "grdb.swift",
@@ -20,6 +20,15 @@
       }
     },
     {
+      "identity" : "swift-collections",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-collections.git",
+      "state" : {
+        "revision" : "f96b909e1a9e469620bc5037c1e24e00153f376f",
+        "version" : "1.7.5"
+      }
+    },
+    {
       "identity" : "swift-http-types",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-http-types",
@@ -29,12 +38,30 @@
       }
     },
     {
+      "identity" : "swift-log",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-log",
+      "state" : {
+        "revision" : "2778fd4e5a12a8aaa30a3ee8285f4ce54c5f3181",
+        "version" : "1.9.1"
+      }
+    },
+    {
       "identity" : "swift-openapi-runtime",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-openapi-runtime",
       "state" : {
         "revision" : "62595194f7d5951ef32129b15c0790ef24886867",
         "version" : "1.12.2"
+      }
+    },
+    {
+      "identity" : "swift-sdk",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/aptove/swift-sdk",
+      "state" : {
+        "revision" : "159851093f2889aeacc4a73f39a433f30f0da958",
+        "version" : "0.2.2"
       }
     }
   ],

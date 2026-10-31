@@ -1,6 +1,7 @@
 import ACP
 import ACPModel
 import Foundation
+import Logging
 import SpotCore
 
 /// The dsh runtime bundled with the app: Node, dsh trimmed to what it loads, and Spot Chat's profile.
@@ -189,7 +190,19 @@ public actor CommandAgent {
         process.terminationHandler = { [weak self] _ in
             Task { await self?.exited() }
         }
-        try process.run()
+        // Only the names of the variables: one of them holds the API key.
+        SpotLog.agent.info("Starting dsh", metadata: [
+            "launcher": "\(runtime.launcher.path)", "folder": "\(folder.path)",
+            "environment": "\(process.environment?.keys.sorted().joined(separator: ",") ?? "")",
+            "model": "\(options.model ?? "")", "effort": "\(options.effort ?? "")", "web": "\(options.searchesTheWeb)",
+        ])
+        do {
+            try process.run()
+        } catch {
+            SpotLog.agent.error("Couldn't start dsh", metadata: ["error": "\(error)"])
+            throw error
+        }
+        SpotLog.agent.info("dsh started", metadata: ["pid": "\(process.processIdentifier)"])
         self.process = process
         self.rpc = rpc
 
@@ -283,6 +296,7 @@ public actor CommandAgent {
     }
 
     public func shutDown() {
+        if process != nil { SpotLog.agent.info("Stopping dsh") }
         process?.terminationHandler = nil
         if process?.isRunning == true { process?.terminate() }
         process = nil
@@ -507,10 +521,15 @@ public actor CommandAgent {
     }
 
     private func noteError(_ text: String) {
+        SpotLog.agent.notice("dsh wrote to its error output", metadata: ["text": "\(SpotLog.clip(text))"])
         stderrTail = String((stderrTail + text).suffix(2000))
     }
 
     private func exited() async {
+        SpotLog.agent.warning("dsh exited", metadata: [
+            "status": "\(process?.terminationStatus ?? -1)", "reason": "\(process?.terminationReason.rawValue ?? 0)",
+            "lastError": "\(stderrTail.split(separator: "\n").last.map(String.init) ?? "")",
+        ])
         let detail = stderrTail.split(separator: "\n").last.map(String.init) ?? ""
         await rpc?.cancelPendingOutgoingRequests(error: CommandAgentError.exited(detail))
         await rpc?.close()

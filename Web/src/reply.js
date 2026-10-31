@@ -12,6 +12,18 @@ function post(name, body) {
   window.webkit?.messageHandlers?.[name]?.postMessage(body)
 }
 
+// The app's log gets the page's errors and the text it finally shows, to compare with the text it was sent.
+function log(level, message, details = {}) {
+  post('log', { level, message, ...details })
+}
+window.addEventListener('error', (event) => {
+  log('error', 'Page error', { error: String(event.message), at: `${event.filename}:${event.lineno}:${event.colno}` })
+})
+window.addEventListener('unhandledrejection', (event) => {
+  log('error', 'Unhandled rejection', { error: String(event.reason) })
+})
+let lastShownText = null
+
 let lastHeight = -1
 function reportHeight() {
   const height = Math.ceil(content.getBoundingClientRect().height)
@@ -40,7 +52,14 @@ function show(markdown, streaming) {
     },
   })
   reportHeight()
-  if (!streaming) drawDiagrams()
+  if (!streaming) {
+    drawDiagrams()
+    const shown = content.innerText
+    if (shown !== lastShownText) {
+      lastShownText = shown
+      log('debug', 'Shown text', { text: shown, markdownLength: String(markdown.length) })
+    }
+  }
 }
 
 // Mermaid is large, so it loads only for a reply that has a diagram.

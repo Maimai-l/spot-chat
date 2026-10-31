@@ -1,6 +1,8 @@
 import ACP
 import ACPModel
 import Foundation
+import Logging
+import SpotCore
 
 /// ACP's newline-delimited JSON-RPC over a child process's pipes. Lines are read as data arrives,
 /// so no thread waits on the pipe.
@@ -51,6 +53,7 @@ final class PipeTransport: Transport, @unchecked Sendable {
 
     func send(_ message: JsonRpcMessage) async throws {
         var data = try encoder.encode(message)
+        SpotLog.agent.trace("Sent", metadata: ["line": "\(SpotLog.clip(String(decoding: data, as: UTF8.self)))"])
         data.append(0x0A)
         try lock.withLock {
             guard !isClosed else { throw Failure.closed }
@@ -78,7 +81,11 @@ final class PipeTransport: Transport, @unchecked Sendable {
             return lines
         }
         for line in lines where !line.isEmpty {
-            guard let message = try? decoder.decode(JsonRpcMessage.self, from: line) else { continue }
+            SpotLog.agent.trace("Received", metadata: ["line": "\(SpotLog.clip(String(decoding: line, as: UTF8.self)))"])
+            guard let message = try? decoder.decode(JsonRpcMessage.self, from: line) else {
+                SpotLog.agent.warning("Received a line that isn't JSON-RPC")
+                continue
+            }
             if case let .notification(notification) = message, ordered.contains(notification.method) {
                 onOrderedNotification(notification)
             } else {

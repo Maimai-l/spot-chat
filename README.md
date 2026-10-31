@@ -26,6 +26,10 @@ Chats with a DeepSeek model can search the web and read pages when the model nee
 
 With a DeepSeek API key, a conversation can run commands in a folder: choose **Run Commands** in the + menu. Files you add go in by their path. Commands run in a sandbox that keeps them inside the folder; when one needs to go outside it, Spot Chat asks first.
 
+## Logs
+
+Spot Chat keeps a detailed log on your Mac, in `~/Library/Logs/Spot Chat` and the system log, to trace bugs: requests and replies in full, commands, and errors. It never contains API keys and is never uploaded. **Settings > General > Export Logs…** saves it as one file to attach to a bug report.
+
 ## Build from source
 
 Requires macOS 15, Xcode 16 and [XcodeGen](https://github.com/yonaskolb/XcodeGen).
@@ -66,6 +70,7 @@ MOCK_OPENAI_BASE_URL=http://127.0.0.1:8765/v1 swift test --package-path Packages
 | Updating a streaming reply in place | [morphdom](https://github.com/patrick-steele-idem/morphdom) |
 | Diagrams in replies | [Mermaid](https://github.com/mermaid-js/mermaid) |
 | SQLite | [GRDB.swift](https://github.com/groue/GRDB.swift) |
+| Logging | [swift-log](https://github.com/apple/swift-log), written to files and the system log by [CocoaLumberjack](https://github.com/CocoaLumberjack/CocoaLumberjack) |
 | Running commands: the agent, its sandbox and approvals | [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (dsh), bundled with [Node.js](https://nodejs.org) |
 | Talking to dsh over the Agent Client Protocol | [ACP Swift SDK](https://github.com/aptove/swift-sdk) |
 | Xcode project generation | [XcodeGen](https://github.com/yonaskolb/XcodeGen) |

@@ -1,4 +1,5 @@
 import Foundation
+import Logging
 #if canImport(FoundationNetworking)
 import FoundationNetworking
 #endif
@@ -52,6 +53,7 @@ public struct DeepSeekWebTools: Sendable {
     /// Runs one call and returns what the model reads, as dsh words it. `question` is the user's question,
     /// which the Search API takes to rank results, cut to 128 characters as dsh does.
     public func run(_ call: ToolCall, question: String) async -> String {
+        SpotLog.web.info("Tool call", metadata: ["id": "\(call.id)", "name": "\(call.name)", "arguments": "\(SpotLog.clip(call.arguments))"])
         let arguments = (try? JSONSerialization.jsonObject(with: Data(call.arguments.utf8))) as? [String: Any] ?? [:]
         do {
             switch call.name {
@@ -70,6 +72,7 @@ public struct DeepSeekWebTools: Sendable {
                 return "Error: unknown tool \(call.name)"
             }
         } catch {
+            SpotLog.web.error("Tool call failed", metadata: ["id": "\(call.id)", "error": "\(error)"])
             return "Error: \(error.localizedDescription)"
         }
     }
@@ -139,9 +142,21 @@ public struct DeepSeekWebTools: Sendable {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.httpBody = try JSONSerialization.data(withJSONObject: body, options: [.sortedKeys])
-        let (data, response) = try await URLSession.shared.data(for: request)
-        let status = (response as? HTTPURLResponse)?.statusCode ?? 200
-        guard (200..<300).contains(status) else { throw ChatServiceError(statusCode: status, body: data) }
-        return data
+        let log = SpotLog.web.with(id: "request")
+        let started = Date()
+        log.info("Request", metadata: ["url": "\(url.absoluteString)", "body": "\(SpotLog.body(request.httpBody ?? Data()))"])
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            let status = (response as? HTTPURLResponse)?.statusCode ?? 200
+            log.info("Response", metadata: [
+                "status": "\(status)", "ms": "\(Int(Date().timeIntervalSince(started) * 1000))", "bytes": "\(data.count)",
+            ])
+            log.debug("Response body", metadata: ["body": "\(SpotLog.clip(String(decoding: data, as: UTF8.self)))"])
+            guard (200..<300).contains(status) else { throw ChatServiceError(statusCode: status, body: data) }
+            return data
+        } catch {
+            log.error("Failed", metadata: ["error": "\(error)"])
+            throw error
+        }
     }
 }

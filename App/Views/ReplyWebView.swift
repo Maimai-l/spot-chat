@@ -1,4 +1,6 @@
 import AppKit
+import Logging
+import SpotCore
 import SwiftUI
 import WebKit
 
@@ -19,7 +21,7 @@ struct ReplyView: View {
     }
 
     var body: some View {
-        ReplyWebView(markdown: markdown, isStreaming: isStreaming) { newHeight in
+        ReplyWebView(replyID: id, markdown: markdown, isStreaming: isStreaming) { newHeight in
             guard abs(newHeight - height) > 0.5 else { return }
             height = newHeight
             ReplyHeights.shared[id] = newHeight
@@ -65,6 +67,7 @@ enum ReplyPageWarmup {
 }
 
 struct ReplyWebView: NSViewRepresentable {
+    var replyID: UUID?
     let markdown: String
     let isStreaming: Bool
     let onHeight: (CGFloat) -> Void
@@ -75,6 +78,7 @@ struct ReplyWebView: NSViewRepresentable {
 
     func makeNSView(context: Context) -> ReplyWKWebView {
         let coordinator = context.coordinator
+        coordinator.replyID = replyID
         let configuration = WKWebViewConfiguration()
         let handler = WeakScriptHandler(coordinator)
         for name in Coordinator.messages {
@@ -108,10 +112,11 @@ struct ReplyWebView: NSViewRepresentable {
 
     @MainActor
     final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
-        static let messages = ["ready", "height", "copyCode", "openLink"]
+        static let messages = ["ready", "height", "copyCode", "openLink", "log"]
         static let pageURL = Bundle.main.url(forResource: "reply", withExtension: "html", subdirectory: "Reply")
 
         weak var webView: WKWebView?
+        var replyID: UUID?
         var onHeight: (CGFloat) -> Void = { _ in }
         private var isReady = false
         private var shown: (markdown: String, streaming: Bool)?
@@ -154,6 +159,14 @@ struct ReplyWebView: NSViewRepresentable {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(code, forType: .string)
                 }
+            case "log":
+                guard let body = message.body as? [String: Any] else { break }
+                var metadata: Logger.Metadata = ["reply": "\(replyID?.uuidString ?? "")"]
+                for (key, value) in body where key != "level" && key != "message" {
+                    metadata[key] = "\(SpotLog.clip("\(value)"))"
+                }
+                let level = Logger.Level(rawValue: body["level"] as? String ?? "") ?? .info
+                SpotLog.reply.log(level: level, "\(body["message"] as? String ?? "Page")", metadata: metadata)
             case "openLink":
                 if let string = message.body as? String, let url = URL(string: string),
                    ["http", "https", "mailto"].contains(url.scheme?.lowercased() ?? "") {
@@ -176,8 +189,17 @@ struct ReplyWebView: NSViewRepresentable {
             return .cancel
         }
 
+        func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+            SpotLog.reply.error("Reply page failed to load", metadata: ["error": "\(error)"])
+        }
+
+        func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+            SpotLog.reply.error("Reply page failed to load", metadata: ["error": "\(error)"])
+        }
+
         /// A crashed web content process leaves an empty view; loading the page again restores the reply.
         func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+            SpotLog.reply.warning("Reply page's web content process ended; loading it again", metadata: ["reply": "\(replyID?.uuidString ?? "")"])
             isReady = false
             shown = nil
             if let page = Self.pageURL {

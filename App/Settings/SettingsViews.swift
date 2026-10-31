@@ -352,8 +352,33 @@ struct GeneralSettingsView: View {
                 }
                 .accessibilityIdentifier("cardHeight")
             }
+
+            Section("Logs") {
+                HStack {
+                    Button("Export Logs…", action: Self.exportLogs)
+                        .accessibilityIdentifier("exportLogs")
+                    Button("Show in Finder", action: AppLogging.showInFinder)
+                }
+            }
         }
         .formStyle(.grouped)
+    }
+
+    /// Saves the log as one file where the user picks.
+    private static func exportLogs() {
+        let date = Date().formatted(.iso8601.year().month().day())
+        if let path = UserDefaults.standard.string(forKey: AppDelegate.LaunchOption.logExportPath) {
+            try? AppLogging.export(to: URL(fileURLWithPath: path))
+            return
+        }
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = "Spot Chat \(date).log"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try AppLogging.export(to: url)
+        } catch {
+            NSAlert(error: error).runModal()
+        }
     }
 
     static let promptVariables: [(variable: PromptVariable, label: LocalizedStringKey)] = [

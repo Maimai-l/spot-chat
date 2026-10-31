@@ -1,4 +1,5 @@
 import Foundation
+import Logging
 #if canImport(FoundationNetworking)
 import FoundationNetworking
 #endif
@@ -98,23 +99,43 @@ public struct OpenAICompatibleClient: ChatResponder {
     /// choices are skipped, thinking arrives as `reasoning_content`, and cache hits are reported as
     /// `prompt_cache_hit_tokens` rather than OpenAI's `cached_tokens`.
     public func stream(_ request: ChatRequest) -> AsyncThrowingStream<ReplyChunk, Error> {
+        let log = SpotLog.network.with(id: "request")
         let urlRequest: URLRequest
         do {
             urlRequest = try makeStreamRequest(request)
         } catch {
+            log.error("Couldn't build the request", metadata: ["error": "\(error)"])
             return AsyncThrowingStream { $0.finish(throwing: ChatServiceError(error)) }
         }
+        log.info("Request", metadata: [
+            "url": "\(urlRequest.url?.absoluteString ?? "")",
+            "model": "\(request.model)",
+            "messages": "\(request.messages.count)",
+            "tools": "\(request.tools.map(\.name).joined(separator: ","))",
+            "thinking": "\(request.thinking)",
+        ])
+        log.debug("Request body", metadata: ["body": "\(SpotLog.body(urlRequest.httpBody ?? Data()))"])
         return AsyncThrowingStream { continuation in
             let task = Task {
+                let started = Date()
+                var lineCount = 0
+                var text = ""
+                var reasoning = ""
                 do {
                     let (bytes, response) = try await URLSession.shared.bytes(for: urlRequest)
                     let status = (response as? HTTPURLResponse)?.statusCode ?? 200
+                    log.info("Response", metadata: [
+                        "status": "\(status)", "ms": "\(Int(Date().timeIntervalSince(started) * 1000))",
+                    ])
                     guard (200..<300).contains(status) else {
                         var body = Data()
                         for try await byte in bytes {
                             body.append(byte)
                             if body.count > 65_536 { break }
                         }
+                        log.error("Service refused the request", metadata: [
+                            "status": "\(status)", "body": "\(SpotLog.clip(String(decoding: body, as: UTF8.self)))",
+                        ])
                         throw ChatServiceError(statusCode: status, body: body)
                     }
                     // Services that put the thinking inside the reply as <think>…</think> get it folded too.
@@ -122,6 +143,11 @@ public struct OpenAICompatibleClient: ChatResponder {
                     var toolCalls = ToolCallAssembler()
                     func pass(_ chunks: [ReplyChunk]) {
                         for chunk in chunks {
+                            switch chunk {
+                            case let .text(part): text += part
+                            case let .reasoning(part): reasoning += part
+                            default: break
+                            }
                             if case let .text(text) = chunk {
                                 for part in tags.feed(text) { continuation.yield(part) }
                             } else {
@@ -130,6 +156,9 @@ public struct OpenAICompatibleClient: ChatResponder {
                         }
                     }
                     lines: for try await line in bytes.lines {
+                        lineCount += 1
+                        // Every line as the service sent it, to tell its mistakes from ours.
+                        log.trace("Line", metadata: ["n": "\(lineCount)", "line": "\(SpotLog.clip(line))"])
                         switch try StreamLine.decode(line) {
                         case let .chunks(chunks):
                             pass(chunks)
@@ -145,12 +174,24 @@ public struct OpenAICompatibleClient: ChatResponder {
                     for part in tags.finish() { continuation.yield(part) }
                     let calls = toolCalls.result
                     if !calls.isEmpty { continuation.yield(.toolCalls(calls)) }
+                    log.info("Finished", metadata: [
+                        "ms": "\(Int(Date().timeIntervalSince(started) * 1000))", "lines": "\(lineCount)",
+                        "characters": "\(text.count)", "reasoningCharacters": "\(reasoning.count)",
+                        "toolCalls": "\(calls.map(\.name).joined(separator: ","))",
+                    ])
+                    log.debug("Reply text", metadata: ["text": "\(SpotLog.clip(text))"])
                     continuation.finish()
                 } catch is CancellationError {
+                    log.info("Cancelled", metadata: ["lines": "\(lineCount)", "characters": "\(text.count)"])
                     continuation.finish(throwing: CancellationError())
                 } catch let error as URLError where error.code == .cancelled {
+                    log.info("Cancelled", metadata: ["lines": "\(lineCount)", "characters": "\(text.count)"])
                     continuation.finish(throwing: CancellationError())
                 } catch {
+                    log.error("Failed", metadata: [
+                        "error": "\(error)", "lines": "\(lineCount)", "characters": "\(text.count)",
+                        "ms": "\(Int(Date().timeIntervalSince(started) * 1000))",
+                    ])
                     continuation.finish(throwing: ChatServiceError(error))
                 }
             }
@@ -220,10 +261,14 @@ public struct OpenAICompatibleClient: ChatResponder {
 
     /// The model ids the service offers, sorted.
     public func listModels() async throws -> [String] {
+        let log = SpotLog.network.with(id: "request")
+        log.info("Listing models", metadata: ["host": "\(endpoint.host)"])
         do {
             let result: ModelsResult = try await makeClient().models()
+            log.info("Listed models", metadata: ["models": "\(result.data.map(\.id).sorted().joined(separator: ","))"])
             return result.data.map(\.id).sorted()
         } catch {
+            log.error("Couldn't list models", metadata: ["error": "\(error)"])
             throw ChatServiceError(error)
         }
     }

@@ -1,4 +1,5 @@
 import Foundation
+import Logging
 import GRDB
 import SpotCore
 
@@ -572,6 +573,7 @@ public struct PreferenceService: Sendable {
 
     public func set<T: Encodable>(_ key: String, to value: T) throws {
         let text = String(decoding: try JSONEncoder().encode(value), as: UTF8.self)
+        SpotLog.data.info("Setting saved", metadata: ["key": "\(key)", "value": "\(SpotLog.clip(text, limit: 2000))"])
         let now = Timestamp.milliseconds(Date())
         try database.writer.write { [scope] db in
             try db.execute(sql: """

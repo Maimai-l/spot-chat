@@ -51,7 +51,7 @@ final class AppModel: ObservableObject {
         modelService = ModelService(database: database)
         preferenceService = PreferenceService(database: database)
         assistantService = AssistantService(database: database)
-        try? providerService.ensureBuiltInProviders()
+        logged { try providerService.ensureBuiltInProviders() }
         reloadProviders()
         reloadPreferences()
         reloadTopics()
@@ -91,12 +91,12 @@ final class AppModel: ObservableObject {
     /// Remembers that the model's service rejects effort levels, as LiteLLM and others handle it.
     func markWithoutEffort(_ modelID: String) {
         modelsWithoutEffort.insert(modelID)
-        try? preferenceService.set(PreferenceKey.modelsWithoutEffort, to: modelsWithoutEffort.sorted())
+        logged { try preferenceService.set(PreferenceKey.modelsWithoutEffort, to: modelsWithoutEffort.sorted()) }
     }
 
     func setThinking(_ level: ThinkingLevel, for model: ProviderModel) {
         thinkingLevels[model.id] = level
-        try? preferenceService.set(PreferenceKey.thinkingLevels, to: thinkingLevels)
+        logged { try preferenceService.set(PreferenceKey.thinkingLevels, to: thinkingLevels) }
     }
 
     /// Whether the model is served by DeepSeek's own API, whose thinking levels differ.
@@ -112,12 +112,12 @@ final class AppModel: ObservableObject {
 
     func setDefaultModel(_ id: String) {
         defaultModelID = id
-        try? preferenceService.set(PreferenceKey.defaultModel, to: id)
+        logged { try preferenceService.set(PreferenceKey.defaultModel, to: id) }
     }
 
     func setSearchesTheWeb(_ on: Bool) {
         searchesTheWeb = on
-        try? preferenceService.set(PreferenceKey.webSearch, to: on)
+        logged { try preferenceService.set(PreferenceKey.webSearch, to: on) }
     }
 
     /// Web search for a chat with the model: DeepSeek's Search and Fetch API, with the model's own key.
@@ -200,7 +200,7 @@ final class AppModel: ObservableObject {
 
     func setDefaultCommandFolder(_ folder: URL) {
         defaultCommandFolder = folder
-        try? preferenceService.set(PreferenceKey.commandFolder, to: folder.path)
+        logged { try preferenceService.set(PreferenceKey.commandFolder, to: folder.path) }
     }
 
     /// The default folder, made if it isn't there yet.
@@ -223,17 +223,17 @@ final class AppModel: ObservableObject {
     }
 
     func setProviderEnabled(_ id: String, _ isEnabled: Bool) {
-        try? providerService.setEnabled(id, isEnabled)
+        logged { try providerService.setEnabled(id, isEnabled) }
         reloadProviders()
     }
 
     func updateProvider(_ provider: Provider) {
-        try? providerService.update(provider)
+        logged { try providerService.update(provider) }
         reloadProviders()
     }
 
     func deleteProvider(_ id: String) {
-        try? providerService.delete(id)
+        logged { try providerService.delete(id) }
         reloadProviders()
     }
 
@@ -246,7 +246,7 @@ final class AppModel: ObservableObject {
     }
 
     func removeModel(_ id: String) {
-        try? modelService.remove(id)
+        logged { try modelService.remove(id) }
         reloadProviders()
     }
 
@@ -306,7 +306,7 @@ final class AppModel: ObservableObject {
 
     func setBringsSelection(_ on: Bool) {
         bringsSelection = on
-        try? preferenceService.set(PreferenceKey.bringSelection, to: on)
+        logged { try preferenceService.set(PreferenceKey.bringSelection, to: on) }
         // Turning it on asks macOS for access again, since the first request may have been dismissed.
         if on { _ = SelectionReader.hasAccess(prompt: true) }
     }
@@ -314,22 +314,22 @@ final class AppModel: ObservableObject {
     func noteAskedForSelectionAccess() {
         guard !askedForSelectionAccess else { return }
         askedForSelectionAccess = true
-        try? preferenceService.set(PreferenceKey.selectionAccessRequested, to: true)
+        logged { try preferenceService.set(PreferenceKey.selectionAccessRequested, to: true) }
     }
 
     func setSystemPrompt(_ prompt: String) {
         systemPrompt = prompt
-        try? preferenceService.set(PreferenceKey.systemPrompt, to: prompt)
+        logged { try preferenceService.set(PreferenceKey.systemPrompt, to: prompt) }
     }
 
     func setRetentionPolicy(_ policy: RetentionPolicy) {
         retentionPolicy = policy
-        try? preferenceService.set(PreferenceKey.miniRetentionMinutes, to: policy.storedMinutes)
+        logged { try preferenceService.set(PreferenceKey.miniRetentionMinutes, to: policy.storedMinutes) }
     }
 
     func setCardHeight(_ height: Int) {
         cardHeight = height.clamped(to: Self.cardHeightRange)
-        try? preferenceService.set(PreferenceKey.cardHeight, to: cardHeight)
+        logged { try preferenceService.set(PreferenceKey.cardHeight, to: cardHeight) }
     }
 
     // MARK: History
@@ -341,12 +341,12 @@ final class AppModel: ObservableObject {
     func renameTopic(_ id: UUID, to name: String) {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        try? topicService.rename(id, to: trimmed)
+        logged { try topicService.rename(id, to: trimmed) }
         reloadTopics()
     }
 
     func deleteTopic(_ id: UUID) {
-        try? topicService.delete(id)
+        logged { try topicService.delete(id) }
         reloadTopics()
         historyRevision += 1
     }
