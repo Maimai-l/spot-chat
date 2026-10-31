@@ -136,9 +136,6 @@ enum ComposerLayout {
     static let baseHeight: CGFloat = 54
     /// The input's corners are circular arcs of the same radius at every height, as in Gemini.
     static let shape = RoundedRectangle(cornerRadius: 24, style: .circular)
-    /// The + glyph and the text field's text sit about a point above the row's center;
-    /// the model name and icons at the end are raised by the same amount so the row reads level.
-    static let trailingLift: CGFloat = 1
     static let attachmentsRowHeight: CGFloat = 64
     static let tagRowHeight: CGFloat = 26
     static let noticeRowHeight: CGFloat = 16
@@ -146,9 +143,9 @@ enum ComposerLayout {
     /// As in Gemini, text above the buttons has its first line's center 27 from the top and its last
     /// line's 41 above the buttons' center, and the buttons sit 26 from the bottom, a little lower than
     /// in a single row: one line makes the bar 94 tall and each further line adds 20.
-    static let textTop: CGFloat = 5.5
+    static let textTop: CGFloat = 5
     static let textGap: CGFloat = 8
-    static let expandedRowDrop: CGFloat = 1.5
+    static let expandedRowDrop: CGFloat = 1
 
     /// What text above the buttons adds to the bar's height.
     static func expandedExtra(textHeight: CGFloat) -> CGFloat {

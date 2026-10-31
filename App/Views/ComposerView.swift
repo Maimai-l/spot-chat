@@ -82,7 +82,6 @@ struct ComposerView: View {
                     }
                     if let folder = session.commandFolder {
                         CommandFolderChip(folder: folder, chooseFolder: actions.chooseCommandFolder, turnOff: actions.toggleCommands)
-                            .offset(y: -ComposerLayout.trailingLift)
                     }
                 }
                 ComposerField(
@@ -129,9 +128,7 @@ struct ComposerView: View {
     private var trailingControls: some View {
         HStack(spacing: 6) {
             ModelMenu(app: app, openSettings: actions.openSettings)
-                .offset(y: -ComposerLayout.trailingLift)
             EffortMenu(app: app)
-                .offset(y: -ComposerLayout.trailingLift)
             if session.isGenerating {
                 StopButton(action: actions.escape)
             } else if composer.hasContent {
@@ -141,13 +138,11 @@ struct ComposerView: View {
                     action: actions.submit
                 )
                 .frame(width: 28, height: 28)
-                .offset(y: -ComposerLayout.trailingLift)
                 .accessibilityIdentifier("send")
             }
             if let expand = actions.expand {
                 CircleIconButton.expand(action: expand)
                     .frame(width: 28, height: 28)
-                    .offset(y: -ComposerLayout.trailingLift)
             }
         }
         .fixedSize()
@@ -505,7 +500,6 @@ struct WebSearchModeButton: View {
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
-        .offset(y: -ComposerLayout.trailingLift)
         .help(Text("Search the Web"))
         .accessibilityLabel(Text("Search the Web"))
         .accessibilityIdentifier("webSearchMode")
