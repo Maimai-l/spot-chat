@@ -237,13 +237,19 @@ public struct OpenAICompatibleClient: ChatResponder {
         return urlRequest
     }
 
+    /// DeepSeek's sampling temperature when thinking is off (its default is 1.0).
+    static let nonThinkingTemperature = 0.7
+
     /// The request fields for a thinking level, after Cherry Studio's provider registry
     /// (packages/provider-registry/src/providers/deepseek.ts and reasoningProfiles.ts).
     static func thinkingFields(_ level: ThinkingLevel, isDeepSeek: Bool) -> [String: Any] {
         if isDeepSeek {
             switch level {
             case .automatic: return [:]
-            case .off: return ["thinking": ["type": "disabled"]]
+            // Without thinking, deepseek-flash fixes top_p at 1.0, so at the default temperature of 1.0 it
+            // samples from the whole tail and now and then drops a stray token mid-word ("帮S助"). A lower
+            // temperature trims that tail; it has no effect when thinking is on.
+            case .off: return ["thinking": ["type": "disabled"], "temperature": Self.nonThinkingTemperature]
             // DeepSeek has no medium; Cherry Studio sends high for it.
             case .low: return ["thinking": ["type": "enabled"], "reasoning_effort": "low"]
             case .medium, .high: return ["thinking": ["type": "enabled"], "reasoning_effort": "high"]
