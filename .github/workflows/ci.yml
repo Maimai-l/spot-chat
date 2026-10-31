@@ -72,6 +72,13 @@ jobs:
           fi
           echo "core=$core" >> "$GITHUB_OUTPUT"
           echo "UI tests: ${tests:-all}; release build: $release; core tests: $core"
+          {
+            echo "## Plan"
+            echo
+            echo "UI tests: ${tests:-all}"
+            echo "Release build: $release"
+            echo "Core tests: $core"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   core-tests:
     name: Core logic tests
@@ -124,6 +131,16 @@ jobs:
             -clonedSourcePackagesDirPath build/SourcePackages \
             -resultBundlePath build/UITests.xcresult \
             $ONLY_TESTING
+      - name: Export screenshots and summarize
+        if: always()
+        run: python3 scripts/export_test_results.py build/UITests.xcresult build/Screenshots "$GITHUB_STEP_SUMMARY"
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Screenshots
+          path: build/Screenshots
+          if-no-files-found: ignore
       - name: Upload UI test results
         if: always()
         uses: actions/upload-artifact@v4
@@ -161,3 +178,5 @@ jobs:
         with:
           name: ${{ env.ALPHA_NAME }}
           path: build/${{ env.ALPHA_NAME }}.zip
+      - name: Summarize
+        run: echo "## Release build"$'\n\n'"$ALPHA_NAME" >> "$GITHUB_STEP_SUMMARY"
