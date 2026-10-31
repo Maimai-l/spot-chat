@@ -30,7 +30,6 @@ final class InputActions {
             submit: submit,
             escape: escape,
             openSettings: openSettings,
-            uploadImages: { [weak self] in self?.upload(imagesOnly: true, presenting: presenting) },
             uploadFiles: { [weak self] in self?.upload(imagesOnly: false, presenting: presenting) },
             shareWindow: { [weak self] window in
                 self?.composer.sharedWindow = window
@@ -48,6 +47,10 @@ final class InputActions {
             },
             menuWillOpen: menuWillOpen,
             menuDidClose: menuDidClose,
+            toggleWebSearch: { [weak self] in
+                guard let app = self?.app else { return }
+                app.setSearchesTheWeb(!app.searchesTheWeb)
+            },
             toggleCommands: { [weak self, weak session] in
                 guard let self, let session else { return }
                 self.toggleCommands(in: session)

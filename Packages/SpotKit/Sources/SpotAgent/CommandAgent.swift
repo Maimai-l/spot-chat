@@ -35,6 +35,8 @@ public struct CommandAgentOptions: Sendable {
     public var effort: String?
     /// Another address for DeepSeek's Search and Fetch API, for tests.
     public var webToolsURL: String?
+    /// Whether dsh may search the web and read pages.
+    public var searchesTheWeb = true
 
     public init(
         apiKey: String, baseURL: String? = nil, home: URL, model: String? = nil, effort: String? = nil,
@@ -101,6 +103,8 @@ public actor CommandAgent {
     private var runs: [String: CommandRun] = [:]
     /// Set when the user stops the turn: what fails from then on was stopped.
     private var isCancelling = false
+    /// Set when a setting dsh reads at launch has changed.
+    private var needsRestart = false
 
     /// dsh's session updates in the order it sent them, and marks for catching up with them.
     private enum Inbound: Sendable {
@@ -133,7 +137,13 @@ public actor CommandAgent {
     /// Starts dsh and opens a session: the earlier one when dsh still has it, otherwise a new one.
     /// Returns the session's id.
     public func start(resuming earlier: String?) async throws -> String {
-        if let sessionID, isRunning { return sessionID }
+        if let sessionID, isRunning, !needsRestart { return sessionID }
+        var earlier = earlier
+        if needsRestart {
+            earlier = sessionID ?? earlier
+            shutDown()
+            needsRestart = false
+        }
         try prepareHome()
 
         let process = Process()
@@ -221,9 +231,15 @@ public actor CommandAgent {
         return sessionID
     }
 
-    public func update(model: String?, effort: String?) {
+    /// Settings for the next turn. dsh reads whether it may search the web when it starts, so a change
+    /// there restarts it, back in the same session.
+    public func update(model: String?, effort: String?, searchesTheWeb: Bool) {
         options.model = model
         options.effort = effort
+        if options.searchesTheWeb != searchesTheWeb {
+            options.searchesTheWeb = searchesTheWeb
+            needsRestart = isRunning
+        }
     }
 
     /// Sends the question with links to `paths`, and returns when dsh has answered.
@@ -484,6 +500,7 @@ public actor CommandAgent {
         environment["DEEPSEEK_API_KEY"] = options.apiKey
         if let baseURL = options.baseURL { environment["DEEPSEEK_BASE_URL"] = baseURL }
         if let webToolsURL = options.webToolsURL { environment["SPOT_CHAT_WEB_TOOLS_URL"] = webToolsURL }
+        if !options.searchesTheWeb { environment["SPOT_CHAT_WEB"] = "off" }
         environment["NO_COLOR"] = "1"
         environment["DO_NOT_TRACK"] = "1"
         return environment

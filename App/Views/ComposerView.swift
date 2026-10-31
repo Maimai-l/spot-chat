@@ -7,7 +7,6 @@ struct ComposerActions {
     var submit: () -> Void
     var escape: () -> Void
     var openSettings: () -> Void
-    var uploadImages: () -> Void
     var uploadFiles: () -> Void
     var shareWindow: (SharableWindow) -> Void
     var showPermissionGuide: () -> Void
@@ -18,7 +17,9 @@ struct ComposerActions {
     var menuDidClose: () -> Void
     /// Shown as the last button in the capsule.
     var expand: (() -> Void)? = nil
-    /// Turns running commands on, asking for a folder, or off.
+    /// Turns web search on or off.
+    var toggleWebSearch: () -> Void = {}
+    /// Turns running commands on, in the default folder, or off.
     var toggleCommands: () -> Void = {}
     var chooseCommandFolder: () -> Void = {}
     /// Picks files and folders to point to by path.
@@ -43,7 +44,8 @@ struct ComposerView: View {
         let measured = ComposerTextMetrics.expandedHeight(
             for: composer.draft,
             rowWidth: width,
-            trailingWidth: trailingWidth
+            trailingWidth: trailingWidth,
+            leadingWidth: app.searchesTheWeb && webSearchAvailable ? 73 : 35
         )
         // The folder chip takes the row's space, so the text sits above the buttons.
         let textHeight = session.commandFolder != nil ? max(measured, ComposerTextMetrics.oneLineHeight) : measured
@@ -69,9 +71,15 @@ struct ComposerView: View {
             }
             ComposerRowLayout(textHeight: textHeight) {
                 HStack(spacing: 6) {
-                    PlusMenuButton(actions: actions, commandsOn: session.commandFolder != nil)
+                    PlusMenuButton(
+                        actions: actions, commandsOn: session.commandFolder != nil,
+                        webSearchOn: app.searchesTheWeb, webSearchAvailable: webSearchAvailable
+                    )
                         .frame(width: 32, height: 32)
                         .modifier(HoverCircle())
+                    if app.searchesTheWeb, webSearchAvailable {
+                        WebSearchModeButton(turnOff: actions.toggleWebSearch)
+                    }
                     if let folder = session.commandFolder {
                         CommandFolderChip(folder: folder, chooseFolder: actions.chooseCommandFolder, turnOff: actions.toggleCommands)
                             .offset(y: -ComposerLayout.trailingLift)
@@ -110,6 +118,11 @@ struct ComposerView: View {
         // Puts the centers of the + and of the last button half the bar's height from its ends, as Gemini does.
         .padding(.horizontal, 12)
         .onChange(of: textHeight, initial: true) { onTextHeightChange(textHeight) }
+    }
+
+    /// Chats with DeepSeek search through its API; commands search through dsh.
+    private var webSearchAvailable: Bool {
+        session.commandFolder != nil || app.canSearchTheWeb(with: app.currentModel)
     }
 
     private var trailingControls: some View {
@@ -201,9 +214,10 @@ enum ComposerTextMetrics {
     }
 
     /// The text's height above the buttons, or 0 while it fits on one line next to them.
-    static func expandedHeight(for text: String, rowWidth: CGFloat, trailingWidth: CGFloat) -> CGFloat {
+    /// `leadingWidth` is the + and the mode buttons beside it.
+    static func expandedHeight(for text: String, rowWidth: CGFloat, trailingWidth: CGFloat, leadingWidth: CGFloat = 35) -> CGFloat {
         guard rowWidth > 0, !text.isEmpty else { return 0 }
-        let rowTextWidth = rowWidth - 35 - ComposerRowLayout.gap - 3 - trailingWidth - ComposerRowLayout.gap - linePadding * 2
+        let rowTextWidth = rowWidth - leadingWidth - ComposerRowLayout.gap - 3 - trailingWidth - ComposerRowLayout.gap - linePadding * 2
         let fitsOnRow = !text.contains("\n") && width(of: text) <= rowTextWidth
         guard !fitsOnRow else { return 0 }
         let textWidth = rowWidth - expandedInset * 2 - linePadding * 2
@@ -287,6 +301,8 @@ struct ShareTag: View {
 struct PlusMenuButton: NSViewRepresentable {
     let actions: ComposerActions
     var commandsOn = false
+    var webSearchOn = false
+    var webSearchAvailable = false
 
     func makeCoordinator() -> Coordinator {
         Coordinator(actions: actions)
@@ -310,12 +326,16 @@ struct PlusMenuButton: NSViewRepresentable {
     func updateNSView(_ button: NSButton, context: Context) {
         context.coordinator.actions = actions
         context.coordinator.commandsOn = commandsOn
+        context.coordinator.webSearchOn = webSearchOn
+        context.coordinator.webSearchAvailable = webSearchAvailable
     }
 
     @MainActor
-    final class Coordinator: NSObject {
+    final class Coordinator: NSObject, NSMenuDelegate {
         var actions: ComposerActions
         var commandsOn = false
+        var webSearchOn = false
+        var webSearchAvailable = false
 
         init(actions: ComposerActions) {
             self.actions = actions
@@ -335,18 +355,29 @@ struct PlusMenuButton: NSViewRepresentable {
         private func makeMenu(windows: [SharableWindow]?) -> NSMenu {
             let menu = NSMenu()
             menu.autoenablesItems = false
-            let commands = ClosureMenuItem(title: String(localized: "Run Commands"), symbol: "apple.terminal", handler: actions.toggleCommands)
-            commands.state = commandsOn ? .on : .off
+            menu.delegate = self
+            menu.minimumWidth = ModeMenuItem.menuWidth
+            let modes = [
+                ModeMenuItem(
+                    title: String(localized: "Search the Web"), symbol: "globe", isOn: webSearchOn,
+                    handler: actions.toggleWebSearch
+                ),
+                ModeMenuItem(
+                    title: String(localized: "Run Commands"), symbol: "apple.terminal", isOn: commandsOn,
+                    handler: actions.toggleCommands
+                ),
+            ]
+            modes[0].isEnabled = webSearchAvailable
+            modes[0].render(highlighted: false)
             if commandsOn {
                 // dsh reads files where they are, so they go in by path.
                 menu.addItem(ClosureMenuItem(title: String(localized: "Add File Path…"), symbol: "paperclip", handler: actions.addPaths))
                 menu.addItem(.separator())
-                menu.addItem(commands)
+                modes.forEach(menu.addItem)
                 return menu
             }
-            menu.addItem(ClosureMenuItem(title: String(localized: "Upload Image…"), symbol: "photo", handler: actions.uploadImages))
-            menu.addItem(ClosureMenuItem(title: String(localized: "Upload File…"), symbol: "paperclip", handler: actions.uploadFiles))
-            menu.addItem(.separator())
+            // One picker takes images and files alike.
+            menu.addItem(ClosureMenuItem(title: String(localized: "Upload Image or File…"), symbol: "paperclip", handler: actions.uploadFiles))
             let share = String(localized: "Share Window")
             if let windows {
                 let item = NSMenuItem(title: share, action: nil, keyEquivalent: "")
@@ -368,8 +399,15 @@ struct PlusMenuButton: NSViewRepresentable {
                 menu.addItem(ClosureMenuItem(title: share, symbol: "macwindow.on.rectangle", handler: actions.showPermissionGuide))
             }
             menu.addItem(.separator())
-            menu.addItem(commands)
+            modes.forEach(menu.addItem)
             return menu
+        }
+
+        /// The check mark of a highlighted mode turns white with its title.
+        func menu(_ menu: NSMenu, willHighlight item: NSMenuItem?) {
+            for case let mode as ModeMenuItem in menu.items {
+                mode.render(highlighted: mode === item)
+            }
         }
 
         private static func appIcon(processID: Int32) -> NSImage? {
@@ -381,7 +419,7 @@ struct PlusMenuButton: NSViewRepresentable {
     }
 }
 
-final class ClosureMenuItem: NSMenuItem {
+class ClosureMenuItem: NSMenuItem {
     private let handler: () -> Void
 
     init(title: String, symbol: String?, handler: @escaping () -> Void) {
@@ -399,5 +437,65 @@ final class ClosureMenuItem: NSMenuItem {
 
     @objc private func run() {
         handler()
+    }
+}
+
+/// A mode in the + menu, such as Search the Web: a check mark at the end of the row when it is on,
+/// as Claude's menu shows it.
+final class ModeMenuItem: ClosureMenuItem {
+    static let menuWidth: CGFloat = 230
+    let isOn: Bool
+
+    init(title: String, symbol: String, isOn: Bool, handler: @escaping () -> Void) {
+        self.isOn = isOn
+        super.init(title: title, symbol: symbol, handler: handler)
+        render(highlighted: false)
+    }
+
+    required init(coder: NSCoder) {
+        fatalError("init(coder:) is not supported")
+    }
+
+    func render(highlighted: Bool) {
+        let font = NSFont.menuFont(ofSize: 0)
+        let style = NSMutableParagraphStyle()
+        // Past the title, at the end of the row where a submenu's arrow sits.
+        style.tabStops = [NSTextTab(textAlignment: .right, location: Self.menuWidth - 62)]
+        let color: NSColor = !isEnabled ? .disabledControlTextColor : highlighted ? .selectedMenuItemTextColor : .labelColor
+        let text = NSMutableAttributedString(
+            string: title, attributes: [.font: font, .paragraphStyle: style, .foregroundColor: color]
+        )
+        if isOn {
+            let checkColor: NSColor = !isEnabled ? .disabledControlTextColor : highlighted ? .selectedMenuItemTextColor : .controlAccentColor
+            let configuration = NSImage.SymbolConfiguration(pointSize: font.pointSize, weight: .semibold)
+                .applying(NSImage.SymbolConfiguration(paletteColors: [checkColor]))
+            let attachment = NSTextAttachment()
+            attachment.image = NSImage(systemSymbolName: "checkmark", accessibilityDescription: nil)?
+                .withSymbolConfiguration(configuration)
+            text.append(NSAttributedString(string: "\t", attributes: [.font: font, .paragraphStyle: style]))
+            text.append(NSAttributedString(attachment: attachment))
+        }
+        attributedTitle = text
+    }
+}
+
+/// The globe beside the + while web search is on, round like the + itself. Clicking it turns it off.
+struct WebSearchModeButton: View {
+    let turnOff: () -> Void
+
+    var body: some View {
+        Button(action: turnOff) {
+            Image(systemName: "globe")
+                .font(.system(size: 15))
+                .foregroundStyle(Color(nsColor: .controlAccentColor))
+                .frame(width: 32, height: 32)
+                .background(Circle().fill(Color(nsColor: .controlAccentColor).opacity(0.13)))
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .offset(y: -ComposerLayout.trailingLift)
+        .help(Text("Search the Web"))
+        .accessibilityLabel(Text("Search the Web"))
+        .accessibilityIdentifier("webSearchMode")
     }
 }

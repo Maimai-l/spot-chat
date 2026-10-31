@@ -122,7 +122,17 @@ final class AppModel: ObservableObject {
 
     /// Web search for a chat with the model: DeepSeek's Search and Fetch API, with the model's own key.
     func webTools(for model: ProviderModel) -> DeepSeekWebTools? {
-        guard searchesTheWeb, let provider = provider(for: model), !provider.apiKey.isEmpty else { return nil }
+        guard searchesTheWeb else { return nil }
+        return availableWebTools(for: model)
+    }
+
+    /// Whether the model can search the web at all: DeepSeek's, with a key.
+    func canSearchTheWeb(with model: ProviderModel?) -> Bool {
+        model.flatMap { availableWebTools(for: $0) } != nil
+    }
+
+    private func availableWebTools(for model: ProviderModel) -> DeepSeekWebTools? {
+        guard let provider = provider(for: model), !provider.apiKey.isEmpty else { return nil }
         if let url = UserDefaults.standard.string(forKey: AppDelegate.LaunchOption.webToolsURL), !url.isEmpty {
             return DeepSeekWebTools(apiKey: provider.apiKey, baseURL: url)
         }
@@ -163,6 +173,7 @@ final class AppModel: ObservableObject {
             home: AppStorageLocation.dataDirectory().appendingPathComponent("Agent", isDirectory: true),
             webToolsURL: override.map { $0 + "/tools" }
         )
+        options.searchesTheWeb = searchesTheWeb
         if modelIsDeepSeek, let model {
             options.model = model.modelID
             options.effort = Self.commandEffort(requestThinking(for: model))

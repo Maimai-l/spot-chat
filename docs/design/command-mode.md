@@ -6,7 +6,7 @@ The mini window and the full window use the same parts: the input, the list of c
 
 ## Turning it on
 
-- The + menu has **Run Commands**, a menu item with a check mark.
+- The + menu has two modes, **Search the Web** and **Run Commands**, rows with a blue check mark at the end when on, as in Claude's menu. A mode that is on also shows beside the +, round like it and tinted with the accent color: a globe for web search, which clicking turns off, and the folder chip for commands. **Upload Image or File…** is one item, since one picker takes both. See [plus-menu.png](plus-menu.png).
 - Turning it on runs commands in the default folder, ~/Documents/Spot Chat, as dsh keeps its default workspace under Documents. Settings › General › Run Commands › Default Folder changes it.
 - The input then shows a chip with the folder's name, **Run Commands Movies**, next to the +. Its menu: Choose Another Folder…, Show in Finder, Stop Running Commands.
 - While commands run, files dropped or added go in **by path**. dsh reads them where they are, and only the path goes into the question. The + menu shows **Add File Path…** in place of the uploads.

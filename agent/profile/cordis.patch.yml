@@ -63,6 +63,11 @@
   config:
     searchProvider: deepseek-search-api
     fetchProvider: deepseek-fetch-api
+# Spot Chat's Search the Web switch.
+- id: tool-web
+  config:
+    search: !!js process.env.SPOT_CHAT_WEB !== 'off'
+    fetch: !!js process.env.SPOT_CHAT_WEB !== 'off'
 # Spot Chat's tests point the Search and Fetch API at a stand-in.
 - id: web-deepseek-api
   config:

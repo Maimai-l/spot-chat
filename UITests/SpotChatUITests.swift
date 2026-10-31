@@ -40,6 +40,11 @@ final class SpotChatUITests: XCTestCase {
         app.textViews["composer"].firstMatch
     }
 
+    /// A menu item by the start of its title: a mode that is on ends in a check mark.
+    func menuItem(_ title: String, in app: XCUIApplication) -> XCUIElement {
+        app.menuItems.matching(NSPredicate(format: "title BEGINSWITH %@", title)).firstMatch
+    }
+
     func element(_ identifier: String, in app: XCUIApplication) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: identifier).firstMatch
     }
@@ -141,6 +146,23 @@ final class SpotChatUITests: XCTestCase {
         attachScreenshot("Commands full window")
     }
 
+    func testWebSearchIsTurnedOffBesideThePlusAndOnFromItsMenu() throws {
+        let app = launch(resetState: true, arguments: ["-SpotChatWebToolsURL", "http://127.0.0.1:8765/v1/tools"])
+        let globe = element("webSearchMode", in: app)
+        XCTAssertTrue(globe.waitForExistence(timeout: 10), "Web search starts on, shown beside the +")
+        attachScreenshot("Web search on")
+        globe.click()
+        XCTAssertTrue(globe.waitForNonExistence(timeout: 5))
+        send("hello", in: app)
+        waitForReply(in: app, "SELF == %@", "Echo: hello")
+        XCTAssertNil(try lastRequest()["tools"], "With it off the model is offered no tools")
+        element("plusMenu", in: app).click()
+        let item = menuItem("Search the Web", in: app)
+        XCTAssertTrue(item.waitForExistence(timeout: 5))
+        item.click()
+        XCTAssertTrue(globe.waitForExistence(timeout: 5))
+    }
+
     func testChatSearchesTheWebWhenItNeedsTo() throws {
         let app = launch(resetState: true, arguments: ["-SpotChatWebToolsURL", "http://127.0.0.1:8765/v1/tools"])
         send("Please search the web", in: app)
@@ -219,12 +241,12 @@ final class SpotChatUITests: XCTestCase {
         XCTAssertTrue(element("commandFolder", in: app).waitForExistence(timeout: 10))
         element("plusMenu", in: app).click()
         XCTAssertTrue(app.menuItems["Add File Path…"].waitForExistence(timeout: 5))
-        XCTAssertFalse(app.menuItems["Upload Image…"].exists, "Files go in by path while commands run")
-        app.menuItems["Run Commands"].click()
+        XCTAssertFalse(app.menuItems["Upload Image or File…"].exists, "Files go in by path while commands run")
+        menuItem("Run Commands", in: app).click()
         XCTAssertTrue(element("commandFolder", in: app).waitForNonExistence(timeout: 5))
         element("plusMenu", in: app).click()
-        XCTAssertTrue(app.menuItems["Upload Image…"].waitForExistence(timeout: 5))
-        app.menuItems["Run Commands"].click()
+        XCTAssertTrue(app.menuItems["Upload Image or File…"].waitForExistence(timeout: 5))
+        menuItem("Run Commands", in: app).click()
         XCTAssertTrue(element("commandFolder", in: app).waitForExistence(timeout: 5), "Turning it on uses the default folder, with no folder to pick")
     }
 
@@ -332,16 +354,16 @@ final class SpotChatUITests: XCTestCase {
         attachScreenshot("zh Capsule")
 
         element("plusMenu", in: app).click()
-        XCTAssertTrue(app.menuItems["运行命令"].waitForExistence(timeout: 5))
+        XCTAssertTrue(menuItem("运行命令", in: app).waitForExistence(timeout: 5))
         attachScreenshot("zh Plus menu")
         // Turned off, and the menu again.
-        app.menuItems["运行命令"].click()
+        menuItem("运行命令", in: app).click()
         XCTAssertTrue(element("commandFolder", in: app).waitForNonExistence(timeout: 5))
         element("plusMenu", in: app).click()
-        XCTAssertTrue(app.menuItems["运行命令"].waitForExistence(timeout: 5))
+        XCTAssertTrue(menuItem("运行命令", in: app).waitForExistence(timeout: 5))
         attachScreenshot("zh Plus menu off")
         // Back on, in the folder the test set as the default.
-        app.menuItems["运行命令"].click()
+        menuItem("运行命令", in: app).click()
         XCTAssertTrue(element("commandFolder", in: app).waitForExistence(timeout: 5))
 
         send("Please list the files", in: app)
@@ -766,8 +788,10 @@ final class SpotChatUITests: XCTestCase {
         let plus = element("plusMenu", in: app)
         XCTAssertTrue(plus.waitForExistence(timeout: 10))
         plus.click()
-        XCTAssertTrue(app.menuItems["Upload Image…"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.menuItems["Upload File…"].exists)
+        XCTAssertTrue(app.menuItems["Upload Image or File…"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.menuItems["Upload File…"].exists, "Images and files are one item")
+        XCTAssertTrue(menuItem("Search the Web", in: app).exists)
+        XCTAssertTrue(menuItem("Run Commands", in: app).exists)
         XCTAssertTrue(app.menuItems["Share Window"].exists)
         app.typeKey(.escape, modifierFlags: [])
         XCTAssertTrue(composer(in: app).waitForExistence(timeout: 5), "Closing the menu keeps the capsule")

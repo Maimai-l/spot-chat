@@ -784,26 +784,6 @@
         }
       }
     },
-    "Upload File…": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "上传文件…"
-          }
-        }
-      }
-    },
-    "Upload Image…": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "上传图片…"
-          }
-        }
-      }
-    },
     "Use %@": {
       "localizations": {
         "zh-Hans": {
@@ -1594,6 +1574,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "联网搜索"
+          }
+        }
+      }
+    },
+    "Upload Image or File…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上传图片或文件…"
           }
         }
       }

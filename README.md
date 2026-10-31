@@ -20,7 +20,7 @@ The interface follows the system language, Simplified Chinese or English. Settin
 
 ## Searching the web
 
-Chats with a DeepSeek model can search the web and read pages when the model needs to, through DeepSeek's Search API with the same key. Settings › General › Search the Web turns it off.
+Chats with a DeepSeek model can search the web and read pages when the model needs to, through DeepSeek's Search API with the same key. **Search the Web** in the + menu turns it off and on.
 
 ## Running commands
 

@@ -75,9 +75,9 @@ extension ChatSession {
             // The turn and its updates run on their own: stopping asks dsh to stop and still shows how it ended.
             let turn = Task {
                 defer { sink.finish() }
+                await agent.update(model: options.model, effort: options.effort, searchesTheWeb: options.searchesTheWeb)
                 let sessionID = try await agent.start(resuming: earlierSession)
                 if sessionID != earlierSession { try? self?.app.topicService.setAgentSession(sessionID, for: topicID) }
-                await agent.update(model: options.model, effort: options.effort)
                 return try await agent.send(question.text, paths: question.paths.map { URL(fileURLWithPath: $0) }) { event in
                     sink.yield(event)
                 }

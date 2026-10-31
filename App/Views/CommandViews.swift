@@ -555,10 +555,10 @@ struct CommandFolderChip: View {
                 label(Text("Run Commands \(folder.lastPathComponent)"))
                 label(Text(folder.lastPathComponent))
             }
-            .foregroundStyle(.primary)
-            .padding(.horizontal, 10)
-            .frame(height: 28)
-            .background(Capsule().fill(Color.primary.opacity(0.07)))
+            .foregroundStyle(Color(nsColor: .controlAccentColor))
+            .padding(.horizontal, 11)
+            .frame(height: 32)
+            .background(Capsule().fill(Color(nsColor: .controlAccentColor).opacity(0.13)))
             .contentShape(Capsule())
         }
         .menuStyle(.button)
