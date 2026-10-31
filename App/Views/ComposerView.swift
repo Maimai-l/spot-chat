@@ -45,7 +45,7 @@ struct ComposerView: View {
             for: composer.draft,
             rowWidth: width,
             trailingWidth: trailingWidth,
-            leadingWidth: app.searchesTheWeb && webSearchAvailable ? 73 : 35
+            leadingWidth: app.searchesTheWeb && webSearchAvailable ? 65 : 31
         )
         // The folder chip takes the row's space, so the text sits above the buttons.
         let textHeight = session.commandFolder != nil ? max(measured, ComposerTextMetrics.oneLineHeight) : measured
@@ -75,7 +75,7 @@ struct ComposerView: View {
                         actions: actions, commandsOn: session.commandFolder != nil,
                         webSearchOn: app.searchesTheWeb, webSearchAvailable: webSearchAvailable
                     )
-                        .frame(width: 32, height: 32)
+                        .frame(width: 28, height: 28)
                         .modifier(HoverCircle())
                     if app.searchesTheWeb, webSearchAvailable {
                         WebSearchModeButton(turnOff: actions.toggleWebSearch)
@@ -115,8 +115,9 @@ struct ComposerView: View {
             }
         }
         .padding(.vertical, 8)
-        // Puts the centers of the + and of the last button half the bar's height from its ends, as Gemini does.
-        .padding(.horizontal, 12)
+        // The centers of the + and of the last button sit 26 and 24 from the ends, as in Gemini.
+        .padding(.leading, 12)
+        .padding(.trailing, 10)
         .onChange(of: textHeight, initial: true) { onTextHeightChange(textHeight) }
     }
 
@@ -139,13 +140,13 @@ struct ComposerView: View {
                     icon: SendIcon().fill().frame(width: 18, height: 16).offset(x: 1),
                     action: actions.submit
                 )
-                .frame(width: 32, height: 32)
+                .frame(width: 28, height: 28)
                 .offset(y: -ComposerLayout.trailingLift)
                 .accessibilityIdentifier("send")
             }
             if let expand = actions.expand {
                 CircleIconButton.expand(action: expand)
-                    .frame(width: 32, height: 32)
+                    .frame(width: 28, height: 28)
                     .offset(y: -ComposerLayout.trailingLift)
             }
         }
@@ -202,11 +203,18 @@ enum ComposerTextMetrics {
     static let linePadding: CGFloat = 4
     /// The text view's inset above and below the text.
     static let verticalInset: CGFloat = 4
-    static let expandedInset: CGFloat = 4
+    /// Above the buttons the text starts 17 from the edge, a little left of the + glyph, as in Gemini.
+    static let expandedInset: CGFloat = 1
     static let maxLines: CGFloat = 8
 
-    static var lineHeight: CGFloat {
-        NSLayoutManager().defaultLineHeight(for: font)
+    /// Lines are 20 apart, as in Gemini.
+    static let lineHeight: CGFloat = 20
+
+    static var paragraphStyle: NSParagraphStyle {
+        let style = NSMutableParagraphStyle()
+        style.minimumLineHeight = lineHeight
+        style.maximumLineHeight = lineHeight
+        return style
     }
 
     static var oneLineHeight: CGFloat {
@@ -215,7 +223,7 @@ enum ComposerTextMetrics {
 
     /// The text's height above the buttons, or 0 while it fits on one line next to them.
     /// `leadingWidth` is the + and the mode buttons beside it.
-    static func expandedHeight(for text: String, rowWidth: CGFloat, trailingWidth: CGFloat, leadingWidth: CGFloat = 35) -> CGFloat {
+    static func expandedHeight(for text: String, rowWidth: CGFloat, trailingWidth: CGFloat, leadingWidth: CGFloat = 31) -> CGFloat {
         guard rowWidth > 0, !text.isEmpty else { return 0 }
         let rowTextWidth = rowWidth - leadingWidth - ComposerRowLayout.gap - 3 - trailingWidth - ComposerRowLayout.gap - linePadding * 2
         let fitsOnRow = !text.contains("\n") && width(of: text) <= rowTextWidth
@@ -235,7 +243,7 @@ enum ComposerTextMetrics {
         let rect = (measured as NSString).boundingRect(
             with: NSSize(width: max(width, 1), height: .greatestFiniteMagnitude),
             options: [.usesLineFragmentOrigin, .usesFontLeading],
-            attributes: [.font: font]
+            attributes: [.font: font, .paragraphStyle: paragraphStyle]
         )
         return ceil(rect.height)
     }
@@ -316,7 +324,7 @@ struct PlusMenuButton: NSViewRepresentable {
             action: #selector(Coordinator.open(_:))
         )
         button.isBordered = false
-        button.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 17, weight: .regular)
+        button.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 15, weight: .regular)
         button.contentTintColor = .labelColor
         button.toolTip = label
         button.setAccessibilityIdentifier("plusMenu")
@@ -490,7 +498,7 @@ struct WebSearchModeButton: View {
             Image(systemName: "globe")
                 .font(.system(size: 15))
                 .foregroundStyle(Color(nsColor: .controlAccentColor))
-                .frame(width: 32, height: 32)
+                .frame(width: 28, height: 28)
                 .background(Circle().fill(Color(nsColor: .controlAccentColor).opacity(0.13)))
                 .contentShape(Circle())
         }

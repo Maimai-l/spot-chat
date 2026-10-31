@@ -133,7 +133,7 @@ final class ComposerModel: ObservableObject {
 
 /// Heights of the input area, which grows a row for attachments and one for the sharing tag.
 enum ComposerLayout {
-    static let baseHeight: CGFloat = 56
+    static let baseHeight: CGFloat = 54
     /// The input's corners are circular arcs of the same radius at every height, as in Gemini.
     static let shape = RoundedRectangle(cornerRadius: 24, style: .circular)
     /// The + glyph and the text field's text sit about a point above the row's center;
@@ -145,7 +145,7 @@ enum ComposerLayout {
     static let rowSpacing: CGFloat = 6
     /// Above the buttons, the first line's center is as far from the top as the buttons' center is in
     /// a single row, and the last line's center sits 41 above the buttons' center, as in Gemini.
-    static let textTop: CGFloat = 7
+    static let textTop: CGFloat = 5
     static let textGap: CGFloat = 8
 
     /// What text above the buttons adds to the bar's height.

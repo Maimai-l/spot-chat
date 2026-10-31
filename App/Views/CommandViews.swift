@@ -557,7 +557,7 @@ struct CommandFolderChip: View {
             }
             .foregroundStyle(Color(nsColor: .controlAccentColor))
             .padding(.horizontal, 11)
-            .frame(height: 32)
+            .frame(height: 28)
             .background(Capsule().fill(Color(nsColor: .controlAccentColor).opacity(0.13)))
             .contentShape(Capsule())
         }

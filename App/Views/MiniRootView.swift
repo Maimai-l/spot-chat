@@ -134,8 +134,8 @@ struct StopButton: View {
         Button(action: action) {
             RoundedRectangle(cornerRadius: 2)
                 .fill(Color(nsColor: .textBackgroundColor))
-                .frame(width: 11, height: 11)
-                .frame(width: 32, height: 32)
+                .frame(width: 10, height: 10)
+                .frame(width: 28, height: 28)
                 .background(Circle().fill(Color.primary))
                 .contentShape(Circle())
         }
@@ -288,7 +288,7 @@ struct CircleIconButton: View {
 
     /// Corner brackets pointing out, for expanding to the full window.
     static func expand(filled: Bool = false, action: @escaping () -> Void) -> CircleIconButton {
-        let size: CGFloat = filled ? 14 : 17
+        let size: CGFloat = filled ? 14 : 15
         return CircleIconButton(
             label: "Expand to Full Window",
             filled: filled,

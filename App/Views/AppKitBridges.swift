@@ -102,7 +102,9 @@ struct ComposerField: NSViewRepresentable {
         textView.textContainer?.widthTracksTextView = true
         textView.textContainer?.lineFragmentPadding = 4
         textView.textContainerInset = NSSize(width: 0, height: 4)
-        textView.font = .systemFont(ofSize: 16)
+        textView.font = ComposerTextMetrics.font
+        textView.defaultParagraphStyle = ComposerTextMetrics.paragraphStyle
+        textView.typingAttributes[.paragraphStyle] = ComposerTextMetrics.paragraphStyle
         textView.isRichText = false
         textView.importsGraphics = false
         textView.allowsUndo = true
@@ -127,6 +129,10 @@ struct ComposerField: NSViewRepresentable {
         guard let textView = coordinator.textView else { return }
         if textView.string != text, !textView.hasMarkedText() {
             textView.string = text
+            textView.textStorage?.addAttribute(
+                .paragraphStyle, value: ComposerTextMetrics.paragraphStyle,
+                range: NSRange(location: 0, length: (text as NSString).length)
+            )
         }
         textView.placeholder = placeholder
         textView.onPasteFiles = onPasteFiles
@@ -218,14 +224,13 @@ final class ComposerTextView: NSTextView {
         super.draw(dirtyRect)
         guard string.isEmpty, !hasMarkedText() else { return }
         let attributes: [NSAttributedString.Key: Any] = [
-            .font: font ?? NSFont.systemFont(ofSize: 16),
+            .font: font ?? ComposerTextMetrics.font,
             .foregroundColor: NSColor.placeholderTextColor,
+            .paragraphStyle: ComposerTextMetrics.paragraphStyle,
         ]
-        let origin = NSPoint(
-            x: textContainerOrigin.x + (textContainer?.lineFragmentPadding ?? 0),
-            y: textContainerOrigin.y
-        )
-        (placeholder as NSString).draw(at: origin, withAttributes: attributes)
+        let x = textContainerOrigin.x + (textContainer?.lineFragmentPadding ?? 0)
+        let rect = NSRect(x: x, y: textContainerOrigin.y, width: max(bounds.width - x, 0), height: ComposerTextMetrics.lineHeight)
+        (placeholder as NSString).draw(with: rect, options: [.usesLineFragmentOrigin], attributes: attributes)
     }
 
     override func didChangeText() {
