@@ -140,9 +140,9 @@ enum ComposerLayout {
     static let tagRowHeight: CGFloat = 26
     static let noticeRowHeight: CGFloat = 16
     static let rowSpacing: CGFloat = 6
-    /// Above the buttons, the first line's center sits 28 from the top and the last line's 42 above
-    /// the buttons' center.
-    static let textTop: CGFloat = 6.5
+    /// Above the buttons, the first line's center is as far from the top as the buttons' center is in
+    /// a single row, and the last line's center sits 41 above the buttons' center, as in Gemini.
+    static let textTop: CGFloat = 7
     static let textGap: CGFloat = 8
 
     /// What text above the buttons adds to the bar's height.
