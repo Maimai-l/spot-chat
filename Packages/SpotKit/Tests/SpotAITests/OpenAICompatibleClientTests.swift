@@ -56,7 +56,7 @@ struct OpenAICompatibleClientTests {
             switch chunk {
             case let .reasoning(part): thinking += part
             case let .text(part): text += part
-            case .usage: break
+            case .usage, .toolCalls: break
             }
         }
         #expect(thinking == "The user asks for a sum.")

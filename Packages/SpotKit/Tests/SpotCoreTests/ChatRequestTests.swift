@@ -193,7 +193,7 @@ struct ThinkTagSplitterTests {
             switch chunk {
             case let .reasoning(part): thinking += part
             case let .text(part): text += part
-            case .usage: break
+            case .usage, .toolCalls: break
             }
         }
         return (thinking, text)
