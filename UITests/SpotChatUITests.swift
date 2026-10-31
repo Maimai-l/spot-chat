@@ -7,6 +7,17 @@ final class SpotChatUITests: XCTestCase {
     static let mockURL = "http://127.0.0.1:8765/v1"
     let dataDirectory = NSTemporaryDirectory() + "SpotChatUITests"
 
+    /// Every failure carries a screenshot of the screen as it was, named after the test.
+    override func record(_ issue: XCTIssue) {
+        var issue = issue
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        let test = name.split(separator: " ").last.map { String($0.dropLast()) } ?? name
+        attachment.name = "Failure \(test)"
+        attachment.lifetime = .keepAlways
+        issue.add(attachment)
+        super.record(issue)
+    }
+
     override func setUp() {
         continueAfterFailure = false
     }
@@ -972,7 +983,8 @@ final class SpotChatUITests: XCTestCase {
 
         collapse.click()
         XCTAssertTrue(collapse.waitForNonExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["New Chat"].waitForExistence(timeout: 5), "The card shows the same conversation")
+        // The window settles back into the card after its animation, which CI's machines sometimes slow down.
+        XCTAssertTrue(app.buttons["New Chat"].waitForExistence(timeout: 10), "The card shows the same conversation")
         waitForReply(in: app, "SELF == %@", "Echo: carry over")
     }
 
