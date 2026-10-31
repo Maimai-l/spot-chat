@@ -511,8 +511,10 @@ final class ModeMenuItem: ClosureMenuItem {
             // A spacer of measured width puts every row's check mark at the same place near the end.
             let titleWidth = (title as NSString).size(withAttributes: [.font: font]).width
             let checkWidth = check.image?.size.width ?? 0
+            // Menus lay out an attachment by its image's size, so the spacer is a blank image of that width.
+            let spacerWidth = max(12, width - 96 - titleWidth - checkWidth)
             let spacer = NSTextAttachment()
-            spacer.bounds = CGRect(x: 0, y: 0, width: max(12, width - 96 - titleWidth - checkWidth), height: 1)
+            spacer.image = NSImage(size: NSSize(width: spacerWidth, height: 1), flipped: false) { _ in true }
             text.append(NSAttributedString(attachment: spacer))
             text.append(NSAttributedString(attachment: check))
         }
