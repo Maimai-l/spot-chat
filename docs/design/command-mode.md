@@ -15,8 +15,9 @@ The mini window and the full window use the same parts: the input, the list of c
 
 Everything is black, white and gray, as in Claude. The one color, the system accent color, marks a step that waits for the user.
 
-- A reply shows its text, then **Ran 2 commands**, folded under one line like Thinking. It is open while the reply is being written.
-- Each command is a gray line: the tool's icon (a spinner while it runs), dsh's summary, and the time it took. Below are the command in a code box and the end of its output. A running command has a Stop button.
+- A reply shows its text, then what it did in one line, as in Claude: **Ran 2 commands, searched the web, read 1 page**. It is open while the reply is being written.
+- Each step is one line, what it did in gray and what it did it to in black: dsh's summary of a command, **Searched the web** and the query, **Read** and the page's title. A line opens to its details: a command and the end of its output; a search's results, each a title with its site at the end, opening in the browser; a page's address. A running command has a Stop button and a finished one its time.
+- Results are marked with a globe, not the sites' own icons, which would mean a request to every site.
 - How a command ended is said in gray words, not colors: Stopped by the sandbox, Denied, Stopped, Ran outside the folder, Exited with code 1.
 - When the sandbox stops a command and dsh asks to run the same command outside the folder, only the question is shown: the stopped try says nothing the question doesn't.
 - A command that waits for the user shows a dot in the system accent color and **Needs your input** in gray. The accent color is the one color on screen; it follows the user's choice in System Settings and suits the translucent window, as Mail's unread dot does.
