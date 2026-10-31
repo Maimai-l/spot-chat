@@ -1,125 +1,119 @@
 name: CI
 
-# While iterating, a commit can run only some UI tests by naming them in its message, for example
-# "[ui: testLayoutScreenshots testSendButtonAppearsOnlyWithText]". Without that, every UI test runs
-# and the release app is built and packaged as an alpha; a run of only some tests skips the release build.
-# The core tests run only when the core package, the reply page or the mock server changed.
+# What a push runs is chosen by tags in its commit message:
+#   no tag                     every UI test, and the release app packaged as an alpha
+#   [ui: testA testB]          only those UI tests, no release build
+#   [ui: none]                 no UI tests
+#   [release]                  the release build as well, e.g. "[ui: none] [release]" to only package
+# The core tests run when the core package, the reply page, the mock server or CI changed.
+# UI tests and the release build run side by side on separate machines.
 on:
   push:
   pull_request:
   workflow_dispatch:
     inputs:
       ui_tests:
-        description: UI tests to run, separated by spaces. Empty runs all of them.
+        description: UI tests to run, separated by spaces; empty runs all of them, "none" runs none.
         required: false
         default: ""
+      release:
+        description: Build and package the release app.
+        type: boolean
+        default: true
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  core-tests:
-    name: Core logic tests
-    runs-on: macos-15
+  plan:
+    name: Choose what to run
+    runs-on: ubuntu-latest
+    outputs:
+      core: ${{ steps.plan.outputs.core }}
+      ui: ${{ steps.plan.outputs.ui }}
+      only: ${{ steps.plan.outputs.only }}
+      release: ${{ steps.plan.outputs.release }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Check whether core code changed
-        id: changes
+      - name: Read the commit's tags
+        id: plan
         env:
+          MESSAGE: ${{ github.event.head_commit.message }}
           BEFORE: ${{ github.event.before }}
+          REQUESTED: ${{ github.event.inputs.ui_tests }}
+          REQUESTED_RELEASE: ${{ github.event.inputs.release }}
         run: |
-          if [ "$GITHUB_EVENT_NAME" != "push" ] || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
-            echo "run=true" >> "$GITHUB_OUTPUT"
-          elif git diff --name-only "$BEFORE" "$GITHUB_SHA" | grep -qE '^(Packages/|Web/|App/Reply/|scripts/|\.github/)'; then
-            echo "run=true" >> "$GITHUB_OUTPUT"
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            tests="$REQUESTED"
+            release="$REQUESTED_RELEASE"
           else
-            echo "run=false" >> "$GITHUB_OUTPUT"
-            echo "No changes to the core package, the reply page or the mock server; skipping."
+            tests="$(printf '%s\n' "$MESSAGE" | sed -n 's/.*\[ui: *\([^]]*\)\].*/\1/p' | head -n 1)"
+            if [ -z "$tests" ] || printf '%s\n' "$MESSAGE" | grep -q '\[release\]'; then release=true; else release=false; fi
           fi
+          if [ "$tests" = "none" ]; then
+            echo "ui=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ui=true" >> "$GITHUB_OUTPUT"
+            only=""
+            for test in $tests; do only="$only -only-testing:SpotChatUITests/SpotChatUITests/$test"; done
+            echo "only=$only" >> "$GITHUB_OUTPUT"
+          fi
+          echo "release=$release" >> "$GITHUB_OUTPUT"
+
+          if [ "$GITHUB_EVENT_NAME" != "push" ] || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            core=true
+          elif git diff --name-only "$BEFORE" "$GITHUB_SHA" | grep -qE '^(Packages/|Web/|App/Reply/|scripts/|\.github/)'; then
+            core=true
+          else
+            core=false
+          fi
+          echo "core=$core" >> "$GITHUB_OUTPUT"
+          echo "UI tests: ${tests:-all}; release build: $release; core tests: $core"
+
+  core-tests:
+    name: Core logic tests
+    needs: plan
+    if: needs.plan.outputs.core == 'true'
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
       - name: Select Xcode 16
-        if: steps.changes.outputs.run == 'true'
         run: |
           for v in 16.4 16.3 16.2 16.1 16; do
             if [ -d "/Applications/Xcode_$v.app" ]; then sudo xcode-select -s "/Applications/Xcode_$v.app"; break; fi
           done
           xcodebuild -version
       - name: Start mock OpenAI server
-        if: steps.changes.outputs.run == 'true'
         run: nohup python3 scripts/mock_openai_server.py 8765 > mock-server.log 2>&1 &
       - name: Run tests
-        if: steps.changes.outputs.run == 'true'
         env:
           MOCK_OPENAI_BASE_URL: http://127.0.0.1:8765/v1
         run: swift test --package-path Packages/SpotKit
       - name: Test the reply page and check its build is committed
-        if: steps.changes.outputs.run == 'true'
         working-directory: Web
         run: |
           npm ci
           npm test
           npm run check
 
-  app:
-    name: Build app and run UI tests
+  ui-tests:
+    name: UI tests
+    needs: plan
+    if: needs.plan.outputs.ui == 'true'
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
-      - name: Select Xcode 16
-        run: |
-          for v in 16.4 16.3 16.2 16.1 16; do
-            if [ -d "/Applications/Xcode_$v.app" ]; then sudo xcode-select -s "/Applications/Xcode_$v.app"; break; fi
-          done
-          xcodebuild -version
-      - name: Install XcodeGen
-        run: brew install xcodegen
-      - name: Set up Node for the command runtime
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24.22.2
-      - name: Restore the command runtime
-        id: agent-cache
-        uses: actions/cache@v4
-        with:
-          path: build/AgentRuntime
-          key: agent-runtime-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('agent/**', 'scripts/build_agent_runtime.py') }}
-      - name: Build the command runtime
-        if: steps.agent-cache.outputs.cache-hit != 'true'
-        run: python3 scripts/build_agent_runtime.py --node "$(dirname "$(dirname "$(which node)")")" --out build/AgentRuntime
-      - name: Test the command runtime and its macOS sandbox
-        if: steps.agent-cache.outputs.cache-hit != 'true'
-        run: bash scripts/agent_smoke_test.sh build/AgentRuntime
-      - name: Restore Swift packages
-        uses: actions/cache@v4
-        with:
-          path: build/SourcePackages
-          key: spm-${{ runner.os }}-${{ hashFiles('project.yml', 'Packages/SpotKit/Package.swift', 'Packages/SpotKit/Package.resolved') }}
-          restore-keys: spm-${{ runner.os }}-
-      - name: Generate Xcode project
-        run: xcodegen generate
+      - uses: ./.github/actions/prepare-app
       - name: Start mock OpenAI server
         run: nohup python3 scripts/mock_openai_server.py 8765 > mock-server.log 2>&1 &
       - name: Allow UI automation
         run: sudo automationmodetool enable-automationmode-without-authentication || true
-      - name: Choose UI tests
-        env:
-          MESSAGE: ${{ github.event.head_commit.message }}
-          REQUESTED: ${{ github.event.inputs.ui_tests }}
-        run: |
-          tests="$REQUESTED"
-          if [ -z "$tests" ]; then
-            tests="$(printf '%s\n' "$MESSAGE" | sed -n 's/.*\[ui: *\([^]]*\)\].*/\1/p' | head -n 1)"
-          fi
-          only=""
-          for test in $tests; do
-            only="$only -only-testing:SpotChatUITests/SpotChatUITests/$test"
-          done
-          echo "ONLY_TESTING=$only" >> "$GITHUB_ENV"
-          echo "UI tests: ${tests:-all}"
-          if [ -z "$tests" ]; then echo "RELEASE=true" >> "$GITHUB_ENV"; else echo "RELEASE=false" >> "$GITHUB_ENV"; fi
       - name: Run UI tests
+        env:
+          ONLY_TESTING: ${{ needs.plan.outputs.only }}
         run: |
           set -o pipefail
           xcodebuild test \
@@ -130,8 +124,23 @@ jobs:
             -clonedSourcePackagesDirPath build/SourcePackages \
             -resultBundlePath build/UITests.xcresult \
             $ONLY_TESTING
+      - name: Upload UI test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: UITests-result
+          path: build/UITests.xcresult
+          if-no-files-found: ignore
+
+  release:
+    name: Release build
+    needs: plan
+    if: needs.plan.outputs.release == 'true'
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/prepare-app
       - name: Build release app
-        if: env.RELEASE == 'true'
         run: |
           set -o pipefail
           xcodebuild build \
@@ -143,21 +152,12 @@ jobs:
             -clonedSourcePackagesDirPath build/SourcePackages \
             CURRENT_PROJECT_VERSION=${{ github.run_number }}
       - name: Package alpha build
-        if: env.RELEASE == 'true'
         run: |
           VERSION="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' build/DerivedData/Build/Products/Release/SpotChat.app/Contents/Info.plist)"
           echo "ALPHA_NAME=SpotChat-$VERSION-alpha.${{ github.run_number }}" >> "$GITHUB_ENV"
           ditto -c -k --keepParent build/DerivedData/Build/Products/Release/SpotChat.app "build/SpotChat-$VERSION-alpha.${{ github.run_number }}.zip"
       - name: Upload alpha build
-        if: env.RELEASE == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.ALPHA_NAME }}
           path: build/${{ env.ALPHA_NAME }}.zip
-      - name: Upload UI test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: UITests-result
-          path: build/UITests.xcresult
-          if-no-files-found: ignore

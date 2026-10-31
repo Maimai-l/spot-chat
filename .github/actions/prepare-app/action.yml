@@ -1,0 +1,40 @@
+name: Prepare the app build
+description: Selects Xcode 16, builds or restores the command runtime, restores Swift packages and generates the Xcode project.
+runs:
+  using: composite
+  steps:
+    - name: Select Xcode 16
+      shell: bash
+      run: |
+        for v in 16.4 16.3 16.2 16.1 16; do
+          if [ -d "/Applications/Xcode_$v.app" ]; then sudo xcode-select -s "/Applications/Xcode_$v.app"; break; fi
+        done
+        xcodebuild -version
+    - name: Install XcodeGen
+      shell: bash
+      run: brew install xcodegen
+    - name: Set up Node for the command runtime
+      uses: actions/setup-node@v4
+      with:
+        node-version: 24.22.2
+    - name: Restore the command runtime
+      id: agent-cache
+      uses: actions/cache@v4
+      with:
+        path: build/AgentRuntime
+        key: agent-runtime-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('agent/**', 'scripts/build_agent_runtime.py') }}
+    - name: Build and test the command runtime and its macOS sandbox
+      if: steps.agent-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        python3 scripts/build_agent_runtime.py --node "$(dirname "$(dirname "$(which node)")")" --out build/AgentRuntime
+        bash scripts/agent_smoke_test.sh build/AgentRuntime
+    - name: Restore Swift packages
+      uses: actions/cache@v4
+      with:
+        path: build/SourcePackages
+        key: spm-${{ runner.os }}-${{ hashFiles('project.yml', 'Packages/SpotKit/Package.swift', 'Packages/SpotKit/Package.resolved') }}
+        restore-keys: spm-${{ runner.os }}-
+    - name: Generate Xcode project
+      shell: bash
+      run: xcodegen generate
