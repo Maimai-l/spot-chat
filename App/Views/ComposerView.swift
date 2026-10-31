@@ -357,8 +357,7 @@ struct PlusMenuButton: NSViewRepresentable {
             Task { @MainActor in
                 let windows = await actions.loadWindows()
                 let menu = makeMenu(windows: windows)
-                let point = NSPoint(x: 0, y: sender.isFlipped ? sender.bounds.height + 4 : -4)
-                menu.popUp(positioning: nil, at: point, in: sender)
+                menu.popUp(beside: sender)
                 actions.menuDidClose()
             }
         }
@@ -424,6 +423,30 @@ struct PlusMenuButton: NSViewRepresentable {
             image.size = NSSize(width: 16, height: 16)
             return image
         }
+    }
+}
+
+extension NSMenu {
+    /// Opens the menu just below the view, or just above it when the screen has no room below, so a bar
+    /// near the bottom of the screen never gets a scrolling menu. Returns once the menu closes.
+    func popUp(beside view: NSView) {
+        let gap: CGFloat = 4
+        let height = size.height
+        var opensAbove = false
+        if let window = view.window, let screen = window.screen {
+            let frame = window.convertToScreen(view.convert(view.bounds, to: nil))
+            opensAbove = frame.minY - gap - height < screen.visibleFrame.minY
+        }
+        let top = view.isFlipped ? 0 : view.bounds.height
+        let bottom = view.isFlipped ? view.bounds.height : 0
+        let y: CGFloat
+        if opensAbove {
+            // The point is the menu's top-left corner.
+            y = view.isFlipped ? top - gap - height : top + gap + height
+        } else {
+            y = view.isFlipped ? bottom + gap : bottom - gap
+        }
+        popUp(positioning: nil, at: NSPoint(x: 0, y: y), in: view)
     }
 }
 

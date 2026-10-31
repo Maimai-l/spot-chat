@@ -187,8 +187,7 @@ struct ModelMenu: View {
         let delegate = ModeMenuDelegate()
         menu.delegate = delegate
         menuWillOpen()
-        // Returns once the menu closes.
-        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: view.isFlipped ? view.bounds.height + 4 : -4), in: view)
+        menu.popUp(beside: view)
         menuDidClose()
         withExtendedLifetime(delegate) {}
     }
