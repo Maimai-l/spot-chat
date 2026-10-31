@@ -27,13 +27,18 @@ def export_screenshots(bundle, folder):
         for test in json.load(f):
             for attachment in test.get("attachments", []):
                 exported = os.path.join(folder, attachment["exportedFileName"])
+                if not os.path.exists(exported):
+                    continue
                 readable = attachment.get("suggestedHumanReadableName", attachment["exportedFileName"])
-                # "Capsule_0_6F1C….png" becomes "Capsule.png".
+                # Only screenshots; XCTest also attaches text, such as a failed query's debug description.
+                if not readable.lower().endswith((".png", ".jpg", ".jpeg", ".heic")):
+                    os.remove(exported)
+                    continue
+                # "Capsule_0_6F1C….png" becomes "Capsule.png", without characters artifacts refuse.
                 name = re.sub(r"_\d+_[0-9A-Fa-f-]{36}", "", readable)
-                target = os.path.join(folder, name)
-                if os.path.exists(exported):
-                    os.replace(exported, target)
-                    names.append(name)
+                name = re.sub(r'[\\/"<>:|*?\r\n]', "-", name)
+                os.replace(exported, os.path.join(folder, name))
+                names.append(name)
     os.remove(manifest)
     return sorted(names)
 
