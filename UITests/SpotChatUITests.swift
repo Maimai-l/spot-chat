@@ -374,6 +374,18 @@ final class SpotChatUITests: XCTestCase {
         // Back on, in the folder the test set as the default.
         menuItem("运行命令", in: app).click()
         XCTAssertTrue(element("commandFolder", in: app).waitForExistence(timeout: 5))
+        // The text above the buttons, one line and two.
+        let input = composer(in: app)
+        input.click()
+        input.typeText("把这个视频压缩到 200MB 以内")
+        RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        attachScreenshot("zh Text one line")
+        input.typeKey(.return, modifierFlags: .shift)
+        input.typeText("再放到桌面上")
+        RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        attachScreenshot("zh Text two lines")
+        input.typeKey("a", modifierFlags: .command)
+        input.typeKey(.delete, modifierFlags: [])
 
         send("Please list the files", in: app)
         XCTAssertTrue(reply(containing: "Listed the folder.", in: app).waitForExistence(timeout: 40))

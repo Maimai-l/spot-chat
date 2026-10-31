@@ -165,7 +165,7 @@ struct ComposerRowLayout: Layout {
     static let gap: CGFloat = 6
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let height = textHeight > 0 ? textHeight + ComposerLayout.rowSpacing + Self.rowHeight : Self.rowHeight
+        let height = Self.rowHeight + ComposerLayout.expandedExtra(textHeight: textHeight)
         return CGSize(width: proposal.width ?? 400, height: height)
     }
 
@@ -183,7 +183,7 @@ struct ComposerRowLayout: Layout {
             // Above the buttons the text starts where the + glyph does.
             let inset = ComposerTextMetrics.expandedInset
             field.place(
-                at: CGPoint(x: bounds.minX + inset, y: bounds.minY),
+                at: CGPoint(x: bounds.minX + inset, y: bounds.minY + ComposerLayout.textTop),
                 anchor: .topLeading,
                 proposal: ProposedViewSize(width: bounds.width - inset * 2, height: textHeight)
             )

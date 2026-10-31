@@ -140,12 +140,21 @@ enum ComposerLayout {
     static let tagRowHeight: CGFloat = 26
     static let noticeRowHeight: CGFloat = 16
     static let rowSpacing: CGFloat = 6
+    /// Above the buttons, the first line's center sits 28 from the top and the last line's 42 above
+    /// the buttons' center.
+    static let textTop: CGFloat = 6.5
+    static let textGap: CGFloat = 8
+
+    /// What text above the buttons adds to the bar's height.
+    static func expandedExtra(textHeight: CGFloat) -> CGFloat {
+        textHeight > 0 ? textTop + textHeight + textGap : 0
+    }
 
     /// `textHeight` is the height of text that moved above the buttons, or 0.
     @MainActor
     static func height(for composer: ComposerModel, textHeight: CGFloat = 0) -> CGFloat {
         var height = baseHeight
-        if textHeight > 0 { height += textHeight + rowSpacing }
+        height += expandedExtra(textHeight: textHeight)
         if !composer.attachments.isEmpty || !composer.paths.isEmpty { height += attachmentsRowHeight + rowSpacing }
         if composer.sharedWindow != nil { height += tagRowHeight + rowSpacing }
         if composer.notice != nil { height += noticeRowHeight + rowSpacing }
