@@ -128,7 +128,9 @@ final class SpotChatUITests: XCTestCase {
         XCTAssertTrue(element("commands", in: app).exists)
         let run = element("command.succeeded", in: app)
         XCTAssertTrue(run.waitForExistence(timeout: 5))
-        XCTAssertTrue(element("commandText", in: app).exists)
+        XCTAssertFalse(element("commandText", in: app).exists, "A step starts as one line")
+        element("toolRow", in: app).click()
+        XCTAssertTrue(element("commandText", in: app).waitForExistence(timeout: 5))
         RunLoop.current.run(until: Date().addingTimeInterval(1))
         attachScreenshot("Commands")
 
@@ -137,6 +139,23 @@ final class SpotChatUITests: XCTestCase {
         XCTAssertTrue(element("commandFolder", in: app).waitForExistence(timeout: 5), "The full window runs commands in the same folder")
         RunLoop.current.run(until: Date().addingTimeInterval(1.5))
         attachScreenshot("Commands full window")
+    }
+
+    func testWebSearchShowsItsResults() {
+        let app = launchRunningCommands()
+        send("Please search the web", in: app)
+        XCTAssertTrue(reply(containing: "Here is what I found.", in: app).waitForExistence(timeout: 40))
+        let summary = element("commands", in: app)
+        XCTAssertTrue(summary.waitForExistence(timeout: 5))
+        XCTAssertEqual(text(of: summary), "Searched the web, read 1 page")
+        let search = elements("toolRow", in: app).element(boundBy: 0)
+        XCTAssertTrue(text(of: search).contains("DaVinci Resolve MCP server"), text(of: search))
+        XCTAssertTrue(text(of: elements("toolRow", in: app).element(boundBy: 1)).contains("Resolve MCP"))
+        search.click()
+        XCTAssertTrue(element("searchResult", in: app).waitForExistence(timeout: 5))
+        XCTAssertEqual(elements("searchResult", in: app).count, 2)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        attachScreenshot("Web search")
     }
 
     func testCommandOutsideTheFolderAsksFirstAndRunsOnceAllowed() {

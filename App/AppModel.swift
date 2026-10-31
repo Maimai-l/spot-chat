@@ -144,7 +144,8 @@ final class AppModel: ObservableObject {
         guard let provider, !provider.apiKey.isEmpty else { return .failure(.noDeepSeekKey) }
         var options = CommandAgentOptions(
             apiKey: provider.apiKey, baseURL: override,
-            home: AppStorageLocation.dataDirectory().appendingPathComponent("Agent", isDirectory: true)
+            home: AppStorageLocation.dataDirectory().appendingPathComponent("Agent", isDirectory: true),
+            webToolsURL: override.map { $0 + "/tools" }
         )
         if modelIsDeepSeek, let model {
             options.model = model.modelID

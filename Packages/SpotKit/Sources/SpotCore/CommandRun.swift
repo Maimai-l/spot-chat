@@ -42,6 +42,10 @@ public struct CommandRun: Identifiable, Codable, Equatable, Sendable {
     public var state: State
     public var startedAt: Date
     public var duration: TimeInterval?
+    /// What a web search found.
+    public var sources: [WebSource]?
+    /// The title of a page that was read, when it has one.
+    public var pageTitle: String?
 
     public init(
         id: String, tool: Tool, summary: String, detail: String, justification: String? = nil,
@@ -112,5 +116,45 @@ public struct CommandSetup: Equatable, Sendable {
     public init(folder: URL, sessionID: String? = nil) {
         self.folder = folder
         self.sessionID = sessionID
+    }
+}
+
+/// One result of a web search.
+public struct WebSource: Codable, Equatable, Sendable, Hashable {
+    public var title: String
+    public var url: String
+
+    public init(title: String, url: String) {
+        self.title = title
+        self.url = url
+    }
+
+    /// The site, such as "github.com".
+    public var host: String {
+        guard let host = URL(string: url)?.host() else { return url }
+        return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
+    }
+}
+
+/// Reads what dsh's web tools report: `- [title](url)` lines for a search, a page's Markdown for a read.
+public enum WebResult {
+    public static func sources(in text: String) -> [WebSource] {
+        text.split(separator: "\n").compactMap { line in
+            guard line.hasPrefix("- ["), let close = line.range(of: "]("),
+                  let end = line[close.upperBound...].firstIndex(of: ")")
+            else { return nil }
+            let title = String(line[line.index(line.startIndex, offsetBy: 3)..<close.lowerBound])
+            let url = String(line[close.upperBound..<end])
+            return WebSource(title: title.isEmpty ? url : title, url: url)
+        }
+    }
+
+    /// The page's first heading.
+    public static func pageTitle(in text: String) -> String? {
+        for line in text.split(separator: "\n") where line.hasPrefix("# ") {
+            let title = line.dropFirst(2).trimmingCharacters(in: .whitespaces)
+            if !title.isEmpty { return title }
+        }
+        return nil
     }
 }

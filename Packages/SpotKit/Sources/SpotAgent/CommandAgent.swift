@@ -33,10 +33,16 @@ public struct CommandAgentOptions: Sendable {
     public var model: String?
     /// dsh's reasoning effort: off, low, high or max.
     public var effort: String?
+    /// Another address for DeepSeek's Search and Fetch API, for tests.
+    public var webToolsURL: String?
 
-    public init(apiKey: String, baseURL: String? = nil, home: URL, model: String? = nil, effort: String? = nil) {
+    public init(
+        apiKey: String, baseURL: String? = nil, home: URL, model: String? = nil, effort: String? = nil,
+        webToolsURL: String? = nil
+    ) {
         self.apiKey = apiKey
         self.baseURL = baseURL
+        self.webToolsURL = webToolsURL
         self.home = home
         self.model = model
         self.effort = effort
@@ -312,8 +318,18 @@ public actor CommandAgent {
             break
         }
         let result = CommandOutput.read(raw)
-        run.output = result.text
-        run.exitCode = result.exitCode
+        switch run.tool {
+        case .webSearch:
+            // Shown as a list of results; the text around them is meant for the model.
+            run.sources = WebResult.sources(in: raw)
+            run.output = ""
+        case .webFetch:
+            run.pageTitle = WebResult.pageTitle(in: raw)
+            run.output = ""
+        case .shell, .other:
+            run.output = result.text
+            run.exitCode = result.exitCode
+        }
         run.duration = Date().timeIntervalSince(run.startedAt)
         if run.state == .denied { return }
         if isCancelling, status == .failed {
@@ -380,7 +396,12 @@ public actor CommandAgent {
         case "web_fetch": tool = .webFetch
         default: tool = .other
         }
-        let detail = field("command") ?? field("query") ?? field("url") ?? field("path") ?? ""
+        var query: String?
+        if case let .object(object)? = input, case let .array(queries)? = object["queries"],
+           case let .string(first)? = queries.first {
+            query = first
+        }
+        let detail = field("command") ?? query ?? field("query") ?? field("url") ?? field("path") ?? ""
         return CommandRun(
             id: id, tool: tool, summary: field("description") ?? "", detail: detail,
             justification: field("justification"),
@@ -462,6 +483,7 @@ public actor CommandAgent {
         environment["DSH_HOME"] = options.home.path
         environment["DEEPSEEK_API_KEY"] = options.apiKey
         if let baseURL = options.baseURL { environment["DEEPSEEK_BASE_URL"] = baseURL }
+        if let webToolsURL = options.webToolsURL { environment["SPOT_CHAT_WEB_TOOLS_URL"] = webToolsURL }
         environment["NO_COLOR"] = "1"
         environment["DO_NOT_TRACK"] = "1"
         return environment

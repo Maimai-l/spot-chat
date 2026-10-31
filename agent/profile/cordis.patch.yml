@@ -63,3 +63,8 @@
   config:
     searchProvider: deepseek-search-api
     fetchProvider: deepseek-fetch-api
+# Spot Chat's tests point the Search and Fetch API at a stand-in.
+- id: web-deepseek-api
+  config:
+    baseURL: !!js process.env.SPOT_CHAT_WEB_TOOLS_URL ?? 'https://api.deepseek.com/v1/tools'
+

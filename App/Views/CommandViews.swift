@@ -3,8 +3,8 @@ import SwiftUI
 import SpotAgent
 import SpotCore
 
-/// The commands of a reply, folded under "Ran 2 commands". Open while they run, so what is happening
-/// is in view; each shows what it does, the command, and the end of its output.
+/// What a reply did, folded under one line as in Claude: "Ran 2 commands, searched the web, read 2 pages".
+/// Open while the reply is being made. Each step is one line that opens to its details.
 struct CommandRunsView: View {
     let runs: [CommandRun]
     let isLive: Bool
@@ -20,12 +20,12 @@ struct CommandRunsView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             Button {
                 withAnimation(.easeOut(duration: 0.18)) { isOpen.toggle() }
             } label: {
                 HStack(spacing: 4) {
-                    Text("Ran \(shown.count) commands")
+                    Text(Self.summary(of: shown))
                         .font(.system(size: 14))
                         .foregroundStyle(hovering ? .primary : .secondary)
                     Image(systemName: "chevron.right")
@@ -40,14 +40,10 @@ struct CommandRunsView: View {
             .accessibilityIdentifier("commands")
 
             if isOpen {
-                VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: 6) {
                     ForEach(shown) { run in
                         CommandRunRow(run: run, stop: stop)
                     }
-                }
-                .padding(.leading, 12)
-                .overlay(alignment: .leading) {
-                    Rectangle().fill(Color.primary.opacity(0.12)).frame(width: 2)
                 }
                 .transition(.opacity)
             }
@@ -57,7 +53,7 @@ struct CommandRunsView: View {
         }
     }
 
-    /// The commands without a try the sandbox stopped when dsh then asked to run the same command
+    /// The steps without a try the sandbox stopped when dsh then asked to run the same command
     /// outside it: the question says all that try did.
     private var shown: [CommandRun] {
         runs.enumerated().compactMap { index, run in
@@ -65,73 +61,158 @@ struct CommandRunsView: View {
             return retried ? nil : run
         }
     }
+
+    static func summary(of runs: [CommandRun]) -> String {
+        let commands = runs.filter { $0.tool == .shell }.count
+        let searches = runs.filter { $0.tool == .webSearch }.count
+        let pages = runs.filter { $0.tool == .webFetch }.count
+        let others = runs.filter { $0.tool == .other }.count
+        var parts: [String] = []
+        if commands > 0 { parts.append(String(localized: "Ran \(commands) commands")) }
+        if searches > 0 { parts.append(String(localized: "Searched the web")) }
+        if pages > 0 { parts.append(String(localized: "Read \(pages) pages")) }
+        if others > 0 { parts.append(String(localized: "Used \(others) tools")) }
+        // Sentence case: "Searched the web, read 2 pages".
+        let joined = parts.enumerated().map { index, part in
+            index == 0 ? part : part.prefix(1).lowercased() + part.dropFirst()
+        }
+        return joined.joined(separator: String(localized: ", "))
+    }
 }
 
+/// One step as a line: what it did in gray, what it did it to in black. Opening it shows the command
+/// and its output, or a search's results.
 struct CommandRunRow: View {
     let run: CommandRun
     let stop: () -> Void
+    @State private var isOpen = false
+    @State private var hovering = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 6) {
-                CommandStateIcon(run: run)
-                Text(title)
-                    .font(.system(size: 13))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-                Spacer(minLength: 8)
-                if run.state == .running {
-                    Button("Stop", action: stop)
-                        .controlSize(.small)
-                        .accessibilityIdentifier("stopCommand")
-                } else if let duration = run.duration, run.state != .denied {
-                    Text(Self.format(duration))
-                        .font(.system(size: 11))
-                        .monospacedDigit()
-                        .foregroundStyle(.tertiary)
+            Button {
+                guard hasDetails else { return }
+                withAnimation(.easeOut(duration: 0.15)) { isOpen.toggle() }
+            } label: {
+                HStack(spacing: 6) {
+                    CommandStateIcon(run: run)
+                    title
+                        .font(.system(size: 13))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    if hasDetails {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundStyle(.tertiary)
+                            .rotationEffect(.degrees(isOpen ? 90 : 0))
+                    }
+                    Spacer(minLength: 8)
+                    if run.state == .running {
+                        Button("Stop", action: stop)
+                            .controlSize(.small)
+                            .accessibilityIdentifier("stopCommand")
+                    } else if let duration = run.duration, run.state != .denied, run.tool == .shell {
+                        Text(Self.format(duration))
+                            .font(.system(size: 11))
+                            .monospacedDigit()
+                            .foregroundStyle(.tertiary)
+                    }
                 }
+                .contentShape(Rectangle())
             }
-            if !run.detail.isEmpty {
-                Text(run.detail)
-                    .font(.system(size: 12, design: .monospaced))
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 8)
-                    .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.primary.opacity(0.05)))
-                    .accessibilityIdentifier("commandText")
-            }
+            .buttonStyle(.plain)
+            .onHover { hovering = hasDetails && $0 }
+            .accessibilityIdentifier("toolRow")
+
             if run.state == .waitingForApproval {
                 NeedsInputPill()
+                    .padding(.leading, 22)
             }
             if let note {
                 Text(note)
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
+                    .padding(.leading, 22)
                     .accessibilityIdentifier("commandNote")
             }
-            if !run.output.isEmpty {
-                Text(run.output)
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(8)
-                    .truncationMode(.head)
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .accessibilityIdentifier("commandOutput")
+            if isOpen {
+                details
+                    .padding(.leading, 22)
+                    .transition(.opacity)
             }
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("command.\(run.state.rawValue)")
     }
 
-    private var title: String {
-        if !run.summary.isEmpty { return run.summary }
+    private var title: Text {
+        let verb = Text(verbText).foregroundStyle(hovering ? .primary : .secondary)
+        guard let object = objectText else { return verb }
+        return verb + Text(verbatim: " ") + Text(verbatim: object).foregroundStyle(.primary)
+    }
+
+    private var verbText: String {
         switch run.tool {
-        case .shell: return String(localized: "Run Command")
-        case .webSearch: return String(localized: "Search the Web")
-        case .webFetch: return String(localized: "Open Page")
-        case .other: return String(localized: "Use a Tool")
+        case .shell: return run.summary.isEmpty ? String(localized: "Run Command") : run.summary
+        case .webSearch: return String(localized: "Searched the web")
+        case .webFetch: return String(localized: "Read")
+        case .other: return run.summary.isEmpty ? String(localized: "Use a Tool") : run.summary
+        }
+    }
+
+    /// The query or the page, after the verb.
+    private var objectText: String? {
+        switch run.tool {
+        case .webSearch: return run.detail.isEmpty ? nil : run.detail
+        case .webFetch: return run.pageTitle ?? WebSource(title: "", url: run.detail).host
+        case .shell, .other: return nil
+        }
+    }
+
+    private var hasDetails: Bool {
+        switch run.tool {
+        case .shell, .other: return !run.detail.isEmpty || !run.output.isEmpty
+        case .webSearch: return !(run.sources ?? []).isEmpty
+        case .webFetch: return !run.detail.isEmpty
+        }
+    }
+
+    @ViewBuilder
+    private var details: some View {
+        switch run.tool {
+        case .shell, .other:
+            VStack(alignment: .leading, spacing: 6) {
+                if !run.detail.isEmpty {
+                    Text(run.detail)
+                        .font(.system(size: 12, design: .monospaced))
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 8)
+                        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.primary.opacity(0.05)))
+                        .accessibilityIdentifier("commandText")
+                }
+                if !run.output.isEmpty {
+                    Text(run.output)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(8)
+                        .truncationMode(.head)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .accessibilityIdentifier("commandOutput")
+                }
+            }
+        case .webSearch:
+            WebResultsList(sources: run.sources ?? [])
+        case .webFetch:
+            if let url = URL(string: run.detail) {
+                Link(run.detail, destination: url)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
         }
     }
 
@@ -143,7 +224,10 @@ struct CommandRunRow: View {
         case .waitingForApproval: return nil
         case .running, .succeeded, .failed:
             if run.outsideFolder { return String(localized: "Ran outside the folder") }
-            if run.state == .failed, let code = run.exitCode { return String(localized: "Exited with code \(code)") }
+            if run.state == .failed {
+                if let code = run.exitCode { return String(localized: "Exited with code \(code)") }
+                if run.tool != .shell { return String(localized: "Failed") }
+            }
             return nil
         }
     }
@@ -153,6 +237,51 @@ struct CommandRunRow: View {
             return String(localized: "\(duration, format: .number.precision(.fractionLength(1))) s")
         }
         return Duration.seconds(duration.rounded()).formatted(.units(allowed: [.hours, .minutes, .seconds], width: .narrow))
+    }
+}
+
+/// A search's results in a gray block, as Claude shows them: the page's title, and its site at the end.
+/// Each opens in the browser. Sites are marked with a globe rather than their icons, which would mean a
+/// request to every site.
+struct WebResultsList: View {
+    let sources: [WebSource]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("Results")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+                .padding(.bottom, 4)
+            ForEach(sources, id: \.self) { source in
+                Button {
+                    if let url = URL(string: source.url) { NSWorkspace.shared.open(url) }
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "globe")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                        Text(verbatim: source.title)
+                            .font(.system(size: 13))
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                        Spacer(minLength: 12)
+                        Text(verbatim: source.host)
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                    .padding(.vertical, 4)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help(source.url)
+                .accessibilityIdentifier("searchResult")
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.primary.opacity(0.05)))
     }
 }
 

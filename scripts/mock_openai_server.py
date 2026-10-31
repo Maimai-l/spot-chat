@@ -155,6 +155,12 @@ def messages_steps(body):
         return "Finished."
     if "slow" in question:
         return ("Wait a minute", "sleep 60", False) if not results else "Stopped."
+    if "search" in question:
+        if not results:
+            return ("web_search", {"queries": ["DaVinci Resolve MCP server"]})
+        if len(results) == 1:
+            return ("web_fetch", {"url": "https://example.com/resolve-mcp"})
+        return "Here is what I found."
     if "list" in question:
         return ("List the folder", "ls -a", False) if not results else "Listed the folder."
     return "Hello from dsh."
@@ -207,6 +213,18 @@ class Handler(BaseHTTPRequestHandler):
         body = json.loads(raw)
         if self.path.endswith("/v1/messages"):
             self.messages(body)
+            return
+        # DeepSeek's Search and Fetch API, which dsh's web tools use.
+        if self.path.endswith("/tools/search"):
+            self.send_json(200, {"results": [
+                {"title": "samuelgursky/davinci-resolve-mcp", "url": "https://github.com/samuelgursky/davinci-resolve-mcp",
+                 "snippet": "An MCP server for DaVinci Resolve.", "summary": "An MCP server for DaVinci Resolve.", "date": None},
+                {"title": "DaVinci Resolve MCP Server", "url": "https://www.flowhunt.io/mcp-servers/davinci-resolve/",
+                 "snippet": "Connect AI assistants to Resolve.", "summary": "Connect AI assistants to Resolve.", "date": "2026-09-01"},
+            ]})
+            return
+        if self.path.endswith("/tools/fetch"):
+            self.send_json(200, {"content": "# Resolve MCP\n\nControl DaVinci Resolve from an assistant.\n"})
             return
         if not self.path.endswith("/chat/completions"):
             self.send_json(404, {"error": {"message": "Not found", "type": "invalid_request_error"}})
@@ -290,14 +308,18 @@ class Handler(BaseHTTPRequestHandler):
                 event("content_block_delta", {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": step}})
                 stop = "end_turn"
             else:
-                description, command, escalate = step
-                tool_input = {"description": description, "command": command}
-                if escalate:
-                    tool_input.update({"sandbox_permissions": "danger-full-access",
-                                       "justification": "The note goes in your home folder, outside this one."})
+                if len(step) == 2:
+                    name, tool_input = step
+                else:
+                    name = "bash"
+                    description, command, escalate = step
+                    tool_input = {"description": description, "command": command}
+                    if escalate:
+                        tool_input.update({"sandbox_permissions": "danger-full-access",
+                                           "justification": "The note goes in your home folder, outside this one."})
                 calls = sum(1 for m in body.get("messages", []) if m.get("role") == "assistant")
                 event("content_block_start", {"type": "content_block_start", "index": 0, "content_block": {
-                    "type": "tool_use", "id": f"toolu_{calls + 1}", "name": "bash", "input": {}}})
+                    "type": "tool_use", "id": f"toolu_{calls + 1}", "name": name, "input": {}}})
                 event("content_block_delta", {"type": "content_block_delta", "index": 0, "delta": {
                     "type": "input_json_delta", "partial_json": json.dumps(tool_input)}})
                 stop = "tool_use"
