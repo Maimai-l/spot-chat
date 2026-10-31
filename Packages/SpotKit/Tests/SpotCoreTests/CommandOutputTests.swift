@@ -73,7 +73,8 @@ import Testing
 
 struct ReplyLayoutTests {
     func step(_ id: String, at offset: Int?) -> CommandRun {
-        var run = CommandRun(id: id, tool: .shell, summary: id, detail: "")
+        // A fixed start, so a step built twice compares equal.
+        var run = CommandRun(id: id, tool: .shell, summary: id, detail: "", startedAt: Date(timeIntervalSince1970: 0))
         run.textOffset = offset
         return run
     }
