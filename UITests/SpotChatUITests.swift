@@ -40,9 +40,16 @@ final class SpotChatUITests: XCTestCase {
         app.textViews["composer"].firstMatch
     }
 
-    /// A menu item by the start of its title: a mode that is on ends in a check mark.
+    /// A menu item of the open menu by the start of its title: a mode that is on ends in a check mark.
+    /// Items of a menu that has closed can linger off screen, so the one that can be clicked is taken.
     func menuItem(_ title: String, in app: XCUIApplication) -> XCUIElement {
-        app.menuItems.matching(NSPredicate(format: "title BEGINSWITH %@", title)).firstMatch
+        let matches = app.menuItems.matching(NSPredicate(format: "title BEGINSWITH %@", title))
+        let deadline = Date().addingTimeInterval(5)
+        repeat {
+            if let open = matches.allElementsBoundByIndex.last(where: { $0.exists && $0.isHittable }) { return open }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+        } while Date() < deadline
+        return matches.firstMatch
     }
 
     func element(_ identifier: String, in app: XCUIApplication) -> XCUIElement {
@@ -130,6 +137,8 @@ final class SpotChatUITests: XCTestCase {
         XCTAssertTrue(chip.waitForExistence(timeout: 10))
         send("Please list the files", in: app)
         XCTAssertTrue(reply(containing: "Listed the folder.", in: app).waitForExistence(timeout: 40))
+        // The reply's page grows once it has rendered, moving the lines below it.
+        RunLoop.current.run(until: Date().addingTimeInterval(1))
         XCTAssertTrue(element("commands", in: app).exists)
         let run = element("command.succeeded", in: app)
         XCTAssertTrue(run.waitForExistence(timeout: 5))
