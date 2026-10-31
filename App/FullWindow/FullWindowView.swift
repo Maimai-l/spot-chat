@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 import SpotCore
@@ -253,6 +254,7 @@ struct ActivityDot: View {
 }
 
 extension Color {
-    /// The one color for a conversation that waits for the user.
-    static let needsInput = Color(red: 0.94, green: 0.63, blue: 0.23)
+    /// The one color for a conversation that waits for the user: the system accent color, which
+    /// follows the user's choice in System Settings and is made for translucent windows.
+    static let needsInput = Color(nsColor: .controlAccentColor)
 }

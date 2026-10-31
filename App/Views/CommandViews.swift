@@ -333,21 +333,17 @@ extension EnvironmentValues {
     }
 }
 
-/// Marks the step that waits for the user, the one color in a conversation of commands.
+/// Marks the step that waits for the user: a dot in the accent color, as Mail marks unread mail.
+/// The card above the input does the asking.
 struct NeedsInputPill: View {
     var body: some View {
         HStack(spacing: 6) {
             Circle()
                 .fill(Color.needsInput)
-                .frame(width: 8, height: 8)
-                .padding(3)
-                .overlay(Circle().stroke(Color.needsInput.opacity(0.4), lineWidth: 1.5))
+                .frame(width: 7, height: 7)
             Text("Needs your input")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(Color(red: 0.55, green: 0.36, blue: 0.05))
-                .padding(.horizontal, 9)
-                .padding(.vertical, 3)
-                .overlay(Capsule().stroke(Color.needsInput.opacity(0.4)))
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
         }
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("needsInput")
