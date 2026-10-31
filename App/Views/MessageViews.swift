@@ -424,11 +424,19 @@ struct AssistantMessageView: View {
                     isThinking: message.status == .pending && message.reasoningDuration == nil
                 )
             }
-            if !message.text.isEmpty {
-                ReplyView(id: message.id, markdown: message.text, isStreaming: message.status == .pending)
-            }
-            if !message.commands.isEmpty {
-                CommandRunsView(runs: message.commands, isLive: message.status == .pending, stop: stop)
+            // Text and steps in the order they happened, as Claude shows them.
+            let pieces = ReplyPiece.layout(text: message.text, steps: message.commands)
+            ForEach(Array(pieces.enumerated()), id: \.offset) { index, piece in
+                let isLast = index == pieces.count - 1
+                switch piece {
+                case let .text(markdown):
+                    ReplyView(id: message.id.piece(index), markdown: markdown, isStreaming: message.status == .pending && isLast)
+                case let .steps(runs):
+                    CommandRunsView(
+                        runs: runs, isLive: message.status == .pending && (isLast || runs.contains { !$0.isFinished }),
+                        stop: stop
+                    )
+                }
             }
             if message.status == .error {
                 ErrorBox(message: message.errorMessage ?? "", retry: retry)
@@ -621,6 +629,16 @@ struct SmallIconButton: View {
         .help(label)
         .accessibilityLabel(Text(label))
         .accessibilityIdentifier(identifier)
+    }
+}
+
+extension UUID {
+    /// An identifier for the nth piece of a reply's text; the first piece keeps the reply's own.
+    func piece(_ index: Int) -> UUID {
+        var bytes = uuid
+        bytes.15 ^= UInt8(truncatingIfNeeded: index)
+        bytes.14 ^= UInt8(truncatingIfNeeded: index >> 8)
+        return UUID(uuid: bytes)
     }
 }
 

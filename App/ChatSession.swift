@@ -251,6 +251,8 @@ final class ChatSession: ObservableObject {
                 ))
                 for call in calls {
                     var step = WebStep.started(call)
+                    // Shown where it began in the reply, not after all of it.
+                    step.textOffset = text.count
                     steps.append(step)
                     self?.updateReply(replyID) { $0.commands = steps }
                     let output = await webTools.run(call, question: question)

@@ -100,9 +100,13 @@ extension ChatSession {
                     case let .thought(part):
                         reasoning += part
                     case let .run(run):
+                        var run = run
                         if let index = commands.firstIndex(where: { $0.id == run.id }) {
+                            run.textOffset = commands[index].textOffset
                             commands[index] = run
                         } else {
+                            // Shown where it began in the reply, not after all of it.
+                            run.textOffset = text.count
                             commands.append(run)
                         }
                     }

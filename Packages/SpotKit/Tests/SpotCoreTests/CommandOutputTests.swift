@@ -70,3 +70,38 @@ import Testing
         #expect(failed.state == .failed)
     }
 }
+
+struct ReplyLayoutTests {
+    func step(_ id: String, at offset: Int?) -> CommandRun {
+        var run = CommandRun(id: id, tool: .shell, summary: id, detail: "")
+        run.textOffset = offset
+        return run
+    }
+
+    @Test func stepsShowWhereTheyHappened() {
+        let text = "Let me look.The last line is: done"
+        let pieces = ReplyPiece.layout(text: text, steps: [step("tail", at: 12)])
+        #expect(pieces == [.text("Let me look."), .steps([step("tail", at: 12)]), .text("The last line is: done")])
+    }
+
+    @Test func aStepBeforeAnyTextComesFirst() {
+        let pieces = ReplyPiece.layout(text: "The last line is: done", steps: [step("tail", at: 0)])
+        #expect(pieces == [.steps([step("tail", at: 0)]), .text("The last line is: done")])
+    }
+
+    @Test func stepsWithOnlySpaceBetweenThemAreOneGroup() {
+        let text = "First.\n\nThen."
+        let steps = [step("a", at: 6), step("b", at: 8)]
+        #expect(ReplyPiece.layout(text: text, steps: steps) == [.text("First."), .steps(steps), .text("Then.")])
+    }
+
+    @Test func stepsSavedWithoutAPlaceFollowTheText() {
+        let pieces = ReplyPiece.layout(text: "Done.", steps: [step("old", at: nil)])
+        #expect(pieces == [.text("Done."), .steps([step("old", at: nil)])])
+    }
+
+    @Test func anOffsetPastTheTextIsClamped() {
+        let pieces = ReplyPiece.layout(text: "Hi", steps: [step("a", at: 99)])
+        #expect(pieces == [.text("Hi"), .steps([step("a", at: 99)])])
+    }
+}

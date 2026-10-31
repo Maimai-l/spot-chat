@@ -151,6 +151,10 @@ final class SpotChatUITests: XCTestCase {
         // The reply's page grows once it has rendered, moving the lines below it.
         RunLoop.current.run(until: Date().addingTimeInterval(1))
         XCTAssertTrue(element("commands", in: app).exists)
+        XCTAssertLessThan(
+            element("commands", in: app).frame.maxY, element("reply", in: app).frame.minY + 1,
+            "The command it ran shows before what it said after"
+        )
         let run = element("command.succeeded", in: app)
         XCTAssertTrue(run.waitForExistence(timeout: 5))
         XCTAssertFalse(element("commandText", in: app).exists, "A step starts as one line")
@@ -189,6 +193,10 @@ final class SpotChatUITests: XCTestCase {
         XCTAssertTrue(reply(containing: "Here is what I found.", in: app).waitForExistence(timeout: 20))
         RunLoop.current.run(until: Date().addingTimeInterval(1))
         XCTAssertEqual(text(of: element("commands", in: app)), "Searched the web, read 1 page")
+        XCTAssertLessThan(
+            element("commands", in: app).frame.maxY, element("reply", in: app).frame.minY + 1,
+            "The search shows before the answer it led to"
+        )
         let search = elements("toolRow", in: app).element(boundBy: 0)
         XCTAssertTrue(text(of: search).contains("DaVinci Resolve MCP server"), text(of: search))
         search.click()

@@ -46,6 +46,9 @@ public struct CommandRun: Identifiable, Codable, Equatable, Sendable {
     public var sources: [WebSource]?
     /// The title of a page that was read, when it has one.
     public var pageTitle: String?
+    /// How many characters of the reply's text came before this step, so it shows where it happened.
+    /// Nil for steps saved before this was recorded; they show after the text.
+    public var textOffset: Int?
 
     public init(
         id: String, tool: Tool, summary: String, detail: String, justification: String? = nil,
@@ -187,5 +190,39 @@ public enum WebStep {
         case .webFetch: step.pageTitle = WebResult.pageTitle(in: output)
         case .shell, .other: break
         }
+    }
+}
+
+/// A reply laid out in the order it happened: its text, cut where steps began, with the steps in between,
+/// as Claude shows a reply that searches or runs commands between what it says.
+public enum ReplyPiece: Equatable, Sendable {
+    case text(String)
+    case steps([CommandRun])
+
+    /// Steps with nothing but white space between them form one group.
+    public static func layout(text: String, steps: [CommandRun]) -> [ReplyPiece] {
+        let ordered = steps.enumerated()
+            .sorted { ($0.element.textOffset ?? .max, $0.offset) < ($1.element.textOffset ?? .max, $1.offset) }
+            .map(\.element)
+        var pieces: [ReplyPiece] = []
+        var cursor = text.startIndex
+        for step in ordered {
+            let end = text.index(text.startIndex, offsetBy: min(step.textOffset ?? text.count, text.count))
+            let before = end > cursor ? String(text[cursor..<end]) : ""
+            if !before.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                pieces.append(.text(before))
+            }
+            if end > cursor { cursor = end }
+            if case let .steps(group)? = pieces.last {
+                pieces[pieces.count - 1] = .steps(group + [step])
+            } else {
+                pieces.append(.steps([step]))
+            }
+        }
+        let rest = String(text[cursor...])
+        if !rest.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            pieces.append(.text(rest))
+        }
+        return pieces
     }
 }
