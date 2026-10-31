@@ -11,7 +11,13 @@ final class AppModel: ObservableObject {
     static let defaultCardHeight = 560
     /// The system message of the first request in DeepSeek's API documentation (api-docs.deepseek.com).
     /// Replaced by whatever is set in Settings; an empty setting sends none.
-    static let defaultSystemPrompt = "You are a helpful assistant."
+    /// A few plain sentences, in the manner of Claude's: who is answering, today's date, and how to answer.
+    static let defaultSystemPrompt = """
+        You are Spot Chat, an AI assistant on the user's Mac. Today is {{date}}.
+        Reply in the language the user writes in. Be clear and concise, and use Markdown when it helps.
+        """
+    /// The default before, DeepSeek's example; a copy of it saved as is counts as the default.
+    static let earlierDefaultSystemPrompt = "You are a helpful assistant."
     static let cardHeightRange = 400...900
 
     @Published private(set) var providers: [Provider] = []
@@ -273,7 +279,8 @@ final class AppModel: ObservableObject {
         if let height = try? preferenceService.value(PreferenceKey.cardHeight, as: Int.self) {
             cardHeight = height.clamped(to: Self.cardHeightRange)
         }
-        systemPrompt = (try? preferenceService.value(PreferenceKey.systemPrompt, as: String.self)) ?? Self.defaultSystemPrompt
+        let savedPrompt = try? preferenceService.value(PreferenceKey.systemPrompt, as: String.self)
+        systemPrompt = savedPrompt.flatMap { $0 == Self.earlierDefaultSystemPrompt ? nil : $0 } ?? Self.defaultSystemPrompt
         bringsSelection = (try? preferenceService.value(PreferenceKey.bringSelection, as: Bool.self)) ?? true
         searchesTheWeb = (try? preferenceService.value(PreferenceKey.webSearch, as: Bool.self)) ?? true
         if let path = UserDefaults.standard.string(forKey: AppDelegate.LaunchOption.defaultCommandFolder)
