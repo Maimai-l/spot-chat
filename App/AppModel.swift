@@ -11,13 +11,19 @@ final class AppModel: ObservableObject {
     static let defaultCardHeight = 560
     /// The system message of the first request in DeepSeek's API documentation (api-docs.deepseek.com).
     /// Replaced by whatever is set in Settings; an empty setting sends none.
-    /// A few plain sentences, in the manner of Claude's: who is answering, today's date, and how to answer.
+    /// After DeepSeek's own chat, which gives only the date: no persona, since "You are …" lines made
+    /// deepseek-flash break off short replies. Then how to answer, as Kimi's and Gemini's prompts put it,
+    /// with math in the delimiters the reply page renders. See docs/prompts.md.
     static let defaultSystemPrompt = """
-        You are Spot Chat, an AI assistant on the user's Mac. Today is {{date}}.
-        Reply in the language the user writes in. Be clear and concise, and use Markdown when it helps.
+        Current date: {{date}}
+
+        Answer in the language the user writes in, as briefly or as fully as the question needs. Use Markdown where it helps reading, with $…$ and $$…$$ for math. In Chinese, use full-width punctuation.
         """
-    /// The default before, DeepSeek's example; a copy of it saved as is counts as the default.
-    static let earlierDefaultSystemPrompt = "You are a helpful assistant."
+    /// Earlier defaults; a copy of one saved as is counts as the default.
+    static let earlierDefaultSystemPrompts: Set<String> = [
+        "You are a helpful assistant.",
+        "You are Spot Chat, an AI assistant on the user's Mac. Today is {{date}}.\nReply in the language the user writes in. Be clear and concise, and use Markdown when it helps.",
+    ]
     static let cardHeightRange = 400...900
 
     @Published private(set) var providers: [Provider] = []
@@ -280,7 +286,7 @@ final class AppModel: ObservableObject {
             cardHeight = height.clamped(to: Self.cardHeightRange)
         }
         let savedPrompt = try? preferenceService.value(PreferenceKey.systemPrompt, as: String.self)
-        systemPrompt = savedPrompt.flatMap { $0 == Self.earlierDefaultSystemPrompt ? nil : $0 } ?? Self.defaultSystemPrompt
+        systemPrompt = savedPrompt.flatMap { Self.earlierDefaultSystemPrompts.contains($0) ? nil : $0 } ?? Self.defaultSystemPrompt
         bringsSelection = (try? preferenceService.value(PreferenceKey.bringSelection, as: Bool.self)) ?? true
         searchesTheWeb = (try? preferenceService.value(PreferenceKey.webSearch, as: Bool.self)) ?? true
         if let path = UserDefaults.standard.string(forKey: AppDelegate.LaunchOption.defaultCommandFolder)

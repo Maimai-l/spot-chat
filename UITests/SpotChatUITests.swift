@@ -700,7 +700,7 @@ final class SpotChatUITests: XCTestCase {
         general.click()
         let prompt = element("systemPrompt", in: app)
         XCTAssertTrue(prompt.waitForExistence(timeout: 5))
-        XCTAssertTrue(text(of: prompt).hasPrefix("You are Spot Chat"), "A short prompt of our own is the default")
+        XCTAssertTrue(text(of: prompt).hasPrefix("Current date: {{date}}"), "A short prompt after DeepSeek's own is the default")
         prompt.click()
         prompt.typeKey("a", modifierFlags: .command)
         prompt.typeText("Answer in one line.")

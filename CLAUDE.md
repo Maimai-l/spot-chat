@@ -26,6 +26,11 @@ careful engineer would obviously include, and ask only when a choice really belo
 - Surfaces are light gray told apart by a 0.5 point light rim and a faint shadow, not white fills.
 - While a reply is on its way an arc circles the reply mark; there are no stock spinners in replies.
 
+## Prompts
+
+What the model is told is in `docs/prompts.md`, with its reasons; change both together. Prompts state the
+date and how to answer, not a persona: "You are …" lines make deepseek-flash break off short replies.
+
 ## Privacy
 
 - Telemetry and log uploads stay off, including in the bundled dsh runtime (`agent/profile/cordis.patch.yml`).

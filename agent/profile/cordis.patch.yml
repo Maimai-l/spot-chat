@@ -3,7 +3,9 @@
 
 - id: system-prompt
   config:
-    personaPrefix: You are a helpful software engineer assistant.
+    # What it is doing rather than a persona: "You are a … assistant" lines made deepseek-flash break off
+    # short replies (docs/prompts.md).
+    personaPrefix: You run commands on the user's Mac to get their task done, working in the folder they chose. Answer in the language the user writes in.
 
 - id: tool-fs
   config:
