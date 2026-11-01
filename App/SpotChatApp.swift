@@ -5,7 +5,7 @@ struct SpotChatApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
-        MenuBarExtra("Spot Chat", systemImage: "smallcircle.filled.circle") {
+        MenuBarExtra {
             Button("Open Mini Window") {
                 appDelegate.miniController.handle(.openRequested)
             }
@@ -21,6 +21,8 @@ struct SpotChatApp: App {
                 NSApp.terminate(nil)
             }
             .keyboardShortcut("q")
+        } label: {
+            MenuBarLabel(state: appDelegate.menuBar)
         }
     }
 }

@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import KeyboardShortcuts
 import SpotCore
 import SpotData
@@ -35,6 +36,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private lazy var shareService = WindowShareService()
     private lazy var permissionGuide = PermissionGuideController()
     private(set) lazy var miniController = makeMiniController()
+    /// Made before launch finishes, since the menu bar item reads it as soon as it is built.
+    let menuBar = MenuBarState()
     private(set) lazy var fullWindow = makeFullWindow()
     private(set) lazy var settings = SettingsWindowController(app: app)
 
@@ -123,6 +126,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         controller.openSettings = { [weak self] in self?.showSettings() }
         controller.openFullWindow = { [weak self] topicID in self?.fullWindow.show(topicID: topicID) }
         controller.closeFullWindow = { [weak self] in self?.fullWindow.close() }
+        controller.$mode.map { $0 != .hidden }.removeDuplicates().assign(to: &menuBar.$isActive)
         return controller
     }
 

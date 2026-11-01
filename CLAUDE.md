@@ -14,7 +14,8 @@ careful engineer would obviously include, and ask only when a choice really belo
 
 ## Interface
 
-- One accent color, the system accent color. Everything else is gray, as in Claude.
+- One accent color, the system accent color. Everything else is gray, as in Claude, except the app's mark, Pinhole,
+  in its own ultramarine (`docs/design/pinhole.md`).
 - No emoji or Unicode symbols in place of buttons or icons; use SF Symbols or drawn shapes.
 - Copy is written as macOS System Settings writes it, in English and Simplified Chinese:
   - no explanatory captions, comments or parentheticals in the interface;

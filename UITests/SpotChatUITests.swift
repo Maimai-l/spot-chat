@@ -322,6 +322,27 @@ final class SpotChatUITests: XCTestCase {
         XCTAssertEqual(text(of: input), "draft that must survive")
     }
 
+    func testMenuBarMarkFillsWhileTheWindowIsOpenAndItsMenuOpensIt() {
+        let app = launch(resetState: true)
+        let input = composer(in: app)
+        XCTAssertTrue(input.waitForExistence(timeout: 10))
+        let item = app.statusItems.firstMatch
+        XCTAssertTrue(item.waitForExistence(timeout: 5), "The menu bar shows the mark")
+        attachScreenshot("Menu bar while open")
+
+        moveFocusToAnotherApp()
+        XCTAssertTrue(input.waitForNonExistence(timeout: 5))
+        RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        attachScreenshot("Menu bar")
+
+        item.click()
+        let open = menuItem("Open Mini Window", in: app)
+        XCTAssertTrue(open.waitForExistence(timeout: 5))
+        attachScreenshot("Menu bar menu")
+        open.click()
+        XCTAssertTrue(input.waitForExistence(timeout: 5), "The menu opens the mini window")
+    }
+
     func testEscapeKeepsTheCapsuleAndTheDraft() {
         let app = launch(resetState: true)
         let input = composer(in: app)

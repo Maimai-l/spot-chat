@@ -642,14 +642,14 @@ extension UUID {
     }
 }
 
-/// The app's mark shown above each reply: a blue dot with a highlight. While the reply is on its way an
-/// arc circles the dot, growing and shrinking as it turns, as Gemini's mark does; when the first words
-/// arrive the arc fades and the dot gives a small bounce.
+/// The app's mark shown above each reply, Pinhole: the app icon's disc with its hole. While the reply is on
+/// its way an arc circles the mark, growing and shrinking as it turns, as Gemini's mark does; when the first
+/// words arrive the arc fades and the mark gives a small bounce.
 struct SpotMark: View {
     var size: CGFloat
     var isLoading = false
 
-    static let color = Color(red: 0.18, green: 0.44, blue: 0.92)
+    static let color = Color.pinhole
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var bounces = 0
 
@@ -660,23 +660,17 @@ struct SpotMark: View {
                     .frame(width: size * 1.2, height: size * 1.2)
                     .transition(.opacity)
             }
-            ZStack {
-                Circle()
-                    .fill(Self.color)
-                Circle()
-                    .fill(.white)
-                    .frame(width: size * 0.22, height: size * 0.22)
-                    .offset(x: size * 0.15, y: -size * 0.15)
-            }
-            .frame(width: size * 0.75, height: size * 0.75)
-            .keyframeAnimator(initialValue: 1.0, trigger: bounces) { mark, scale in
-                mark.scaleEffect(scale)
-            } keyframes: { _ in
-                KeyframeTrack {
-                    SpringKeyframe(1.18, duration: 0.16)
-                    SpringKeyframe(1.0, duration: 0.3)
+            Pinhole(holeRatio: size * 0.75 < 32 ? Pinhole.smallHoleRatio : 1 / 5)
+                .fill(Self.color, style: FillStyle(eoFill: true))
+                .frame(width: size * 0.75, height: size * 0.75)
+                .keyframeAnimator(initialValue: 1.0, trigger: bounces) { mark, scale in
+                    mark.scaleEffect(scale)
+                } keyframes: { _ in
+                    KeyframeTrack {
+                        SpringKeyframe(1.18, duration: 0.16)
+                        SpringKeyframe(1.0, duration: 0.3)
+                    }
                 }
-            }
         }
         .frame(width: size, height: size)
         .animation(.easeOut(duration: 0.2), value: isLoading)
