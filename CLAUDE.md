@@ -73,6 +73,8 @@ whose results are still needed.
 ## Lessons
 
 `docs/lessons.md` keeps the problems this project hit and what fixed them; add to it when a bug teaches something.
+`docs/maintenance.md` holds the routine: reporting and fixing bugs, alphas, pinned dependencies and the backlog;
+keep its backlog current.
 
 ## Git
 
