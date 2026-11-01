@@ -330,6 +330,8 @@ final class SpotChatUITests: XCTestCase {
         XCTAssertTrue(item.waitForExistence(timeout: 5), "The menu bar shows the mark")
         attachScreenshot("Menu bar while open")
 
+        // The capsule hides when it loses focus, so it must have it first.
+        input.click()
         moveFocusToAnotherApp()
         XCTAssertTrue(input.waitForNonExistence(timeout: 5))
         RunLoop.current.run(until: Date().addingTimeInterval(0.5))
