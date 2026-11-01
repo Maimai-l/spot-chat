@@ -69,6 +69,10 @@ as PNGs in the `Screenshots` artifact, and each run's summary lists what ran and
 Pushing cancels the run in progress on the branch, so batch changes before pushing, and don't push over a run
 whose results are still needed.
 
+## Lessons
+
+`docs/lessons.md` keeps the problems this project hit and what fixed them; add to it when a bug teaches something.
+
 ## Git
 
 - Commit with clear messages that say what changed and why; never put model names in commits or code.
