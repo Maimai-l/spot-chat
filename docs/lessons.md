@@ -23,7 +23,8 @@ Problems this project hit and what fixed them, so they aren't solved twice.
 
 - **A step's output spilled over the steps below.** SwiftUI's `Text` with `.lineLimit(n)` and
   `.truncationMode(.head)` reserved room for n lines and drew them all. The step now shows the end of the output
-  cut in code (`CommandOutput.tail`), so the text is exactly as tall as what it shows.
+  cut in code (`CommandOutput.tail`), one row per line as a terminal shows it, so the text is exactly as tall as
+  what it shows and a long line doesn't wrap into many.
 - **A reopened conversation sat mid-way with no button back to the end.** It followed the end once on
   appearing, before the card had grown and the replies had rendered, and the button showed only after the
   reader scrolled up. `MessageList` now keeps following the end while the conversation's size settles, and

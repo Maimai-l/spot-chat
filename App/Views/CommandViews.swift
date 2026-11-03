@@ -212,13 +212,22 @@ struct CommandRunRow: View {
                 if !run.output.isEmpty {
                     // The end of what it printed, cut here rather than by the text view: a text view told
                     // to drop lines from the start reserved room for some and drew them all, over the steps below.
-                    Text(verbatim: CommandOutput.tail(run.output, lines: Self.outputLines, lineLength: Self.outputLineLength))
-                        .font(.system(size: 11, design: .monospaced))
-                        .foregroundStyle(.secondary)
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .accessibilityIdentifier("commandOutput")
+                    // One row per line, as a terminal shows it, so a long line doesn't wrap into many.
+                    let lines = CommandOutput.tail(run.output, lines: Self.outputLines, lineLength: Self.outputLineLength)
+                        .split(separator: "\n", omittingEmptySubsequences: false)
+                    VStack(alignment: .leading, spacing: 1) {
+                        ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
+                            Text(verbatim: line.isEmpty ? " " : String(line))
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                        }
+                    }
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityIdentifier("commandOutput")
                 }
             }
         case .webSearch:

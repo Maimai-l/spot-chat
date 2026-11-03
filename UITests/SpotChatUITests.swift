@@ -279,7 +279,7 @@ final class SpotChatUITests: XCTestCase {
         attachScreenshot("Long command output")
 
         let output = elements("commandOutput", in: app).element(boundBy: 0)
-        XCTAssertLessThan(output.frame.height, 12 * 20 + 40, "Only the end of the output shows")
+        XCTAssertLessThan(output.frame.height, 13 * 16, "The end of the output shows, a line to a row")
         XCTAssertLessThanOrEqual(output.frame.maxY, rows.element(boundBy: 1).frame.minY, "The next step starts below it")
     }
 
