@@ -575,8 +575,11 @@ final class SpotChatUITests: XCTestCase {
         attachScreenshot("Reopened conversation")
         let jump = element("jumpToLatest", in: app)
         XCTAssertFalse(jump.exists, "It opens at its latest reply")
+        // Regenerate sits at the end of the latest reply, just above the input.
+        let end = element("regenerate", in: app)
+        XCTAssertTrue(end.exists)
         XCTAssertLessThan(
-            abs(latest.frame.maxY - composer(in: app).frame.minY), 120, "The end of the latest reply is in view"
+            abs(end.frame.maxY - composer(in: app).frame.minY), 80, "The end of the latest reply is in view"
         )
 
         // Anywhere above the end, the button to return there shows.
