@@ -43,6 +43,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillFinishLaunching(_ notification: Notification) {
         AppLogging.start()
+        MainThreadWatch.start()
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {

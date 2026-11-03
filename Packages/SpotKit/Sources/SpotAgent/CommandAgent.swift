@@ -443,17 +443,34 @@ public actor CommandAgent {
 
     private func applyOptions() async throws {
         guard let rpc, let sessionID else { return }
-        if let model = options.model, model != appliedModel, let value = value(of: "model", matching: model) {
-            _ = try? await rpc.sendRequest(method: "session/set_config_option", params: SetSessionConfigOptionRequest(
-                sessionId: SessionId(value: sessionID), configId: SessionConfigId(value: "model"), value: .string(value)
-            ))
+        if let model = options.model, model != appliedModel,
+           await setOption("model", to: model, rpc: rpc, sessionID: sessionID) {
             appliedModel = model
         }
-        if let effort = options.effort, effort != appliedEffort, let value = value(of: "reasoning_effort", matching: effort) {
-            _ = try? await rpc.sendRequest(method: "session/set_config_option", params: SetSessionConfigOptionRequest(
-                sessionId: SessionId(value: sessionID), configId: SessionConfigId(value: "reasoning_effort"), value: .string(value)
-            ))
+        if let effort = options.effort, effort != appliedEffort,
+           await setOption("reasoning_effort", to: effort, rpc: rpc, sessionID: sessionID) {
             appliedEffort = effort
+        }
+    }
+
+    /// Sets one of the session's options before a turn. One dsh doesn't offer or refuses is logged and
+    /// left unapplied, so the next turn tries it again.
+    private func setOption(_ optionID: String, to wanted: String, rpc: ACPProtocol, sessionID: String) async -> Bool {
+        guard let value = value(of: optionID, matching: wanted) else {
+            SpotLog.agent.notice("dsh doesn't offer this option", metadata: ["option": "\(optionID)", "value": "\(wanted)"])
+            return false
+        }
+        do {
+            _ = try await rpc.sendRequest(method: "session/set_config_option", params: SetSessionConfigOptionRequest(
+                sessionId: SessionId(value: sessionID), configId: SessionConfigId(value: optionID), value: .string(value)
+            ))
+            SpotLog.agent.info("Set a session option", metadata: ["option": "\(optionID)", "value": "\(value)"])
+            return true
+        } catch {
+            SpotLog.agent.error("Couldn't set a session option", metadata: [
+                "option": "\(optionID)", "value": "\(value)", "error": "\(error)",
+            ])
+            return false
         }
     }
 

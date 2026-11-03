@@ -77,6 +77,9 @@ The app icon is drawn by `node scripts/make_app_icon.mjs`; see `docs/design/pinh
 | --- | --- | --- |
 | Bugs and requests from using alpha 134 | Bugs, requests | Owner is using it |
 | The question being edited doesn't scroll with the wheel, and sometimes sticks | Bug, P1 | Fixed, in testing |
+| A conversation opened with the shortcut has no button back to the end until scrolled | Bug, P2 | Fixed, in testing |
+| Changing effort while a reply or command is under way | Edge case | Tested: the reply under way keeps its level, the next one uses the new level |
+| The app feels slow at times | Bug | Needs a log of it: the log now records freezes and slow reply renders |
 | swift-format lint in CI | Tooling | Proposed |
 | One command that builds and runs the app | Tooling | Proposed |
 | Why "You are a helpful assistant." breaks deepseek-flash: other personas, a paraphrase, neutral text of the same length, 30 replies each | Research | Needs a temporary API key |

@@ -13,8 +13,18 @@ Problems this project hit and what fixed them, so they aren't solved twice.
 - **`deepseek-flash` changes under the same name.** It became V4.1-Flash-1017 on 2026-10-17; check DeepSeek's
   change log when replies change.
 
+## Commands
+
+- **A level dsh refused counted as set.** `CommandAgent` dropped the error from `session/set_config_option`
+  and marked the level applied, so it was never tried again. A refused or unoffered option is now logged
+  and tried again next turn.
+
 ## Interface
 
+- **A reopened conversation sat mid-way with no button back to the end.** It followed the end once on
+  appearing, before the card had grown and the replies had rendered, and the button showed only after the
+  reader scrolled up. `MessageList` now keeps following the end while the conversation's size settles, and
+  shows the button whenever the view is away from the end.
 - **The question being edited didn't scroll with the wheel and sometimes stuck.** SwiftUI's vertical
   `TextField` past its line limit ignores the wheel on macOS. The edit box now uses the input's own text view,
   `ComposerField`, whose scroll view hands the wheel on while the text fits.

@@ -120,6 +120,8 @@ struct ComposerField: NSViewRepresentable {
         textView.onPasteImage = onPasteImage
         textView.delegate = context.coordinator
         textView.setAccessibilityIdentifier(identifier)
+        // The box the text scrolls in, which tests measure; the text view is as tall as all of its text.
+        scrollView.setAccessibilityIdentifier(identifier + ".box")
 
         scrollView.documentView = textView
         context.coordinator.textView = textView

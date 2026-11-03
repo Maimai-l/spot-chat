@@ -131,6 +131,12 @@ final class SpotChatUITests: XCTestCase {
         return try JSONSerialization.jsonObject(with: data) as? [String: Any] ?? [:]
     }
 
+    /// The model and thinking settings of dsh's last request to the mock's Messages API.
+    func lastMessagesRequest() throws -> [String: Any] {
+        let data = try Data(contentsOf: URL(string: Self.mockURL + "/last-messages-request")!)
+        return try JSONSerialization.jsonObject(with: data) as? [String: Any] ?? [:]
+    }
+
     // MARK: Running commands
 
     /// A conversation that runs commands with dsh, against the mock's stand-in for DeepSeek's Messages API.
@@ -547,6 +553,87 @@ final class SpotChatUITests: XCTestCase {
         jump.click()
         XCTAssertTrue(jump.waitForNonExistence(timeout: 5))
         element("stop", in: app).click()
+    }
+
+    func testReopenedConversationOpensAtItsLatestReply() {
+        let app = launch(resetState: true)
+        send("markdown", in: app)
+        waitForReply(in: app, "SELF CONTAINS %@", "| WAL | concurrent |")
+        send("markdown", in: app)
+        let latest = elements("message.assistant", in: app).element(boundBy: 1)
+        XCTAssertTrue(latest.waitForExistence(timeout: 10))
+        RunLoop.current.run(until: Date().addingTimeInterval(1.5))
+        app.buttons["Close"].click()
+        XCTAssertTrue(app.buttons["New Chat"].waitForNonExistence(timeout: 5))
+
+        // Open it again from the menu bar, which does what the shortcut does.
+        app.statusItems.firstMatch.click()
+        menuItem("Open Mini Window", in: app).click()
+        XCTAssertTrue(latest.waitForExistence(timeout: 10))
+        // The card grows open and the replies render after the conversation appears.
+        RunLoop.current.run(until: Date().addingTimeInterval(2))
+        attachScreenshot("Reopened conversation")
+        let jump = element("jumpToLatest", in: app)
+        XCTAssertFalse(jump.exists, "It opens at its latest reply")
+        XCTAssertLessThan(
+            abs(latest.frame.maxY - composer(in: app).frame.minY), 120, "The end of the latest reply is in view"
+        )
+
+        // Anywhere above the end, the button to return there shows.
+        let conversation = composer(in: app).coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0))
+            .withOffset(CGVector(dx: 0, dy: -150))
+        conversation.scroll(byDeltaX: 0, deltaY: 300)
+        XCTAssertTrue(jump.waitForExistence(timeout: 5))
+        jump.click()
+        XCTAssertTrue(jump.waitForNonExistence(timeout: 5))
+    }
+
+    func testChangingEffortDuringAReplyChangesOnlyTheNextOne() throws {
+        let app = launch(resetState: true)
+        send("slow", in: app)
+        XCTAssertTrue(reply(containing: "tick 1", in: app).waitForExistence(timeout: 10))
+        XCTAssertEqual(try lastRequest()["reasoning_effort"] as? String, "medium")
+
+        element("modelMenu", in: app).click()
+        let low = menuItem("Low", in: app)
+        XCTAssertTrue(low.waitForExistence(timeout: 5))
+        low.click()
+
+        // The reply under way finishes as it was asked, without stopping or failing.
+        XCTAssertTrue(reply(containing: "tick 59", in: app).waitForExistence(timeout: 20))
+        XCTAssertTrue(element("stop", in: app).waitForNonExistence(timeout: 5))
+        XCTAssertFalse(element("message.error", in: app).exists)
+        XCTAssertEqual(try lastRequest()["reasoning_effort"] as? String, "medium")
+
+        send("hi", in: app)
+        XCTAssertTrue(reply(containing: "Echo: hi", in: app).waitForExistence(timeout: 10))
+        XCTAssertEqual(try lastRequest()["reasoning_effort"] as? String, "low", "The next question uses the new level")
+    }
+
+    func testChangingEffortDuringACommandChangesTheNextTurn() throws {
+        let app = launchRunningCommands()
+        send("Run something slow", in: app)
+        XCTAssertTrue(element("command.running", in: app).waitForExistence(timeout: 40))
+        let before = try lastMessagesRequest()
+
+        element("modelMenu", in: app).click()
+        let low = menuItem("Low", in: app)
+        XCTAssertTrue(low.waitForExistence(timeout: 5))
+        low.click()
+        // The command under way keeps running until it is stopped.
+        XCTAssertTrue(element("command.running", in: app).exists)
+        element("stop", in: app).click()
+        XCTAssertTrue(element("command.stopped", in: app).waitForExistence(timeout: 15))
+        XCTAssertTrue(element("stop", in: app).waitForNonExistence(timeout: 10))
+
+        send("Please list the files", in: app)
+        XCTAssertTrue(reply(containing: "Listed the folder.", in: app).waitForExistence(timeout: 40))
+        XCTAssertFalse(element("message.error", in: app).exists)
+        let after = try lastMessagesRequest()
+        XCTAssertNotEqual(
+            NSDictionary(dictionary: after), NSDictionary(dictionary: before),
+            "dsh asks with the new level from the next turn: before \(before), after \(after)"
+        )
     }
 
     func testLaterTurnsAreServedFromThePromptCache() {
@@ -1008,17 +1095,18 @@ final class SpotChatUITests: XCTestCase {
         element("message.user", in: app).hover()
         element("editMessage", in: app).click()
         let field = element("editField", in: app)
-        XCTAssertTrue(field.waitForExistence(timeout: 5))
-        XCTAssertLessThan(field.frame.height, 10 * 20 + 20, "The field stops growing at ten lines")
+        let box = element("editField.box", in: app)
+        XCTAssertTrue(box.waitForExistence(timeout: 5))
+        XCTAssertLessThan(box.frame.height, 10 * 20 + 20, "The field stops growing at ten lines")
 
         // Scrolling over the field moves its text, not the conversation behind it.
-        let top = field.frame.minY
-        let before = field.screenshot().pngRepresentation
-        field.scroll(byDeltaX: 0, deltaY: 300)
+        let top = box.frame.minY
+        let before = box.screenshot().pngRepresentation
+        box.scroll(byDeltaX: 0, deltaY: 300)
         RunLoop.current.run(until: Date().addingTimeInterval(0.5))
         attachScreenshot("Editing a long question")
-        XCTAssertEqual(field.frame.minY, top, accuracy: 1, "The conversation stays put")
-        XCTAssertNotEqual(field.screenshot().pngRepresentation, before, "The text scrolls")
+        XCTAssertEqual(box.frame.minY, top, accuracy: 1, "The conversation stays put")
+        XCTAssertNotEqual(box.screenshot().pngRepresentation, before, "The text scrolls")
 
         // Enter still saves the edit.
         field.typeText(" edited")

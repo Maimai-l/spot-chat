@@ -34,7 +34,12 @@ function reportHeight() {
 }
 new ResizeObserver(reportHeight).observe(content)
 
+// A render slow enough to drop frames is logged, at most once a second, to match reports of lag.
+const slowRender = 50
+let lastSlowLog = 0
+
 function show(markdown, streaming) {
+  const started = performance.now()
   const next = content.cloneNode(false)
   next.innerHTML = renderer.render(markdown, { streaming })
   // Patching instead of replacing keeps finished formulas, code and the reader's selection in place.
@@ -52,6 +57,11 @@ function show(markdown, streaming) {
     },
   })
   reportHeight()
+  const took = performance.now() - started
+  if (took > slowRender && started - lastSlowLog > 1000) {
+    lastSlowLog = started
+    log('notice', 'Slow render', { ms: String(Math.round(took)), markdownLength: String(markdown.length) })
+  }
   if (!streaming) {
     drawDiagrams()
     const shown = content.innerText

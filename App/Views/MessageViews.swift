@@ -21,6 +21,8 @@ struct MessageList: View {
     /// Whether a growing reply keeps the conversation scrolled to the end. Scrolling up turns it off until
     /// the reader returns to the end, as in Claude and ChatGPT.
     @State private var pinnedToBottom = true
+    /// True for a moment after the conversation scrolls itself to the end.
+    @State private var isFollowing = false
 
     var body: some View {
         ScrollView {
@@ -67,6 +69,12 @@ struct MessageList: View {
             } else if new.isNearBottom {
                 pinnedToBottom = true
             }
+            // While the card grows open and replies render, the end moves after the conversation appeared;
+            // keep up with it until the reader scrolls away.
+            let resized = abs(new.content - old.content) > 0.5 || abs(new.visible - old.visible) > 0.5
+            if pinnedToBottom, resized, !new.isNearBottom {
+                followBottom(animated: false)
+            }
         }
         // Only the reader's own scrolling shows the bar, not the conversation following a reply.
         .onScrollPhaseChange { _, phase in
@@ -82,7 +90,8 @@ struct MessageList: View {
             )
         }
         .overlay(alignment: .bottom) {
-            let showsJump = !pinnedToBottom && metrics.maxOffset - metrics.offset > 80
+            // Away from the end without the conversation on its way back there, however it got there.
+            let showsJump = metrics.maxOffset - metrics.offset > 80 && !(pinnedToBottom && isFollowing)
             ZStack {
                 if showsJump {
                     JumpToLatestButton {
@@ -126,6 +135,10 @@ struct MessageList: View {
     /// Keeps the newest message in view; animated, it glides rather than jumps.
     private func followBottom(animated: Bool) {
         followingUntil = Date().addingTimeInterval(0.5)
+        isFollowing = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            if Date() >= followingUntil { isFollowing = false }
+        }
         if animated {
             withAnimation(.easeOut(duration: 0.22)) { position.scrollTo(edge: .bottom) }
         } else {
@@ -143,7 +156,7 @@ struct ScrollMetrics: Equatable {
     var isNearBottom: Bool { offset >= maxOffset - 24 }
 }
 
-/// Shown when the reader has scrolled up from the end of the conversation.
+/// Shown while the conversation isn't at its end.
 struct JumpToLatestButton: View {
     let action: () -> Void
     @State private var hovering = false
