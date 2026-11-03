@@ -79,7 +79,7 @@ The app icon is drawn by `node scripts/make_app_icon.mjs`; see `docs/design/pinh
 | The question being edited doesn't scroll with the wheel, and sometimes sticks | Bug, P1 | Fixed, in testing |
 | A conversation opened with the shortcut has no button back to the end until scrolled | Bug, P2 | Fixed, in testing |
 | Changing effort while a reply or command is under way | Edge case | Tested: the reply under way keeps its level, the next one uses the new level |
-| A reply keeps being written after Spot Chat quits: 1. reply logic out of the interface, 2. confirm quitting and keep the Mac awake while replying, 3. a background process prototype | Feature | 1 in testing |
+| A reply keeps being written after Spot Chat quits: 1. reply logic out of the interface, 2. confirm quitting and keep the Mac awake while replying, 3. a background process prototype | Feature | 1 and 2 in testing |
 | The app feels slow at times | Bug | Needs a log of it: the log now records freezes and slow reply renders |
 | swift-format lint in CI | Tooling | Proposed |
 | One command that builds and runs the app | Tooling | Proposed |

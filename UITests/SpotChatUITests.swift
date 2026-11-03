@@ -639,6 +639,37 @@ final class SpotChatUITests: XCTestCase {
         )
     }
 
+    func testQuittingDuringAReplyAsksFirst() {
+        let app = launch(resetState: true)
+        send("slow", in: app)
+        XCTAssertTrue(reply(containing: "tick 1", in: app).waitForExistence(timeout: 10))
+
+        app.statusItems.firstMatch.click()
+        menuItem("Quit Spot Chat", in: app).click()
+        let quit = app.buttons["Quit"]
+        XCTAssertTrue(quit.waitForExistence(timeout: 5), "Quitting with a reply under way asks first")
+        attachScreenshot("Quit during a reply")
+        app.buttons["Cancel"].click()
+        XCTAssertTrue(quit.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(reply(containing: "tick 15", in: app).waitForExistence(timeout: 10), "Cancel keeps the reply going")
+        XCTAssertEqual(app.state, .runningForeground)
+
+        app.statusItems.firstMatch.click()
+        menuItem("Quit Spot Chat", in: app).click()
+        XCTAssertTrue(quit.waitForExistence(timeout: 5))
+        quit.click()
+        XCTAssertTrue(app.wait(for: .notRunning, timeout: 10))
+    }
+
+    func testQuittingWithNothingUnderWayDoesNotAsk() {
+        let app = launch(resetState: true)
+        send("hi", in: app)
+        waitForReply(in: app, "SELF == %@", "Echo: hi")
+        app.statusItems.firstMatch.click()
+        menuItem("Quit Spot Chat", in: app).click()
+        XCTAssertTrue(app.wait(for: .notRunning, timeout: 10))
+    }
+
     func testLaterTurnsAreServedFromThePromptCache() {
         let app = launch(resetState: true)
         send("markdown", in: app)

@@ -38,12 +38,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private(set) lazy var miniController = makeMiniController()
     /// Made before launch finishes, since the menu bar item reads it as soon as it is built.
     let menuBar = MenuBarState()
+    private let workGuard = WorkGuard()
     private(set) lazy var fullWindow = makeFullWindow()
     private(set) lazy var settings = SettingsWindowController(app: app)
 
     func applicationWillFinishLaunching(_ notification: Notification) {
         AppLogging.start()
         MainThreadWatch.start()
+    }
+
+    /// A reply or command under way is stopped by quitting, so the user is asked first.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        workGuard.mayQuit() ? .terminateNow : .terminateCancel
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -60,6 +66,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         ReplyPageWarmup.start()
+        workGuard.watch(app)
 
         // Opening the mini window brings the text selected in the app in front, quoted in the input.
         KeyboardShortcuts.onKeyDown(for: .toggleMiniWindow) { [weak self] in
