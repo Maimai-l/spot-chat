@@ -684,17 +684,6 @@ final class SpotChatUITests: XCTestCase {
         RunLoop.current.run(until: Date().addingTimeInterval(1))
         attachScreenshot("Reply finished after quitting")
 
-        // What the writer used, from its own log: its time and memory at the end.
-        let logs = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs/Spot Chat")
-        let files = (try? FileManager.default.contentsOfDirectory(at: logs, includingPropertiesForKeys: nil)) ?? []
-        let finished = files.filter { $0.lastPathComponent.hasPrefix("Writer ") }
-            .compactMap { try? String(contentsOf: $0, encoding: .utf8) }
-            .flatMap { $0.split(separator: "\n") }
-            .filter { $0.contains("Writer finished") }
-        let attachment = XCTAttachment(string: finished.joined(separator: "\n"))
-        attachment.name = "Measured writer"
-        attachment.lifetime = .keepAlways
-        add(attachment)
     }
 
     func testQuittingWithNothingUnderWayDoesNotAsk() {
@@ -868,6 +857,14 @@ final class SpotChatUITests: XCTestCase {
         XCTAssertTrue(log.contains("Echo: log me"), "The reply's text is logged")
         XCTAssertTrue(log.contains("[reply] Shown text"), "The text the page showed is logged")
         XCTAssertFalse(log.contains("test-key"), "The API key is never logged")
+
+        // The reply writer's own log is part of it, with what the writer used: its time and memory at the end.
+        let finished = log.split(separator: "\n").filter { $0.contains("Writer finished") }
+        XCTAssertFalse(finished.isEmpty, "The reply writer's log is exported too")
+        let measured = XCTAttachment(string: finished.joined(separator: "\n"))
+        measured.name = "Measured writer"
+        measured.lifetime = .keepAlways
+        add(measured)
     }
 
     func testSystemPromptIsSentFirst() throws {
