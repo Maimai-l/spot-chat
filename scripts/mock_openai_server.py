@@ -128,7 +128,14 @@ def reply_chunks(body):
 
 # Stand-in for DeepSeek's Anthropic-format Messages API, which dsh uses to run commands.
 # The question picks the script: "outside" writes outside the folder (stopped by the sandbox, then asked
-# for), "slow" runs a long command, "list" runs a short one; anything else gets a plain answer.
+# for), "slow" runs a long command, "long" one that prints a lot then a short one, "list" a short one;
+# anything else gets a plain answer.
+# Forty long lines of JSON, as a command reading an API prints them.
+LONG_OUTPUT = (
+    "for i in $(seq 1 40); do echo '{\"filename\":\"dialogue_char_freq_'$i'.txt\",\"display_name\":"
+    "\"dialogue_char_freq\",\"channel\":\"口语\",\"token_type\":\"char\",\"size_bytes\":49553,"
+    "\"updated_at\":\"2026-05-22T02:53:18Z\"}'; done"
+)
 ESCAPE = 'echo out > "$HOME/.spot-chat-ui-test-escape" && rm "$HOME/.spot-chat-ui-test-escape"'
 last_messages_request = {}
 
@@ -156,6 +163,12 @@ def messages_steps(body):
         return "Finished."
     if "slow" in question:
         return ("Wait a minute", "sleep 60", False) if not results else "Stopped."
+    if "long" in question:
+        if not results:
+            return ("Print the dataset list", LONG_OUTPUT, False)
+        if len(results) == 1:
+            return ("List the folder", "ls -a", False)
+        return "Listed the datasets."
     if "search" in question:
         if not results:
             return ("web_search", {"queries": ["DaVinci Resolve MCP server"]})

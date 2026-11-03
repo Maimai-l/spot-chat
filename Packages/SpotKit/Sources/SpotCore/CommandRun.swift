@@ -79,6 +79,18 @@ public enum CommandOutput {
     /// Characters of output kept with a run.
     public static let keptLength = 4000
 
+    /// The last `lines` lines of `output`, each cut to `lineLength` characters with an ellipsis, and an
+    /// ellipsis line first when earlier lines were left out: what a step shows of what it printed.
+    public static func tail(_ output: String, lines: Int, lineLength: Int) -> String {
+        var all = output.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+        while all.last?.isEmpty == true { all.removeLast() }
+        let shown = all.suffix(lines).map { line in
+            line.count > lineLength ? String(line.prefix(lineLength)) + "…" : line
+        }
+        let leftOut = all.count > lines ? ["…"] : []
+        return (leftOut + shown).joined(separator: "\n")
+    }
+
     public struct Result: Equatable, Sendable {
         public var text: String
         public var exitCode: Int?

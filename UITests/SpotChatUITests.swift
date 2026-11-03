@@ -261,6 +261,28 @@ final class SpotChatUITests: XCTestCase {
         XCTAssertFalse(element("command.succeeded", in: app).exists)
     }
 
+    /// A step that printed a lot shows the end of it inside its own row, as Claude does, without spilling
+    /// over the steps below.
+    func testLongCommandOutputStaysInItsStep() {
+        let app = launchRunningCommands()
+        send("Print a long dataset list", in: app)
+        XCTAssertTrue(reply(containing: "Listed the datasets.", in: app).waitForExistence(timeout: 40))
+        RunLoop.current.run(until: Date().addingTimeInterval(1))
+        let rows = elements("toolRow", in: app)
+        if !rows.firstMatch.exists { element("commands", in: app).click() }
+        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertEqual(rows.count, 2)
+        tap(rows.element(boundBy: 0))
+        XCTAssertTrue(element("commandOutput", in: app).waitForExistence(timeout: 5))
+        tap(rows.element(boundBy: 1))
+        RunLoop.current.run(until: Date().addingTimeInterval(1))
+        attachScreenshot("Long command output")
+
+        let output = elements("commandOutput", in: app).element(boundBy: 0)
+        XCTAssertLessThan(output.frame.height, 12 * 20 + 40, "Only the end of the output shows")
+        XCTAssertLessThanOrEqual(output.frame.maxY, rows.element(boundBy: 1).frame.minY, "The next step starts below it")
+    }
+
     func testStoppingEndsARunningCommand() {
         let app = launchRunningCommands()
         send("Run something slow", in: app)

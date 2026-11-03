@@ -4,7 +4,8 @@ import SpotAgent
 import SpotCore
 
 /// What a reply did, folded under one line as in Claude: "Ran 2 commands, searched the web, read 2 pages".
-/// Open while the reply is being made. Each step is one line that opens to its details.
+/// Open while the reply is being made. Open, the steps sit in one card with a light rim, a hairline between
+/// them, and each opens in place to its details.
 struct CommandRunsView: View {
     let runs: [CommandRun]
     let isLive: Bool
@@ -24,14 +25,11 @@ struct CommandRunsView: View {
             Button {
                 withAnimation(.easeOut(duration: 0.18)) { isOpen.toggle() }
             } label: {
-                HStack(spacing: 4) {
+                HStack(spacing: 6) {
                     Text(Self.summary(of: shown))
                         .font(.system(size: 14))
                         .foregroundStyle(hovering ? .primary : .secondary)
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(.tertiary)
-                        .rotationEffect(.degrees(isOpen ? 90 : 0))
+                    DisclosureTriangle(isOpen: isOpen)
                 }
                 .contentShape(Rectangle())
             }
@@ -40,11 +38,23 @@ struct CommandRunsView: View {
             .accessibilityIdentifier("commands")
 
             if isOpen {
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(shown) { run in
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(Array(shown.enumerated()), id: \.element.id) { index, run in
+                        if index > 0 {
+                            Rectangle()
+                                .fill(Color.primary.opacity(0.1))
+                                .frame(height: 0.5)
+                        }
                         CommandRunRow(run: run, stop: stop)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 9)
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.5)
+                )
                 .transition(.opacity)
             }
         }
@@ -80,8 +90,8 @@ struct CommandRunsView: View {
     }
 }
 
-/// One step as a line: what it did in gray, what it did it to in black. Opening it shows the command
-/// and its output, or a search's results.
+/// One step as a line in the card: what it did in gray, what it did it to in black. Opening it shows the
+/// command in a block of its own and what it printed below, or a search's results.
 struct CommandRunRow: View {
     let run: CommandRun
     let stop: () -> Void
@@ -95,16 +105,16 @@ struct CommandRunRow: View {
                 withAnimation(.easeOut(duration: 0.15)) { isOpen.toggle() }
             } label: {
                 HStack(spacing: 6) {
-                    CommandStateIcon(run: run)
+                    // Words say what a step was, as in Claude; a spinner says it is still going.
+                    if !run.isFinished {
+                        CommandStateIcon(run: run)
+                    }
                     title
                         .font(.system(size: 13))
                         .lineLimit(1)
                         .truncationMode(.tail)
                     if hasDetails {
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 9, weight: .semibold))
-                            .foregroundStyle(.tertiary)
-                            .rotationEffect(.degrees(isOpen ? 90 : 0))
+                        DisclosureTriangle(isOpen: isOpen)
                     }
                     Spacer(minLength: 8)
                     if run.state == .running {
@@ -126,18 +136,16 @@ struct CommandRunRow: View {
 
             if run.state == .waitingForApproval {
                 NeedsInputPill()
-                    .padding(.leading, 22)
             }
             if let note {
                 Text(note)
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
-                    .padding(.leading, 22)
                     .accessibilityIdentifier("commandNote")
             }
             if isOpen {
                 details
-                    .padding(.leading, 22)
+                    .padding(.top, 4)
                     .transition(.opacity)
             }
         }
@@ -181,25 +189,35 @@ struct CommandRunRow: View {
     private var details: some View {
         switch run.tool {
         case .shell, .other:
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 8) {
                 if !run.detail.isEmpty {
-                    Text(run.detail)
-                        .font(.system(size: 12, design: .monospaced))
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 8)
-                        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.primary.opacity(0.05)))
-                        .accessibilityIdentifier("commandText")
+                    VStack(alignment: .leading, spacing: 6) {
+                        // The tool's own name, as Claude labels the block.
+                        Text(verbatim: run.tool == .shell ? "Bash" : run.summary)
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                        (Text(verbatim: "$ ").foregroundStyle(.tertiary) + Text(verbatim: run.detail))
+                            .font(.system(size: 12, design: .monospaced))
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 8)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.5)
+                            )
+                            .accessibilityIdentifier("commandText")
+                    }
                 }
                 if !run.output.isEmpty {
-                    Text(run.output)
+                    // The end of what it printed, cut here rather than by the text view: a text view told
+                    // to drop lines from the start reserved room for some and drew them all, over the steps below.
+                    Text(verbatim: CommandOutput.tail(run.output, lines: Self.outputLines, lineLength: Self.outputLineLength))
                         .font(.system(size: 11, design: .monospaced))
                         .foregroundStyle(.secondary)
-                        .lineLimit(8)
-                        .truncationMode(.head)
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
+                        .fixedSize(horizontal: false, vertical: true)
                         .accessibilityIdentifier("commandOutput")
                 }
             }
@@ -231,6 +249,10 @@ struct CommandRunRow: View {
             return nil
         }
     }
+
+    /// Lines of output shown, from the end, and the characters kept of each.
+    static let outputLines = 12
+    static let outputLineLength = 240
 
     static func format(_ duration: TimeInterval) -> String {
         if duration < 60 {
@@ -282,6 +304,18 @@ struct WebResultsList: View {
         .padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.primary.opacity(0.05)))
+    }
+}
+
+/// A small filled triangle that turns down when open, as Claude marks what folds.
+struct DisclosureTriangle: View {
+    let isOpen: Bool
+
+    var body: some View {
+        Image(systemName: "arrowtriangle.right.fill")
+            .font(.system(size: 7))
+            .foregroundStyle(.secondary)
+            .rotationEffect(.degrees(isOpen ? 90 : 0))
     }
 }
 

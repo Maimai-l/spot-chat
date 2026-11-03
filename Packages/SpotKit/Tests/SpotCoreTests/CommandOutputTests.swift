@@ -106,3 +106,21 @@ struct ReplyLayoutTests {
         #expect(pieces == [.text("Hi"), .steps([step("a", at: 99)])])
     }
 }
+
+/// What a step shows of what a command printed.
+struct CommandOutputTailTests {
+    @Test func shortOutputShowsWhole() {
+        #expect(CommandOutput.tail("one\ntwo\n", lines: 12, lineLength: 240) == "one\ntwo")
+    }
+
+    @Test func longOutputShowsItsEndAfterAnEllipsis() {
+        let output = (1...20).map { "line \($0)" }.joined(separator: "\n")
+        let tail = CommandOutput.tail(output, lines: 3, lineLength: 240)
+        #expect(tail == "…\nline 18\nline 19\nline 20")
+    }
+
+    @Test func longLinesAreCut() {
+        let tail = CommandOutput.tail(String(repeating: "x", count: 300), lines: 12, lineLength: 10)
+        #expect(tail == String(repeating: "x", count: 10) + "…")
+    }
+}
