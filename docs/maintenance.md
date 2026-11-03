@@ -81,6 +81,7 @@ The app icon is drawn by `node scripts/make_app_icon.mjs`; see `docs/design/pinh
 | Changing effort while a reply or command is under way | Edge case | Tested: the reply under way keeps its level, the next one uses the new level |
 | A reply keeps being written after Spot Chat quits: 1. reply logic out of the interface, 2. confirm quitting and keep the Mac awake while replying, 3. a background process prototype | Feature | 1 and 2 done; 3 in testing (`docs/design/reply-writer.md`) |
 | Chat through the user's own Claude Code or Codex sign-in, no API key: as Easydict runs `claude -p` and `codex exec`, or over ACP through Zed's claude-code-acp and codex-acp, as dsh runs now. Check the adapters and each vendor's terms first | Idea | Later |
+| Run commands through Kimi Code CLI (`kimi acp`), as through dsh, for a Kimi Code membership. Its terms keep the membership to coding, which commands are; chat goes through an API key | Idea | Asked the owner |
 | The app feels slow at times | Bug | Needs a log of it: the log now records freezes and slow reply renders |
 | swift-format lint in CI | Tooling | Proposed |
 | One command that builds and runs the app | Tooling | Proposed |
