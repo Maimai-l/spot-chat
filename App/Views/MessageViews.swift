@@ -119,6 +119,16 @@ struct MessageList: View {
             pinnedToBottom = true
             DispatchQueue.main.async { followBottom(animated: true) }
         }
+        // The edit box grows the conversation where the reader is working, so it isn't followed to the end
+        // then; a saved edit brings the new reply into view.
+        .environment(\.messageEditing) { editing, saved in
+            if editing {
+                pinnedToBottom = false
+            } else if saved {
+                pinnedToBottom = true
+                DispatchQueue.main.async { followBottom(animated: true) }
+            }
+        }
         // A reply's height is known only once its page has rendered, after the message changed.
         .environment(\.replyDidResize) { id in
             // Without animation, as Claude and ChatGPT keep a growing reply in view: an animated scroll
@@ -292,6 +302,7 @@ struct UserMessageView: View {
     @State private var editing = false
     @State private var editText = ""
     @State private var editWidth: CGFloat = 0
+    @Environment(\.messageEditing) private var messageEditing
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 4) {
@@ -315,6 +326,7 @@ struct UserMessageView: View {
                         SmallIconButton(systemName: "pencil", label: "Edit", identifier: "editMessage") {
                             editText = message.text
                             editing = true
+                            messageEditing(true, false)
                         }
                     }
                     SmallIconButton(systemName: "doc.on.doc", label: "Copy", identifier: "copyMessage") {
@@ -417,11 +429,13 @@ struct UserMessageView: View {
 
     private func cancel() {
         editing = false
+        messageEditing(false, false)
     }
 
     private func save() {
         guard isChanged else { return }
         editing = false
+        messageEditing(false, true)
         onEdit(editText)
     }
 }
@@ -429,6 +443,9 @@ struct UserMessageView: View {
 extension EnvironmentValues {
     /// Whether the pointer is over the message, which shows its Copy and Edit buttons.
     @Entry var showsMessageActions = true
+    /// Told when a question starts being edited (true) and when the edit ends (false), and whether it
+    /// was saved, so the conversation holds still while the reader edits.
+    @Entry var messageEditing: (_ editing: Bool, _ saved: Bool) -> Void = { _, _ in }
 }
 
 struct AssistantMessageView: View {

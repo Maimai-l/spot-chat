@@ -29,6 +29,9 @@ Problems this project hit and what fixed them, so they aren't solved twice.
   appearing, before the card had grown and the replies had rendered, and the button showed only after the
   reader scrolled up. `MessageList` now keeps following the end while the conversation's size settles, and
   shows the button whenever the view is away from the end.
+- **Opening an edit scrolled the question away.** Following the end while the conversation's size settles
+  also followed the edit box growing it. Editing now stops following the end, and saving brings the new reply
+  into view.
 - **The question being edited didn't scroll with the wheel and sometimes stuck.** SwiftUI's vertical
   `TextField` past its line limit ignores the wheel on macOS. The edit box now uses the input's own text view,
   `ComposerField`, whose scroll view hands the wheel on while the text fits.
