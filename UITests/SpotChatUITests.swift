@@ -1188,10 +1188,11 @@ final class SpotChatUITests: XCTestCase {
         XCTAssertTrue(box.waitForExistence(timeout: 5))
         XCTAssertLessThan(box.frame.height, 10 * 20 + 20, "The field stops growing at ten lines")
 
-        // Scrolling over the field moves its text, not the conversation behind it.
+        // Scrolling over the field moves its text, not the conversation behind it. Less than the text has
+        // to scroll: past its top, the rest of a scroll moves the conversation, as a web page's text box does.
         let top = box.frame.minY
         let before = box.screenshot().pngRepresentation
-        box.scroll(byDeltaX: 0, deltaY: 300)
+        box.scroll(byDeltaX: 0, deltaY: 100)
         RunLoop.current.run(until: Date().addingTimeInterval(0.5))
         attachScreenshot("Editing a long question")
         XCTAssertEqual(box.frame.minY, top, accuracy: 1, "The conversation stays put")
