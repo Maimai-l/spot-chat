@@ -999,6 +999,34 @@ final class SpotChatUITests: XCTestCase {
         XCTAssertEqual(text(of: element("message.user", in: app)), "second question")
     }
 
+    func testALongQuestionScrollsWithTheWheelWhileEdited() {
+        let app = launch(resetState: true, fullWindow: true)
+        let long = Array(repeating: "a long question that wraps over many lines", count: 40).joined(separator: " ")
+        send(long, in: app)
+        waitForReply(in: app, "SELF BEGINSWITH %@", "Echo: a long question")
+
+        element("message.user", in: app).hover()
+        element("editMessage", in: app).click()
+        let field = element("editField", in: app)
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        XCTAssertLessThan(field.frame.height, 10 * 20 + 20, "The field stops growing at ten lines")
+
+        // Scrolling over the field moves its text, not the conversation behind it.
+        let top = field.frame.minY
+        let before = field.screenshot().pngRepresentation
+        field.scroll(byDeltaX: 0, deltaY: 300)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        attachScreenshot("Editing a long question")
+        XCTAssertEqual(field.frame.minY, top, accuracy: 1, "The conversation stays put")
+        XCTAssertNotEqual(field.screenshot().pngRepresentation, before, "The text scrolls")
+
+        // Enter still saves the edit.
+        field.typeText(" edited")
+        field.typeKey(.return, modifierFlags: [])
+        XCTAssertTrue(field.waitForNonExistence(timeout: 5))
+        waitForReply(in: app, "SELF ENDSWITH %@", "lines edited")
+    }
+
     // MARK: Full window
 
     func testCardExpandsToTheFullWindowAndCollapsesBack() {

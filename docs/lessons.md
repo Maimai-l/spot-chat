@@ -15,6 +15,9 @@ Problems this project hit and what fixed them, so they aren't solved twice.
 
 ## Interface
 
+- **The question being edited didn't scroll with the wheel and sometimes stuck.** SwiftUI's vertical
+  `TextField` past its line limit ignores the wheel on macOS. The edit box now uses the input's own text view,
+  `ComposerField`, whose scroll view hands the wheel on while the text fits.
 - **Typed text sat a point below the +.** Fixing lines at 20 points put the extra height above the glyphs;
   `ComposerTextMetrics.baselineOffset` raises them. Measure glyphs, not the caret.
 - **Menu check marks didn't line up.** Tab stops and image-less attachments don't place them reliably;

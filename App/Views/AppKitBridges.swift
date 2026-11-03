@@ -71,6 +71,7 @@ struct WindowDragArea: NSViewRepresentable {
 
 /// Multi-line input. Enter sends, Shift+Enter inserts a line break,
 /// and Enter while an input method is composing commits the composition instead of sending.
+/// Also edits a question in the conversation, so long text scrolls with the wheel there too.
 struct ComposerField: NSViewRepresentable {
     @Binding var text: String
     var placeholder: String
@@ -79,13 +80,14 @@ struct ComposerField: NSViewRepresentable {
     var onEscape: () -> Void
     var onPasteFiles: ([URL]) -> Void = { _ in }
     var onPasteImage: (Data) -> Void = { _ in }
+    var identifier = "composer"
 
     func makeCoordinator() -> Coordinator {
         Coordinator(parent: self)
     }
 
     func makeNSView(context: Context) -> NSScrollView {
-        let scrollView = NSScrollView()
+        let scrollView = ComposerScrollView()
         scrollView.drawsBackground = false
         scrollView.borderType = .noBorder
         scrollView.hasVerticalScroller = false
@@ -117,7 +119,7 @@ struct ComposerField: NSViewRepresentable {
         textView.onPasteFiles = onPasteFiles
         textView.onPasteImage = onPasteImage
         textView.delegate = context.coordinator
-        textView.setAccessibilityIdentifier("composer")
+        textView.setAccessibilityIdentifier(identifier)
 
         scrollView.documentView = textView
         context.coordinator.textView = textView
@@ -179,6 +181,19 @@ struct ComposerField: NSViewRepresentable {
             default:
                 return false
             }
+        }
+    }
+}
+
+/// Scrolls its text with the wheel when the text is taller than the field, and otherwise hands the wheel on,
+/// so a short field inside the conversation doesn't stop the conversation from scrolling.
+final class ComposerScrollView: NSScrollView {
+    override func scrollWheel(with event: NSEvent) {
+        let textHeight = documentView?.frame.height ?? 0
+        if textHeight > contentView.bounds.height + 0.5 {
+            super.scrollWheel(with: event)
+        } else {
+            nextResponder?.scrollWheel(with: event)
         }
     }
 }

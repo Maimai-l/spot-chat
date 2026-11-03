@@ -278,7 +278,7 @@ struct UserMessageView: View {
     @State private var hovering = false
     @State private var editing = false
     @State private var editText = ""
-    @FocusState private var editFocused: Bool
+    @State private var editWidth: CGFloat = 0
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 4) {
@@ -335,6 +335,15 @@ struct UserMessageView: View {
             .accessibilityIdentifier("message.user")
     }
 
+    /// One to ten lines of the text, measured as the field lays it out.
+    private var editHeight: CGFloat {
+        let width = editWidth - ComposerTextMetrics.linePadding * 2
+        let lines = editWidth > 0
+            ? ComposerTextMetrics.height(of: editText.isEmpty ? " " : editText, width: width) / ComposerTextMetrics.lineHeight
+            : 1
+        return (min(max(lines, 1), 10) * ComposerTextMetrics.lineHeight).rounded(.up) + ComposerTextMetrics.verticalInset * 2
+    }
+
     private var isChanged: Bool {
         let trimmed = editText.trimmingCharacters(in: .whitespacesAndNewlines)
         return !trimmed.isEmpty && trimmed != message.text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -342,17 +351,20 @@ struct UserMessageView: View {
 
     private var editor: some View {
         VStack(alignment: .trailing, spacing: 8) {
-            TextField("", text: $editText, axis: .vertical)
-                .textFieldStyle(.plain)
-                .font(.system(size: 16))
-                .lineLimit(1...10)
-                .focused($editFocused)
-                .onAppear { editFocused = true }
-                .onSubmit(save)
-                .onExitCommand(perform: cancel)
-                .accessibilityIdentifier("editField")
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
+            // The input's own text view, which scrolls with the wheel past ten lines, sends on Enter, adds a
+            // line on Shift+Enter and leaves Enter to an input method while it composes.
+            ComposerField(
+                text: $editText,
+                placeholder: "",
+                focusRequest: 1,
+                onSubmit: save,
+                onEscape: cancel,
+                identifier: "editField"
+            )
+            .frame(height: editHeight)
+            .onGeometryChange(for: CGFloat.self, of: \.size.width) { editWidth = $0 }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
                 .background(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
                         .fill(Color(nsColor: .textBackgroundColor))
