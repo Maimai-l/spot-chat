@@ -51,6 +51,8 @@ the values of environment variables. Errors are logged where they are caught, ne
 - CI builds with Xcode 16.4 (Swift 6.1). A dependency, direct or not, is held at a version whose manifest
   that Swift can read, since a newer local toolchain resolves to versions CI can't build.
 - SpotKit holds the logic in packages (SpotCore, SpotData, SpotAI, SpotAgent); the app target holds the interface.
+  Replies are written by `ChatReplyRunner` and `CommandReplyRunner`, which take a request and report events; the
+  app only builds the request and shows and saves what they report, so they can move to a background process.
 - Comments say what and why in plain words.
 
 ## CI

@@ -42,5 +42,6 @@ let package = Package(
         .testTarget(name: "SpotCoreTests", dependencies: ["SpotCore"]),
         .testTarget(name: "SpotDataTests", dependencies: ["SpotData"]),
         .testTarget(name: "SpotAITests", dependencies: ["SpotAI", .product(name: "Logging", package: "swift-log")]),
+        .testTarget(name: "SpotAgentTests", dependencies: ["SpotAgent"]),
     ]
 )

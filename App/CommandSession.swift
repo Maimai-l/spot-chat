@@ -76,72 +76,27 @@ extension ChatSession {
         ])
         isGenerating = true
 
+        lastReplySave = Date()
+        let app = app
         generation = Task { [weak self] in
-            let (events, sink) = AsyncStream<CommandEvent>.makeStream()
-            // The turn and its updates run on their own: stopping asks dsh to stop and still shows how it ended.
-            let turn = Task {
-                defer { sink.finish() }
-                await agent.update(model: options.model, effort: options.effort, searchesTheWeb: options.searchesTheWeb)
-                let sessionID = try await agent.start(resuming: earlierSession)
-                if sessionID != earlierSession { try? self?.app.topicService.setAgentSession(sessionID, for: topicID) }
-                return try await agent.send(question.text, paths: question.paths.map { URL(fileURLWithPath: $0) }) { event in
-                    sink.yield(event)
+            let result = await CommandReplyRunner.run(
+                agent: agent,
+                options: options,
+                question: question.text,
+                paths: question.paths.map { URL(fileURLWithPath: $0) },
+                earlierSession: earlierSession,
+                onSession: { sessionID in
+                    await MainActor.run { logged { try app.topicService.setAgentSession(sessionID, for: topicID) } }
+                },
+                describe: ErrorText.describe,
+                onProgress: { progress in
+                    await self?.showProgress(progress, ofReply: replyID)
                 }
-            }
-            let updates = Task {
-                var text = ""
-                var reasoning = ""
-                var commands: [CommandRun] = []
-                var lastSave = Date()
-                for await event in events {
-                    switch event {
-                    case let .text(part):
-                        text += part
-                    case let .thought(part):
-                        reasoning += part
-                    case let .run(run):
-                        var run = run
-                        if let index = commands.firstIndex(where: { $0.id == run.id }) {
-                            run.textOffset = commands[index].textOffset
-                            commands[index] = run
-                        } else {
-                            // Shown where it began in the reply, not after all of it.
-                            run.textOffset = text.count
-                            commands.append(run)
-                        }
-                    }
-                    self?.updateReply(replyID) { reply in
-                        reply.text = text
-                        reply.reasoning = reasoning
-                        reply.commands = commands
-                    }
-                    // Saved as it goes, so a quit or crash keeps what ran.
-                    if Date().timeIntervalSince(lastSave) > 1 {
-                        lastSave = Date()
-                        self?.saveReply(replyID)
-                    }
-                }
-                return text
-            }
-            let text = await withTaskCancellationHandler {
-                await updates.value
-            } onCancel: {
-                Task { await agent.cancel() }
-            }
-            var failure: String?
-            var finished = false
-            do {
-                finished = try await turn.value
-            } catch {
-                failure = ErrorText.describe(error)
-            }
-            let stopped = !finished || Task.isCancelled
-            self?.updateReply(replyID) { reply in
-                for index in reply.commands.indices where !reply.commands[index].isFinished {
-                    reply.commands[index].state = .stopped
-                }
-            }
-            self?.finishReply(replyID, text: text, reasoningDuration: nil, failure: failure, cancelled: stopped && failure == nil)
+            )
+            self?.updateReply(replyID) { $0.commands = result.progress.steps }
+            self?.finishReply(
+                replyID, text: result.progress.text, reasoningDuration: nil, failure: result.failure, cancelled: result.stopped
+            )
         }
     }
 }

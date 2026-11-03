@@ -29,6 +29,8 @@ final class ChatSession: ObservableObject {
     var generation: Task<Void, Never>?
     var agent: CommandAgent?
     var approvalAnswer: CheckedContinuation<CommandApproval, Never>?
+    /// When the reply being written was last saved.
+    var lastReplySave = Date.distantPast
 
     init(app: AppModel, topicID: UUID? = nil) {
         self.app = app
@@ -178,104 +180,45 @@ final class ChatSession: ObservableObject {
             "preset": "\(preset?.name ?? "")",
         ])
         isGenerating = true
+        lastReplySave = Date()
+        let runner = ChatReplyRunner(responder: responder, tools: webTools, describe: ErrorText.describe)
         generation = Task { [weak self] in
-            var text = ""
-            var reasoning = ""
-            var thinkingStarted: Date?
-            var thinkingTook: TimeInterval?
-            var lastSave = Date()
-            var failure: String?
-            var request = firstRequest
-            var steps: [CommandRun] = []
-            rounds: for _ in 0..<Self.maxToolRounds {
-                var roundText = ""
-                var roundReasoning = ""
-                var calls: [ToolCall] = []
-                attempts: while true {
-                    do {
-                        for try await chunk in responder.stream(request) {
-                            if Task.isCancelled { break }
-                            switch chunk {
-                            case let .reasoning(part):
-                                if thinkingStarted == nil { thinkingStarted = Date() }
-                                reasoning += part
-                                roundReasoning += part
-                            case let .text(part):
-                                if let thinkingStarted, thinkingTook == nil { thinkingTook = Date().timeIntervalSince(thinkingStarted) }
-                                // Text after a search starts a new paragraph.
-                                if roundText.isEmpty, !text.isEmpty, !text.hasSuffix("\n") { text += "\n\n" }
-                                text += part
-                                roundText += part
-                            case let .usage(usage):
-                                self?.updateReply(replyID) { $0.usage = usage }
-                                continue
-                            case let .toolCalls(made):
-                                calls = made
-                                continue
-                            }
-                            self?.updateReply(replyID) { reply in
-                                reply.text = text
-                                reply.reasoning = reasoning
-                                reply.reasoningDuration = thinkingTook
-                            }
-                            // Saved as it streams, so a quit or crash keeps what has arrived.
-                            if Date().timeIntervalSince(lastSave) > 1 {
-                                lastSave = Date()
-                                self?.saveReply(replyID)
-                            }
-                        }
-                        break attempts
-                    } catch let error as ChatServiceError
-                        where error.rejectsThinking && request.thinking != .automatic && text.isEmpty && reasoning.isEmpty {
-                        // A model without reasoning turned the effort down: ask again without it, and from now on.
-                        SpotLog.reply.notice("The model turned the effort down; asking again without it", metadata: ["reply": "\(replyID)"])
-                        request.thinking = .automatic
-                        if let modelID = model?.id { self?.app.markWithoutEffort(modelID) }
-                        continue attempts
-                    } catch is CancellationError {
-                        break attempts
-                    } catch {
-                        failure = ErrorText.describe(error)
-                        break attempts
-                    }
-                }
-                guard let webTools, !calls.isEmpty, failure == nil, !Task.isCancelled else { break rounds }
-
-                // The model searched or read a page: run each call and give it the results.
-                SpotLog.reply.info("Tool round", metadata: [
-                    "reply": "\(replyID)", "calls": "\(calls.map(\.name).joined(separator: ","))",
-                ])
-                request.messages.append(ChatRequestMessage(
-                    role: .assistant, parts: roundText.isEmpty ? [] : [.text(roundText)],
-                    toolCalls: calls, reasoning: roundReasoning.isEmpty ? nil : roundReasoning
-                ))
-                for call in calls {
-                    var step = WebStep.started(call)
-                    // Shown where it began in the reply, not after all of it.
-                    step.textOffset = text.count
-                    steps.append(step)
-                    self?.updateReply(replyID) { $0.commands = steps }
-                    let output = await webTools.run(call, question: question)
-                    if Task.isCancelled { break rounds }
-                    WebStep.finish(&step, output: output)
-                    steps[steps.count - 1] = step
-                    self?.updateReply(replyID) { $0.commands = steps }
-                    request.messages.append(.toolResult(output, for: call.id))
-                }
+            let result = await runner.run(firstRequest, question: question, replyID: replyID) { event in
+                await self?.apply(event, toReply: replyID, model: model)
             }
-            if let thinkingStarted, thinkingTook == nil { thinkingTook = Date().timeIntervalSince(thinkingStarted) }
-            let cancelled = Task.isCancelled
-            self?.updateReply(replyID) { reply in
-                for index in reply.commands.indices where !reply.commands[index].isFinished {
-                    reply.commands[index].state = .stopped
-                }
-            }
-            self?.finishReply(replyID, text: text, reasoningDuration: thinkingTook, failure: failure, cancelled: cancelled)
+            self?.updateReply(replyID) { $0.commands = result.progress.steps }
+            self?.finishReply(
+                replyID, text: result.progress.text, reasoningDuration: result.progress.reasoningDuration,
+                failure: result.failure, cancelled: result.stopped
+            )
         }
     }
 
-    /// A question that keeps searching stops after this many rounds.
-    static let maxToolRounds = 10
+    /// Shows what the reply reported, saving it as it streams so a quit or crash keeps what has arrived.
+    private func apply(_ event: ChatReplyRunner.Event, toReply id: UUID, model: ProviderModel?) {
+        switch event {
+        case let .progress(progress):
+            showProgress(progress, ofReply: id)
+        case let .usage(usage):
+            updateReply(id) { $0.usage = usage }
+        case .effortRejected:
+            if let modelID = model?.id { app.markWithoutEffort(modelID) }
+        }
+    }
+
+    /// Shows the reply as it stands, and saves it at most once a second.
+    func showProgress(_ progress: ReplyProgress, ofReply id: UUID) {
+        updateReply(id) { reply in
+            reply.text = progress.text
+            reply.reasoning = progress.reasoning
+            reply.reasoningDuration = progress.reasoningDuration
+            reply.commands = progress.steps
+        }
+        if Date().timeIntervalSince(lastReplySave) > 1 {
+            lastReplySave = Date()
+            saveReply(id)
+        }
+    }
 
     func saveReply(_ id: UUID) {
         if let reply = messages.first(where: { $0.id == id }) {
