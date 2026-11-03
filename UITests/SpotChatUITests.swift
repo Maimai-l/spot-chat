@@ -646,10 +646,12 @@ final class SpotChatUITests: XCTestCase {
 
         app.statusItems.firstMatch.click()
         menuItem("Quit Spot Chat", in: app).click()
-        let quit = app.buttons["Quit"]
+        // The alert's own buttons; the Touch Bar repeats them.
+        let alert = app.dialogs["alert"]
+        let quit = alert.buttons["Quit"]
         XCTAssertTrue(quit.waitForExistence(timeout: 5), "Quitting with a reply under way asks first")
         attachScreenshot("Quit during a reply")
-        app.buttons["Cancel"].click()
+        alert.buttons["Cancel"].click()
         XCTAssertTrue(quit.waitForNonExistence(timeout: 5))
         XCTAssertTrue(reply(containing: "tick 15", in: app).waitForExistence(timeout: 10), "Cancel keeps the reply going")
         XCTAssertEqual(app.state, .runningForeground)
