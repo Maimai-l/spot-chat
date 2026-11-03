@@ -13,7 +13,11 @@ public final class AppDatabase: Sendable {
 
     public static func onDisk(at url: URL) throws -> AppDatabase {
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        return try AppDatabase(DatabasePool(path: url.path))
+        // The reply writer, a separate process, saves replies into the same file; a write that finds the other
+        // one writing waits for it instead of failing.
+        var configuration = Configuration()
+        configuration.busyMode = .timeout(10)
+        return try AppDatabase(DatabasePool(path: url.path, configuration: configuration))
     }
 
     public static func inMemory() throws -> AppDatabase {

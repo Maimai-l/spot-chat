@@ -31,6 +31,10 @@ final class ChatSession: ObservableObject {
     var approvalAnswer: CheckedContinuation<CommandApproval, Never>?
     /// When the reply being written was last saved.
     var lastReplySave = Date.distantPast
+    /// The reply writer at work on the reply shown, in a process of its own; nil while the app writes it.
+    private var writerPID: pid_t? {
+        didSet { reportActivity() }
+    }
 
     init(app: AppModel, topicID: UUID? = nil) {
         self.app = app
@@ -40,20 +44,23 @@ final class ChatSession: ObservableObject {
     /// Shows a stored conversation, or none.
     func load(_ topicID: UUID?) {
         guard topicID != self.topicID || topicID == nil else { return }
-        stop()
+        // A reply the writer writes goes on without the window; one the app writes stops.
+        if writerPID != nil { leaveWriter() } else { stop() }
         self.topicID = topicID
-        messages = Self.stored(topicID.flatMap { try? app.messageService.list(topicID: $0) } ?? [])
+        messages = stored(topicID.flatMap { try? app.messageService.list(topicID: $0) } ?? [])
+        watchWriterOfShownReply()
         // A stored conversation runs commands where it did; one not stored yet keeps the current folder.
         if let topicID, (try? app.topicService.get(topicID)) != nil {
             setCommandFolderShown((try? app.topicService.commandSetup(of: topicID))?.folder)
         }
     }
 
-    /// A reply left pending by a quit or crash is shown as stopped.
-    private static func stored(_ messages: [ChatMessage]) -> [ChatMessage] {
-        messages.map { message in
+    /// A reply left pending by a quit or crash is shown as stopped, unless the writer is still at work on it.
+    private func stored(_ messages: [ChatMessage]) -> [ChatMessage] {
+        let dataDirectory = AppStorageLocation.dataDirectory()
+        return messages.map { message in
             var message = message
-            if message.status == .pending {
+            if message.status == .pending, ReplyWriter.writer(of: message.id, dataDirectory: dataDirectory) == nil {
                 message.status = .paused
                 for index in message.commands.indices where !message.commands[index].isFinished {
                     message.commands[index].state = .stopped
@@ -69,6 +76,11 @@ final class ChatSession: ObservableObject {
         let current = topicID.flatMap { id in activity.map { (topicID: id, activity: $0) } }
         if let old = reportedActivity, old.topicID != current?.topicID {
             app.setActivity(nil, for: old.topicID)
+            app.setStoppedByQuitting(false, for: old.topicID)
+        }
+        // Only what this process writes ends with it; the writer finishes its replies regardless.
+        if let topicID {
+            app.setStoppedByQuitting(current != nil && writerPID == nil, for: topicID)
         }
         if let current {
             app.setActivity(current.activity, for: current.topicID)
@@ -83,7 +95,8 @@ final class ChatSession: ObservableObject {
 
     func reload() {
         guard let topicID, !isGenerating else { return }
-        messages = Self.stored((try? app.messageService.list(topicID: topicID)) ?? [])
+        messages = stored((try? app.messageService.list(topicID: topicID)) ?? [])
+        watchWriterOfShownReply()
     }
 
     /// Adds the user's message and starts the reply. Starts a conversation with `newTopicID` when there is none.
@@ -103,6 +116,11 @@ final class ChatSession: ObservableObject {
     }
 
     func stop() {
+        // The writer saves the reply as stopped and reports it; the app keeps listening until it has.
+        if let writerPID {
+            ReplyWriter.stop(writerPID)
+            return
+        }
         generation?.cancel()
         answerApproval(.cancel)
     }
@@ -179,6 +197,11 @@ final class ChatSession: ObservableObject {
             "messages": "\(request.messages.count)", "thinking": "\(request.thinking)", "web": "\(webTools != nil)",
             "preset": "\(preset?.name ?? "")",
         ])
+        if let topicID, let model, writeElsewhere(
+            firstRequest, reply: replyID, topicID: topicID, model: model, question: question, webTools: webTools
+        ) {
+            return
+        }
         isGenerating = true
         lastReplySave = Date()
         let runner = ChatReplyRunner(responder: responder, tools: webTools, describe: ErrorText.describe)
@@ -206,18 +229,132 @@ final class ChatSession: ObservableObject {
         }
     }
 
-    /// Shows the reply as it stands, and saves it at most once a second.
-    func showProgress(_ progress: ReplyProgress, ofReply id: UUID) {
+    /// Shows the reply as it stands, and saves it at most once a second unless the writer saves it.
+    func showProgress(_ progress: ReplyProgress, ofReply id: UUID, saves: Bool = true) {
         updateReply(id) { reply in
             reply.text = progress.text
             reply.reasoning = progress.reasoning
             reply.reasoningDuration = progress.reasoningDuration
             reply.commands = progress.steps
         }
-        if Date().timeIntervalSince(lastReplySave) > 1 {
+        if saves, Date().timeIntervalSince(lastReplySave) > 1 {
             lastReplySave = Date()
             saveReply(id)
         }
+    }
+
+    // MARK: The reply writer
+
+    /// Hands the reply to the writer, which saves it as it arrives and finishes it if the app quits. False
+    /// when the writer isn't there or wouldn't start, and the app then writes the reply itself.
+    private func writeElsewhere(
+        _ request: ChatRequest, reply replyID: UUID, topicID: UUID, model: ProviderModel, question: String,
+        webTools: DeepSeekWebTools?
+    ) -> Bool {
+        let job = ReplyJob(
+            replyID: replyID, topicID: topicID, providerID: model.providerID, request: request, question: question,
+            webToolsURL: webTools?.baseURL, dataDirectory: AppStorageLocation.dataDirectory().path
+        )
+        guard let started = ReplyWriter.start(job) else { return false }
+        let lines = started.lines
+        writerPID = started.pid
+        isGenerating = true
+        let app = app
+        generation = Task { [weak self] in
+            var finished = false
+            for await line in lines {
+                guard let self, !Task.isCancelled else { return }
+                switch line {
+                case let .progress(progress):
+                    self.showProgress(progress, ofReply: replyID, saves: false)
+                case let .usage(usage):
+                    self.updateReply(replyID) { $0.usage = usage }
+                case .effortRejected:
+                    app.markWithoutEffort(model.id)
+                case .finished:
+                    finished = true
+                    self.finishWrittenReply(replyID)
+                }
+            }
+            // The writer exited without saying it finished; what it saved is all there is.
+            guard !finished, !Task.isCancelled else { return }
+            SpotLog.reply.error("The writer ended without finishing", metadata: ["reply": "\(replyID)"])
+            self?.finishWrittenReply(replyID)
+        }
+        return true
+    }
+
+    /// Follows a reply the writer is still writing, as after a relaunch or in a second window: it reads the
+    /// reply from the database as the writer saves it, until the writer is done.
+    private func watchWriterOfShownReply() {
+        guard writerPID == nil, let reply = messages.last(where: { $0.status == .pending }),
+              let pid = ReplyWriter.writer(of: reply.id, dataDirectory: AppStorageLocation.dataDirectory())
+        else { return }
+        let replyID = reply.id
+        SpotLog.reply.info("Following the writer's reply", metadata: ["reply": "\(replyID)", "pid": "\(pid)"])
+        writerPID = pid
+        isGenerating = true
+        let app = app
+        generation = Task { [weak self] in
+            while true {
+                do {
+                    try await Task.sleep(for: .milliseconds(250))
+                } catch {
+                    return
+                }
+                guard let self, let saved = logged({ try app.messageService.get(replyID) }) ?? nil else { return }
+                self.updateReply(replyID) { reply in
+                    reply.text = saved.text
+                    reply.reasoning = saved.reasoning
+                    reply.reasoningDuration = saved.reasoningDuration
+                    reply.usage = saved.usage
+                    reply.commands = saved.commands
+                }
+                if saved.status != .pending || ReplyWriter.writer(of: replyID, dataDirectory: AppStorageLocation.dataDirectory()) == nil {
+                    self.finishWrittenReply(replyID)
+                    return
+                }
+            }
+        }
+    }
+
+    /// Shows the reply as the writer saved it at the end. One it left pending, by crashing, is stopped.
+    private func finishWrittenReply(_ id: UUID) {
+        if var saved = logged({ try app.messageService.get(id) }) ?? nil {
+            if saved.status == .pending {
+                saved.status = .paused
+                for index in saved.commands.indices where !saved.commands[index].isFinished {
+                    saved.commands[index].state = .stopped
+                }
+                logged { try app.messageService.update(saved) }
+            }
+            updateReply(id) { reply in
+                reply.text = saved.text
+                reply.reasoning = saved.reasoning
+                reply.reasoningDuration = saved.reasoningDuration
+                reply.usage = saved.usage
+                reply.commands = saved.commands
+                reply.status = saved.status
+                reply.errorMessage = saved.errorMessage
+            }
+            SpotLog.reply.info("Reply written by the writer", metadata: [
+                "reply": "\(id)", "status": "\(saved.status.rawValue)", "characters": "\(saved.text.count)",
+            ])
+        }
+        generation = nil
+        // In this order, so the reply never counts for a moment as one the app writes itself.
+        isGenerating = false
+        writerPID = nil
+        app.historyDidChange()
+        if messages.last?.id == id, messages.last?.status == .success { nameTopicAfterFirstReply() }
+    }
+
+    /// Stops following the writer without stopping it, when the window shows another conversation.
+    private func leaveWriter() {
+        generation?.cancel()
+        generation = nil
+        isGenerating = false
+        writerPID = nil
     }
 
     func saveReply(_ id: UUID) {
@@ -312,27 +449,6 @@ final class ChatSession: ObservableObject {
         guard let last = messages.last, last.role == .assistant else { return }
         logged { try app.messageService.delete(last.id) }
         messages.removeLast()
-    }
-}
-
-/// Turns failures into the text shown in place of a reply.
-enum ErrorText {
-    static func describe(_ error: Error) -> String {
-        if !(error is ChatServiceError), let description = (error as? LocalizedError)?.errorDescription {
-            return description
-        }
-        switch ChatServiceError(error) {
-        case let .api(message):
-            return message
-        case let .http(statusCode):
-            return String(localized: "The service returned HTTP \(statusCode).")
-        case .network:
-            return String(localized: "Couldn't reach the service. Check the API address and your connection.")
-        case .invalidEndpoint:
-            return String(localized: "The API address in Settings isn't valid.")
-        case let .other(message):
-            return message
-        }
     }
 }
 

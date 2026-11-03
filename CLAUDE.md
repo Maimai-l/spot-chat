@@ -52,7 +52,8 @@ the values of environment variables. Errors are logged where they are caught, ne
   that Swift can read, since a newer local toolchain resolves to versions CI can't build.
 - SpotKit holds the logic in packages (SpotCore, SpotData, SpotAI, SpotAgent); the app target holds the interface.
   Replies are written by `ChatReplyRunner` and `CommandReplyRunner`, which take a request and report events; the
-  app only builds the request and shows and saves what they report, so they can move to a background process.
+  app only builds the request and shows what they report. Chat replies run in SpotChatWriter, a process of its
+  own that finishes and saves them after the app quits (`docs/design/reply-writer.md`).
 - Comments say what and why in plain words.
 
 ## CI

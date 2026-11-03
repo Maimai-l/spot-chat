@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Exports a UI test result bundle's screenshots as PNGs named after their attachments, and writes a
-summary of the run in Markdown.
+summary of the run in Markdown. Text a test attaches under a name starting with "Measured" goes into the
+summary as a measurement.
 
 Usage: export_test_results.py <result bundle> <screenshot folder> [summary file]
 """
@@ -13,6 +14,9 @@ import sys
 
 def run(*args):
     return subprocess.run(["xcrun", "xcresulttool", *args], capture_output=True, text=True)
+
+
+measurements = []
 
 
 def export_screenshots(bundle, folder):
@@ -30,6 +34,12 @@ def export_screenshots(bundle, folder):
                 if not os.path.exists(exported):
                     continue
                 readable = attachment.get("suggestedHumanReadableName", attachment["exportedFileName"])
+                if readable.startswith("Measured") and readable.lower().endswith(".txt"):
+                    with open(exported) as text:
+                        title = re.sub(r"_\d+_[0-9A-Fa-f-]{36}", "", readable)[: -len(".txt")]
+                        measurements.append((title, text.read().strip()))
+                    os.remove(exported)
+                    continue
                 # Only screenshots; XCTest also attaches text, such as a failed query's debug description.
                 if not readable.lower().endswith((".png", ".jpg", ".jpeg", ".heic")):
                     os.remove(exported)
@@ -56,6 +66,8 @@ def summary(bundle, screenshots):
             lines.append(f"- {failure.get('testName', '')}: {failure.get('failureText', '').strip()}")
     else:
         lines.append("No test summary in the result bundle.")
+    for title, text in measurements:
+        lines += ["", f"### {title}", "", "```", text or "(empty)", "```"]
     if screenshots:
         lines += ["", f"{len(screenshots)} screenshots in the Screenshots artifact."]
     return "\n".join(lines) + "\n"

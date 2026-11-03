@@ -12,13 +12,25 @@ enum AppLogging {
 
     nonisolated(unsafe) private static var fileLogger: DDFileLogger?
 
-    static func start() {
+    /// The reply writer's files start with this, so the app's own log manager leaves them alone.
+    static let writerFilePrefix = "Writer"
+
+    /// `forWriter` starts the reply writer's log: files of its own in the same folder, one per run, so two
+    /// processes never write into one file.
+    static func start(forWriter: Bool = false) {
         guard fileLogger == nil else { return }
-        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let manager = DDLogFileManagerDefault(logsDirectory: directory.path)
+        do {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        } catch {
+            NSLog("Spot Chat couldn't make its log folder: %@", "\(error)")
+        }
+        let manager = forWriter
+            ? WriterLogFileManager(logsDirectory: directory.path)
+            : DDLogFileManagerDefault(logsDirectory: directory.path)
         manager.maximumNumberOfLogFiles = 10
         manager.logFilesDiskQuota = 100 * 1024 * 1024
         let file = DDFileLogger(logFileManager: manager)
+        file.doNotReuseLogFiles = forWriter
         // A new file every 10 MB, kept by size rather than age.
         file.maximumFileSize = 10 * 1024 * 1024
         file.rollingFrequency = 0
@@ -50,10 +62,11 @@ enum AppLogging {
         ])
     }
 
-    /// Writes every log file, oldest first, into one file at `url`.
+    /// Writes every log file, oldest first, into one file at `url`: the app's, then the reply writer's.
     static func export(to url: URL) throws {
         DDLog.flushLog()
-        let paths = (fileLogger?.logFileManager.sortedLogFilePaths ?? []).reversed()
+        let writerFiles = WriterLogFileManager(logsDirectory: directory.path).sortedLogFilePaths.reversed()
+        let paths = Array((fileLogger?.logFileManager.sortedLogFilePaths ?? []).reversed()) + writerFiles
         let info = Bundle.main.infoDictionary ?? [:]
         var data = Data("""
         Spot Chat \(info["CFBundleShortVersionString"] as? String ?? "") (\(info["CFBundleVersion"] as? String ?? ""))
@@ -71,6 +84,17 @@ enum AppLogging {
 
     static func showInFinder() {
         NSWorkspace.shared.activateFileViewerSelecting([directory])
+    }
+}
+
+/// Names the reply writer's files "Writer <date>.log", apart from the app's.
+private final class WriterLogFileManager: DDLogFileManagerDefault {
+    override var newLogFileName: String {
+        "\(AppLogging.writerFilePrefix) \(Date().formatted(.iso8601.year().month().day().time(includingFractionalSeconds: true)).replacingOccurrences(of: ":", with: "-")).log"
+    }
+
+    override func isLogFile(withName fileName: String) -> Bool {
+        fileName.hasPrefix(AppLogging.writerFilePrefix + " ") && fileName.hasSuffix(".log")
     }
 }
 

@@ -2,9 +2,9 @@ import AppKit
 import Combine
 import SpotCore
 
-/// Looks after a reply while it is written, as Cherry Studio does: the Mac doesn't fall asleep on its own
-/// partway through, and quitting asks first, so walking away or pressing Command-Q doesn't cut a reply
-/// short without the user knowing.
+/// Looks after what the app itself runs, as Cherry Studio does: commands, and replies when the reply writer
+/// isn't there. The Mac doesn't fall asleep on its own partway through, and quitting asks first, so walking
+/// away or pressing Command-Q doesn't cut one short without the user knowing.
 @MainActor
 final class WorkGuard {
     private var sleepHold: NSObjectProtocol?
@@ -13,8 +13,9 @@ final class WorkGuard {
 
     func watch(_ app: AppModel) {
         self.app = app
-        observer = app.$activity.sink { [weak self] activity in
-            self?.holdSleep(while: activity.values.contains(.working))
+        // Replies the writer writes keep the Mac awake from there.
+        observer = app.$activity.combineLatest(app.$workStoppedByQuitting).sink { [weak self] activity, inProcess in
+            self?.holdSleep(while: activity.contains { $0.value == .working && inProcess.contains($0.key) })
         }
     }
 
@@ -36,7 +37,7 @@ final class WorkGuard {
     /// Whether quitting may go ahead: at once when nothing is under way or the system is logging out,
     /// restarting or shutting down, and otherwise once the user agrees to stop what is.
     func mayQuit() -> Bool {
-        guard let app, !app.activity.isEmpty else { return true }
+        guard let app, !app.workStoppedByQuitting.isEmpty else { return true }
         if Self.systemAsksToQuit {
             SpotLog.app.notice("Quitting for the system with a reply under way")
             return true

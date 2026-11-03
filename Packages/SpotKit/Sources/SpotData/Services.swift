@@ -275,6 +275,13 @@ public struct MessageService: Sendable {
         }
     }
 
+    /// One message, without its attachments: what a reply's writer and its readers need.
+    public func get(_ id: UUID) throws -> ChatMessage? {
+        try database.writer.read { db in
+            try MessageRecord.fetchOne(db, key: id.uuidString).flatMap { Self.message($0, attachments: []) }
+        }
+    }
+
     /// Saves the text, status, error and model of an existing message.
     public func update(_ message: ChatMessage) throws {
         try database.writer.write { db in

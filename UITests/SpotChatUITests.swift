@@ -639,21 +639,21 @@ final class SpotChatUITests: XCTestCase {
         )
     }
 
-    func testQuittingDuringAReplyAsksFirst() {
-        let app = launch(resetState: true)
-        send("slow", in: app)
-        XCTAssertTrue(reply(containing: "tick 1", in: app).waitForExistence(timeout: 10))
+    func testQuittingWhileACommandRunsAsksFirst() {
+        let app = launchRunningCommands()
+        send("Run something slow", in: app)
+        XCTAssertTrue(element("command.running", in: app).waitForExistence(timeout: 40))
 
         app.statusItems.firstMatch.click()
         menuItem("Quit Spot Chat", in: app).click()
         // The alert's own buttons; the Touch Bar repeats them.
         let alert = app.dialogs["alert"]
         let quit = alert.buttons["Quit"]
-        XCTAssertTrue(quit.waitForExistence(timeout: 5), "Quitting with a reply under way asks first")
-        attachScreenshot("Quit during a reply")
+        XCTAssertTrue(quit.waitForExistence(timeout: 5), "Quitting while a command runs asks first")
+        attachScreenshot("Quit while a command runs")
         alert.buttons["Cancel"].click()
         XCTAssertTrue(quit.waitForNonExistence(timeout: 5))
-        XCTAssertTrue(reply(containing: "tick 15", in: app).waitForExistence(timeout: 10), "Cancel keeps the reply going")
+        XCTAssertTrue(element("command.running", in: app).exists, "Cancel keeps the command running")
         XCTAssertEqual(app.state, .runningForeground)
 
         app.statusItems.firstMatch.click()
@@ -661,6 +661,40 @@ final class SpotChatUITests: XCTestCase {
         XCTAssertTrue(quit.waitForExistence(timeout: 5))
         quit.click()
         XCTAssertTrue(app.wait(for: .notRunning, timeout: 10))
+    }
+
+    /// The reply writer, a process of its own, finishes a reply after the app quits.
+    func testAReplyIsFinishedAfterSpotChatQuits() {
+        var app = launch(resetState: true)
+        send("slow", in: app)
+        XCTAssertTrue(reply(containing: "tick 3", in: app).waitForExistence(timeout: 10))
+        app.statusItems.firstMatch.click()
+        menuItem("Quit Spot Chat", in: app).click()
+        XCTAssertTrue(app.wait(for: .notRunning, timeout: 10), "A chat reply doesn't hold up quitting")
+
+        // Open it again while the writer is still at it: the reply keeps growing to its end.
+        RunLoop.current.run(until: Date().addingTimeInterval(2))
+        app = launch(resetState: false, fullWindow: true)
+        let conversation = element("historyItem", in: app)
+        XCTAssertTrue(conversation.waitForExistence(timeout: 10))
+        conversation.click()
+        XCTAssertTrue(reply(containing: "tick 59", in: app).waitForExistence(timeout: 20), "The reply was written to its end")
+        XCTAssertTrue(element("stop", in: app).waitForNonExistence(timeout: 5))
+        XCTAssertFalse(element("message.error", in: app).exists)
+        RunLoop.current.run(until: Date().addingTimeInterval(1))
+        attachScreenshot("Reply finished after quitting")
+
+        // What the writer used, from its own log: its time and memory at the end.
+        let logs = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs/Spot Chat")
+        let files = (try? FileManager.default.contentsOfDirectory(at: logs, includingPropertiesForKeys: nil)) ?? []
+        let finished = files.filter { $0.lastPathComponent.hasPrefix("Writer ") }
+            .compactMap { try? String(contentsOf: $0, encoding: .utf8) }
+            .flatMap { $0.split(separator: "\n") }
+            .filter { $0.contains("Writer finished") }
+        let attachment = XCTAttachment(string: finished.joined(separator: "\n"))
+        attachment.name = "Measured writer"
+        attachment.lifetime = .keepAlways
+        add(attachment)
     }
 
     func testQuittingWithNothingUnderWayDoesNotAsk() {

@@ -1,7 +1,7 @@
 import Foundation
 
 /// A reply as it stands while it is written: what the app shows and saves after each piece that arrives.
-public struct ReplyProgress: Equatable, Sendable {
+public struct ReplyProgress: Equatable, Sendable, Codable {
     public var text = ""
     public var reasoning = ""
     /// How long the model thought before it started answering; nil until then.

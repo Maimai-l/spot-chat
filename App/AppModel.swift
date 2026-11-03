@@ -44,6 +44,9 @@ final class AppModel: ObservableObject {
     @Published private(set) var modelsWithoutEffort: Set<String> = []
     /// What conversations are doing right now, for the dots in the history.
     @Published private(set) var activity: [UUID: TopicActivity] = [:]
+    /// Conversations whose reply or command stops if the app quits: those the app runs itself, not those
+    /// the reply writer writes.
+    @Published private(set) var workStoppedByQuitting: Set<UUID> = []
     /// Bumped whenever a conversation's messages change outside the session showing it.
     @Published private(set) var historyRevision = 0
 
@@ -371,6 +374,11 @@ final class AppModel: ObservableObject {
     func setActivity(_ value: TopicActivity?, for topicID: UUID) {
         guard activity[topicID] != value else { return }
         activity[topicID] = value
+    }
+
+    func setStoppedByQuitting(_ stops: Bool, for topicID: UUID) {
+        guard workStoppedByQuitting.contains(topicID) != stops else { return }
+        if stops { workStoppedByQuitting.insert(topicID) } else { workStoppedByQuitting.remove(topicID) }
     }
 }
 

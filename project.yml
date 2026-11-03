@@ -52,6 +52,12 @@ targets:
         product: CocoaLumberjackSwift
       - package: CocoaLumberjack
         product: CocoaLumberjackSwiftLogBackend
+      # Writes chat replies in a process of its own, so they finish and are saved after the app quits.
+      - target: SpotChatWriter
+        embed: true
+        codeSign: true
+        copy:
+          destination: executables
     postBuildScripts:
       # The dsh runtime for running commands, built into build/AgentRuntime by
       # scripts/build_agent_runtime.py. Builds without it simply leave the feature unavailable.
@@ -90,6 +96,29 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.maimai.spotchat
         PRODUCT_NAME: SpotChat
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+  SpotChatWriter:
+    type: tool
+    platform: macOS
+    sources:
+      - Writer
+      - App/AppLogging.swift
+      - App/ErrorText.swift
+    dependencies:
+      - package: SpotKit
+        product: SpotCore
+      - package: SpotKit
+        product: SpotData
+      - package: SpotKit
+        product: SpotAI
+      - package: CocoaLumberjack
+        product: CocoaLumberjackSwift
+      - package: CocoaLumberjack
+        product: CocoaLumberjackSwiftLogBackend
+    settings:
+      base:
+        PRODUCT_NAME: SpotChatWriter
+        PRODUCT_BUNDLE_IDENTIFIER: com.maimai.spotchat.writer
+        SKIP_INSTALL: YES
   SpotChatUITests:
     type: bundle.ui-testing
     platform: macOS

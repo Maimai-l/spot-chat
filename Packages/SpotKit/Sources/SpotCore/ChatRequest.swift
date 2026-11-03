@@ -1,7 +1,7 @@
 import Foundation
 
 /// What is sent to the model for one reply.
-public struct ChatRequest: Equatable, Sendable {
+public struct ChatRequest: Equatable, Sendable, Codable {
     public var model: String
     public var messages: [ChatRequestMessage]
     /// Sent first, as the system message. Empty sends none.
@@ -23,7 +23,7 @@ public struct ChatRequest: Equatable, Sendable {
 }
 
 /// A function the model may call. `parameters` is its JSON Schema as JSON text.
-public struct ToolDefinition: Equatable, Sendable {
+public struct ToolDefinition: Equatable, Sendable, Codable {
     public var name: String
     public var description: String
     public var parameters: String
@@ -71,8 +71,8 @@ public enum ThinkingLevel: String, Codable, CaseIterable, Sendable {
     }
 }
 
-public struct ChatRequestMessage: Equatable, Sendable {
-    public enum Part: Equatable, Sendable {
+public struct ChatRequestMessage: Equatable, Sendable, Codable {
+    public enum Part: Equatable, Sendable, Codable {
         case text(String)
         case image(data: Data, mimeType: String)
     }
