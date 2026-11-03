@@ -272,9 +272,9 @@ final class SpotChatUITests: XCTestCase {
         if !rows.firstMatch.exists { element("commands", in: app).click() }
         XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 5))
         XCTAssertEqual(rows.count, 2)
+        // Only the first: opening it moves the second below the window, where a click lands on the desktop.
         tap(rows.element(boundBy: 0))
         XCTAssertTrue(element("commandOutput", in: app).waitForExistence(timeout: 5))
-        tap(rows.element(boundBy: 1))
         RunLoop.current.run(until: Date().addingTimeInterval(1))
         attachScreenshot("Long command output")
 
