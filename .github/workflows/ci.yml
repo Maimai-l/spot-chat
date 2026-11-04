@@ -158,12 +158,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # A UI test run that didn't build uploads no screenshots; it fails on its own, so this compares nothing.
       - name: Download screenshots
+        id: shots
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: Screenshots
           path: build/Screenshots
       - name: Compare with the baselines
+        if: steps.shots.outcome == 'success'
         run: |
           python3 -m pip install --quiet pillow
           python3 scripts/visual_compare.py compare build/Screenshots UITests/Baselines build/VisualDiffs "$GITHUB_STEP_SUMMARY"

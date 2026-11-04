@@ -102,6 +102,7 @@ targets:
     sources:
       - Writer
       - App/AppLogging.swift
+      - App/CrashReports.swift
       - App/ErrorText.swift
     dependencies:
       - package: SpotKit
