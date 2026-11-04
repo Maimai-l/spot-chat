@@ -220,7 +220,7 @@ final class AppModel: ObservableObject {
 
     /// The default folder, made if it isn't there yet.
     func readyDefaultCommandFolder() -> URL {
-        try? FileManager.default.createDirectory(at: defaultCommandFolder, withIntermediateDirectories: true)
+        logged { try FileManager.default.createDirectory(at: defaultCommandFolder, withIntermediateDirectories: true) }
         return defaultCommandFolder
     }
 

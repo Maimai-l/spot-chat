@@ -1492,6 +1492,26 @@
         }
       }
     },
+    "The folder “%@” can’t be found.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "找不到文件夹“%@”。"
+          }
+        }
+      }
+    },
+    "The reply was empty.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "回复为空。"
+          }
+        }
+      }
+    },
     "Restart Spot Chat": {
       "localizations": {
         "zh-Hans": {

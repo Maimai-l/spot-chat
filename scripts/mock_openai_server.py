@@ -138,6 +138,25 @@ LONG_OUTPUT = (
 )
 ESCAPE = 'echo out > "$HOME/.spot-chat-ui-test-escape" && rm "$HOME/.spot-chat-ui-test-escape"'
 last_messages_request = {}
+# "malformed" sends a tool call with broken JSON once, then answers.
+sent_malformed = False
+# DeepSeek's answer to a thinking-mode history with a tool call but no thinking.
+BROKEN_HISTORY = "The `reasoning_content` in the thinking mode must be passed back to the API."
+
+
+def questions(body):
+    """The questions in the conversation, earliest first."""
+    asked = []
+    for message in body.get("messages", []):
+        if message.get("role") != "user":
+            continue
+        content = message.get("content")
+        blocks = [{"type": "text", "text": content}] if isinstance(content, str) else content or []
+        text = " ".join(b.get("text", "") for b in blocks if b.get("type") == "text"
+                        and not b.get("text", "").startswith("Current runtime context"))
+        if text.strip():
+            asked.append(text)
+    return asked
 
 
 def messages_steps(body):
@@ -353,10 +372,24 @@ class Handler(BaseHTTPRequestHandler):
             pass
 
     def messages(self, body):
+        global sent_malformed
         with lock:
             last_messages_request.clear()
             last_messages_request.update({k: v for k, v in body.items() if k in ("model", "thinking", "output_config")})
         step = messages_steps(body)
+        asked = questions(body)
+        question = asked[-1] if asked else ""
+        # "broken history" fails in a session that has an earlier question, as a poisoned one does.
+        if "broken history" in question:
+            if len(asked) > 1:
+                self.send_json(400, {"type": "error", "error": {"type": "invalid_request_error", "message": BROKEN_HISTORY}})
+                return
+            step = "Answered in a new session."
+        malformed = False
+        if "malformed" in question:
+            with lock:
+                malformed, sent_malformed = not sent_malformed, not sent_malformed
+            step = "Answered after a broken tool call."
         self.send_response(200)
         self.send_header("Content-Type", "text/event-stream")
         self.end_headers()
@@ -369,7 +402,21 @@ class Handler(BaseHTTPRequestHandler):
             event("message_start", {"type": "message_start", "message": {
                 "id": "msg_mock", "type": "message", "role": "assistant", "model": body.get("model"), "content": [],
                 "stop_reason": None, "stop_sequence": None, "usage": {"input_tokens": 10, "output_tokens": 0}}})
-            if isinstance(step, str):
+            if malformed:
+                event("content_block_start", {"type": "content_block_start", "index": 0, "content_block": {
+                    "type": "tool_use", "id": "toolu_malformed", "name": "bash", "input": {}}})
+                event("content_block_delta", {"type": "content_block_delta", "index": 0, "delta": {
+                    "type": "input_json_delta", "partial_json": '{"command": "ls'}})
+                stop = "tool_use"
+            elif "only thinks" in question:
+                event("content_block_start", {"type": "content_block_start", "index": 0, "content_block": {
+                    "type": "thinking", "thinking": "", "signature": ""}})
+                event("content_block_delta", {"type": "content_block_delta", "index": 0, "delta": {
+                    "type": "thinking_delta", "thinking": "Thinking it over."}})
+                event("content_block_delta", {"type": "content_block_delta", "index": 0, "delta": {
+                    "type": "signature_delta", "signature": "mock"}})
+                stop = "end_turn"
+            elif isinstance(step, str):
                 event("content_block_start", {"type": "content_block_start", "index": 0, "content_block": {"type": "text", "text": ""}})
                 event("content_block_delta", {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": step}})
                 stop = "end_turn"

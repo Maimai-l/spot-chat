@@ -64,3 +64,7 @@ Problems this project hit and what fixed them, so they aren't solved twice.
 - **A dsh release added a tool, `working_directory`, that moves the model's folder.** The sandbox's writable
   folder stays the one the session started in (`sandbox-policy`: `session.header.cwd`), so commands outside
   it still ask; the smoke test's tool list shows new tools, worth a look on each release.
+- **dsh's bugs are in its Discussions.** Its issues are closed; about a thousand bug reports sit in the
+  Discussions, most about its desktop app. The few on Spot Chat's path are worked around in the client or the
+  profile (`docs/maintenance.md`), and each has a mock scenario and a UI test.
+- **A failed dsh resume was dropped with `try?`**, so a lost session showed up nowhere; it is logged now.

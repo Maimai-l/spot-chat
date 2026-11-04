@@ -38,6 +38,9 @@ public enum CommandReplyRunner {
     /// Runs the turn on `agent` with `options`, resuming dsh's session `earlierSession` when there is one.
     /// `onSession` hears the session the turn ran in, to resume next time. Cancelling the calling task asks
     /// dsh to stop, and the result still shows how the turn ended.
+    ///
+    /// A session dsh can no longer send (`isBrokenSession`) is left behind: when the turn failed before it
+    /// did anything, it runs once more in a new session.
     public static func run(
         agent: CommandAgent,
         options: CommandAgentOptions,
@@ -48,6 +51,61 @@ public enum CommandReplyRunner {
         describe: @escaping @Sendable (Error) -> String,
         onProgress: @escaping @Sendable (ReplyProgress) async -> Void
     ) async -> Result {
+        var result = await attempt(
+            agent: agent, options: options, question: question, paths: paths, resuming: earlierSession,
+            onSession: onSession, onProgress: onProgress
+        )
+        if let error = result.error, isBrokenSession(error) {
+            let untouched = result.progress.text.isEmpty && result.progress.steps.isEmpty
+            SpotLog.agent.warning("dsh's session can't be sent any more; starting a new one", metadata: [
+                "error": "\(SpotLog.clip("\(error)"))", "retrying": "\(untouched && !Task.isCancelled)",
+            ])
+            await agent.shutDown()
+            if untouched && !Task.isCancelled {
+                result = await attempt(
+                    agent: agent, options: options, question: question, paths: paths, resuming: nil,
+                    onSession: onSession, onProgress: onProgress
+                )
+            }
+        }
+        var progress = result.progress
+        progress.stopUnfinishedSteps()
+        var failure = result.error.map(describe)
+        let stopped = !result.finished || Task.isCancelled
+        // A turn that ends with nothing to show, such as one where the model only thought, is offered again.
+        if failure == nil, !stopped, progress.steps.isEmpty,
+           progress.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            SpotLog.agent.warning("dsh finished the turn without a reply", metadata: [
+                "reasoningCharacters": "\(progress.reasoning.count)",
+            ])
+            failure = String(localized: "The reply was empty.")
+        }
+        return Result(progress: progress, failure: failure, stopped: stopped && failure == nil)
+    }
+
+    /// Whether dsh failed because the session's history can't be sent again. DeepSeek's thinking mode
+    /// rejects a history whose tool call has no thinking with it, and dsh then fails every later turn of
+    /// the session (deepseek-harness discussions 7050 and 11029).
+    public static func isBrokenSession(_ error: Error) -> Bool {
+        let text = "\(error) \(error.localizedDescription)".lowercased()
+        return text.contains("must be passed back") || text.contains("reasoning_content")
+    }
+
+    private struct Attempt {
+        var progress: ReplyProgress
+        var error: Error?
+        var finished: Bool
+    }
+
+    private static func attempt(
+        agent: CommandAgent,
+        options: CommandAgentOptions,
+        question: String,
+        paths: [URL],
+        resuming earlierSession: String?,
+        onSession: @escaping @Sendable (String) async -> Void,
+        onProgress: @escaping @Sendable (ReplyProgress) async -> Void
+    ) async -> Attempt {
         let (events, sink) = AsyncStream<CommandEvent>.makeStream()
         // The turn and its updates run on their own: stopping asks dsh to stop and still shows how it ended.
         let turn = Task {
@@ -67,20 +125,15 @@ public enum CommandReplyRunner {
             }
             return progress
         }
-        var progress = await withTaskCancellationHandler {
+        let progress = await withTaskCancellationHandler {
             await updates.value
         } onCancel: {
             Task { await agent.cancel() }
         }
-        var failure: String?
-        var finished = false
         do {
-            finished = try await turn.value
+            return Attempt(progress: progress, error: nil, finished: try await turn.value)
         } catch {
-            failure = describe(error)
+            return Attempt(progress: progress, error: error, finished: false)
         }
-        let stopped = !finished || Task.isCancelled
-        progress.stopUnfinishedSteps()
-        return Result(progress: progress, failure: failure, stopped: stopped && failure == nil)
     }
 }

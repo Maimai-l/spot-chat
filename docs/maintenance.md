@@ -74,6 +74,23 @@ The app icon is drawn by `node scripts/make_app_icon.mjs`; see `docs/design/pinh
   behave again.
 - **Prompts change together with `docs/prompts.md`.**
 
+## Watching dsh
+
+- dsh takes bug reports in its GitHub Discussions, not issues, and publishes security advisories on the
+  repository. On a new release, search the Discussions for `acp`, `llm-deepseek`, `sandbox` and `macOS`.
+- Bugs on Spot Chat's path, checked against 0.2.2-rc.1 on 2026-11-04, and what Spot Chat does about them:
+
+| Discussion | Bug | Spot Chat |
+| --- | --- | --- |
+| 7050, 11029 | A tool call saved without its thinking makes DeepSeek reject every later turn of the session | Leaves the session; a turn that failed before doing anything runs again in a new one |
+| 11577 | A tool call with broken JSON ends the turn | The profile retries it (`retryPolicy` in `cordis.patch.yml`) |
+| 9980 | A turn where the model only thinks ends with no reply | Shows "The reply was empty." with Retry |
+| 12133 | Renaming the folder fails every later turn | Checks the folder before each turn and says it can't be found |
+| 12136 | A session log dsh can't read is skipped without a word | The failed resume is logged |
+| 10553 | Changing the tools mid-session can break it with a 400; the web switch does this | To test against the real API |
+| 11511 | A tall image through `read_image` can break later turns | To test |
+| 10363 | Sandboxed commands can't reach the local network on macOS | To test |
+
 ## Backlog
 
 | Item | Kind | Status |
@@ -90,3 +107,4 @@ The app icon is drawn by `node scripts/make_app_icon.mjs`; see `docs/design/pinh
 | Each vendor's end-of-turn and end-of-text tokens, checked against their tokenizer configs | Research | Later |
 | The menu bar dot sits close to its ring at 1×; check on a 2× display | Interface | To check |
 | GitHub Actions on Node 24 | CI | To do |
+| dsh bugs still to test: the web switch mid-session, tall images, the local network (above) | Research | Needs a temporary API key |

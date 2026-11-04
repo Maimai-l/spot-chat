@@ -81,6 +81,7 @@ public enum CommandApproval: Sendable {
 public enum CommandAgentError: LocalizedError {
     case exited(String)
     case noSession
+    case folderMissing(String)
 
     public var errorDescription: String? {
         switch self {
@@ -88,6 +89,8 @@ public enum CommandAgentError: LocalizedError {
             return detail.isEmpty ? String(localized: "Commands stopped unexpectedly.") : String(localized: "Commands stopped unexpectedly: \(detail)")
         case .noSession:
             return String(localized: "Couldn't start running commands.")
+        case let .folderMissing(name):
+            return String(localized: "The folder “\(name)” can’t be found.")
         }
     }
 }
@@ -148,6 +151,13 @@ public actor CommandAgent {
     /// Starts dsh and opens a session: the earlier one when dsh still has it, otherwise a new one.
     /// Returns the session's id.
     public func start(resuming earlier: String?) async throws -> String {
+        // dsh keeps the folder it started in, and fails every turn once it is renamed or moved.
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: folder.path, isDirectory: &isDirectory), isDirectory.boolValue else {
+            SpotLog.agent.error("The command folder is gone", metadata: ["folder": "\(folder.path)"])
+            shutDown()
+            throw CommandAgentError.folderMissing(folder.lastPathComponent)
+        }
         if let sessionID, isRunning, !needsRestart { return sessionID }
         var earlier = earlier
         if needsRestart {
@@ -230,13 +240,21 @@ public actor CommandAgent {
             clientInfo: Implementation(name: "spot-chat", version: Self.appVersion)
         ))
 
-        if let earlier,
-           let resumed = try? await rpc.sendRequest(
-               method: "session/resume",
-               params: ResumeSessionRequest(sessionId: SessionId(value: earlier), cwd: folder.path, mcpServers: [])
-           ) {
-            sessionID = earlier
-            configOptions = Self.configOptions(in: resumed.result)
+        if let earlier {
+            do {
+                let resumed = try await rpc.sendRequest(
+                    method: "session/resume",
+                    params: ResumeSessionRequest(sessionId: SessionId(value: earlier), cwd: folder.path, mcpServers: [])
+                )
+                sessionID = earlier
+                configOptions = Self.configOptions(in: resumed.result)
+                SpotLog.agent.info("Resumed the dsh session", metadata: ["session": "\(earlier)"])
+            } catch {
+                // A new session starts instead, without what dsh remembered of the earlier one.
+                SpotLog.agent.warning("Couldn't resume the dsh session", metadata: [
+                    "session": "\(earlier)", "error": "\(error)",
+                ])
+            }
         }
         if sessionID == nil {
             let created = try await rpc.sendRequest(
@@ -288,6 +306,10 @@ public actor CommandAgent {
         var stopped = isCancelling
         if case let .object(result) = response.result, case let .string(reason)? = result["stopReason"] {
             stopped = reason == "cancelled"
+            // dsh also reports a turn that ended without a reason as cancelled.
+            if stopped && !isCancelling {
+                SpotLog.agent.warning("dsh ended the turn as stopped without being asked", metadata: ["session": "\(sessionID)"])
+            }
         }
         for (id, var run) in runs where !run.isFinished {
             run.state = stopped ? .stopped : .succeeded

@@ -176,6 +176,39 @@ final class SpotChatUITests: XCTestCase {
         attachScreenshot("Commands full window")
     }
 
+    /// DeepSeek rejects a thinking-mode history whose tool call has no thinking, and dsh then fails every
+    /// turn of that session; the turn runs again in a new one.
+    func testACommandSessionDeepSeekRejectsIsLeftForANewOne() {
+        let app = launchRunningCommands()
+        XCTAssertTrue(element("commandFolder", in: app).waitForExistence(timeout: 10))
+        send("Please list the files", in: app)
+        XCTAssertTrue(reply(containing: "Listed the folder.", in: app).waitForExistence(timeout: 40))
+        send("Answer despite a broken history", in: app)
+        XCTAssertTrue(reply(containing: "Answered in a new session.", in: app).waitForExistence(timeout: 60))
+        XCTAssertFalse(element("message.error", in: app).exists)
+    }
+
+    /// A tool call whose input isn't valid JSON is asked for again rather than ending the turn.
+    func testABrokenToolCallIsAskedForAgain() {
+        let app = launchRunningCommands()
+        XCTAssertTrue(element("commandFolder", in: app).waitForExistence(timeout: 10))
+        send("Answer after a malformed tool call", in: app)
+        XCTAssertTrue(reply(containing: "Answered after a broken tool call.", in: app).waitForExistence(timeout: 60))
+        XCTAssertFalse(element("message.error", in: app).exists)
+    }
+
+    /// A turn where the model only thought ends with an error to retry, not a blank reply.
+    func testACommandReplyWithOnlyThinkingShowsAnError() {
+        let app = launchRunningCommands()
+        XCTAssertTrue(element("commandFolder", in: app).waitForExistence(timeout: 10))
+        send("This one only thinks", in: app)
+        let error = element("message.error", in: app)
+        XCTAssertTrue(error.waitForExistence(timeout: 60))
+        XCTAssertEqual(text(of: error), "The reply was empty.")
+        XCTAssertTrue(element("retry", in: app).exists)
+        attachScreenshot("Empty command reply")
+    }
+
     func testWebSearchIsTurnedOffBesideThePlusAndOnFromItsMenu() throws {
         let app = launch(resetState: true, arguments: ["-SpotChatWebToolsURL", "http://127.0.0.1:8765/v1/tools"])
         let globe = element("webSearchMode", in: app)

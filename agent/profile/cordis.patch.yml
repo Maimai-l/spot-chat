@@ -75,3 +75,10 @@
   config:
     baseURL: !!js process.env.SPOT_CHAT_WEB_TOOLS_URL ?? 'https://api.deepseek.com/v1/tools'
 
+# Retry a reply whose tool call came back as broken JSON, as dsh retries an empty or failed one
+# (deepseek-harness discussion 11577); the rest are dsh's own defaults.
+- id: llm-deepseek
+  config:
+    retryPolicy:
+      mode: normal
+      retryableCodes: [EMPTY_RESPONSE, RATE_LIMIT, SERVER, TIMEOUT, TRANSPORT, MALFORMED_RESPONSE]
