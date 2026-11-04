@@ -10,7 +10,8 @@ Tell Claude in a session, or open an issue on the repository, with:
 - **What you did, what you expected, what happened.** One line each is enough.
 - **A screenshot or screen recording** when something looks or moves wrong.
 - **The log.** Settings > General > Export Logs… saves it as one file. Its first lines name the build, such as
-  `Spot Chat 0.1.0 (134)`, and every line carries a time, so say roughly when it happened.
+  `Spot Chat 0.1.0 (134)`, and every line carries a time, so say roughly when it happened. It ends with the
+  crash reports macOS kept for Spot Chat's processes in the last 30 days.
 
 A request for something new says what problem it solves and where it shows: the mini window, the full window,
 Settings or the menu bar.
@@ -33,6 +34,8 @@ Settings or the menu bar.
    `scripts/mock_openai_server.py`, and the interface in a UI test that attaches a screenshot.
 3. **If the log didn't show what was needed,** add that logging as part of the fix.
 4. **Fix it and run only its tests,** with `[ui: testName]` in the commit message, and check the screenshots.
+   The screenshot comparison fails on a screen that changed; accept the new baselines only for a change that
+   was meant.
 5. **Write it down** in `docs/lessons.md` when it teaches something.
 6. **Batch the fixes,** then push without a tag: every UI test runs and the alpha is packaged.
 
@@ -56,7 +59,7 @@ building on it.
 | swift-collections | 1.2.1 | A local resolve picked 1.7.5, which needs Swift 6.4 |
 | GRDB.swift, MacPaw OpenAI, ACP swift-sdk, swift-log | as resolved: 7.11.1, 0.5.3, 0.2.2, 1.9.1 | Update one at a time and run the core tests |
 | KeyboardShortcuts | from 2.0.0 | Check the recording field in Settings after an update |
-| dsh | 0.2.2-alpha.2 in `agent/package.json`, on Node 24.22.2 | Rebuild the runtime, run `scripts/agent_smoke_test.sh`, update `agent/runtime-packages.txt`, and check telemetry is still off in `agent/profile/cordis.patch.yml` |
+| dsh | Followed, not pinned: `agent/package.json` names the `next` channel, its release candidates, on Node 24.22.2 | Each CI run builds the newest release whole, records what loads in the smoke test (which also changes the effort, stops a turn and resumes a session), trims to that and tests again. The run's summary names the dsh version and any package not yet in `agent/runtime-packages.txt`: add those. When the smoke or command tests fail on a new release, adapt to it; check telemetry is still off in `agent/profile/cordis.patch.yml` |
 | Reply page | exact versions in `Web/package.json` | `npm run build` and commit `App/Reply`; CI fails if the build isn't committed |
 | GitHub Actions | checkout, cache, setup-node, upload-artifact at v4 | GitHub now runs them on Node 24 with a deprecation warning; move to their next major versions |
 

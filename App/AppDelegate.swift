@@ -44,6 +44,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillFinishLaunching(_ notification: Notification) {
         AppLogging.start()
+        CrashReports.logNewSinceLastLaunch()
         MainThreadWatch.start()
     }
 

@@ -28,7 +28,7 @@ With a DeepSeek API key, a conversation can run commands in a folder: choose **R
 
 ## Logs
 
-Spot Chat keeps a detailed log on your Mac, in `~/Library/Logs/Spot Chat` and the system log, to trace bugs: requests and replies in full, commands, and errors. It never contains API keys and is never uploaded. **Settings > General > Export Logs…** saves it as one file to attach to a bug report.
+Spot Chat keeps a detailed log on your Mac, in `~/Library/Logs/Spot Chat` and the system log, to trace bugs: requests and replies in full, commands, and errors. It never contains API keys and is never uploaded. **Settings > General > Export Logs…** saves it as one file to attach to a bug report, with the crash reports macOS kept for Spot Chat in the last 30 days.
 
 ## Build from source
 
@@ -39,7 +39,7 @@ xcodegen generate
 open SpotChat.xcodeproj
 ```
 
-Running commands uses a bundled copy of dsh. Build it once with Node 24 before building the app; without it the app builds but can't run commands:
+Running commands uses a bundled copy of dsh, built from the newest release on the channel `agent/package.json` names. Build it once with Node 24 before building the app; without it the app builds but can't run commands:
 
 ```bash
 python3 scripts/build_agent_runtime.py --node "$(dirname "$(dirname "$(which node)")")" --out build/AgentRuntime

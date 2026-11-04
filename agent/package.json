@@ -1,8 +1,8 @@
 {
   "name": "spot-chat-agent",
   "private": true,
-  "description": "The DeepSeek Harness (dsh) runtime Spot Chat runs commands through. Pinned; see README.md.",
+  "description": "The DeepSeek Harness (dsh) runtime Spot Chat runs commands through. Names dsh's release-candidate channel, so each build takes its newest release candidate; see docs/maintenance.md.",
   "dependencies": {
-    "@deepseek-ai/dsh": "0.2.2-alpha.2"
+    "@deepseek-ai/dsh": "next"
   }
 }

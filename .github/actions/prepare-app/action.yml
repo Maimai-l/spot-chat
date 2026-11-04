@@ -17,18 +17,40 @@ runs:
       uses: actions/setup-node@v4
       with:
         node-version: 24.22.2
+    # dsh is followed, not pinned: agent/package.json names a release channel, and each run builds the
+    # runtime from that channel's newest release (cached once per version).
+    - name: Find dsh's newest release
+      id: dsh
+      shell: bash
+      run: |
+        channel=$(python3 -c 'import json; print(json.load(open("agent/package.json"))["dependencies"]["@deepseek-ai/dsh"])')
+        version=$(npm view "@deepseek-ai/dsh@$channel" version)
+        echo "version=$version" >> "$GITHUB_OUTPUT"
+        echo "dsh $version, the newest on its $channel channel"
     - name: Restore the command runtime
       id: agent-cache
       uses: actions/cache@v4
       with:
         path: build/AgentRuntime
-        key: agent-runtime-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('agent/**', 'scripts/build_agent_runtime.py') }}
+        key: agent-runtime-${{ runner.os }}-${{ runner.arch }}-${{ steps.dsh.outputs.version }}-${{ hashFiles('agent/**', 'scripts/build_agent_runtime.py', 'scripts/agent_smoke_test.sh', 'scripts/agent_test/**') }}
     - name: Build and test the command runtime and its macOS sandbox
       if: steps.agent-cache.outputs.cache-hit != 'true'
       shell: bash
       run: |
-        python3 scripts/build_agent_runtime.py --node "$(dirname "$(dirname "$(which node)")")" --out build/AgentRuntime
+        # Whole first, with the smoke test recording what loads; then trimmed to that and tested again.
+        python3 scripts/build_agent_runtime.py --node "$(dirname "$(dirname "$(which node)")")" --out build/AgentRuntime --keep-all
+        SPOT_LOAD_LOG="$PWD/build/agent-loads.txt" bash scripts/agent_smoke_test.sh build/AgentRuntime
+        python3 scripts/build_agent_runtime.py --trim build/AgentRuntime --loads build/agent-loads.txt | tee build/agent-trim.txt
         bash scripts/agent_smoke_test.sh build/AgentRuntime
+        if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+          { echo "## Command runtime"; echo; echo "dsh $(cat build/AgentRuntime/VERSION)"; echo; echo '```'; cat build/agent-trim.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+        fi
+    - name: Name the command runtime
+      shell: bash
+      run: |
+        if [ -f build/AgentRuntime/VERSION ] && [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+          echo "Command runtime: dsh $(cat build/AgentRuntime/VERSION)" >> "$GITHUB_STEP_SUMMARY"
+        fi
     - name: Restore Swift packages
       uses: actions/cache@v4
       with:

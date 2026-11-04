@@ -149,6 +149,32 @@ jobs:
           path: build/UITests.xcresult
           if-no-files-found: ignore
 
+  # A module of its own on Linux: compares the UI tests' screenshots with UITests/Baselines, so it adds about a
+  # minute after them instead of time on the Mac.
+  visual:
+    name: Screenshot comparison
+    needs: [plan, ui-tests]
+    if: always() && needs.plan.outputs.ui == 'true' && needs.ui-tests.result != 'skipped' && needs.ui-tests.result != 'cancelled'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download screenshots
+        uses: actions/download-artifact@v4
+        with:
+          name: Screenshots
+          path: build/Screenshots
+      - name: Compare with the baselines
+        run: |
+          python3 -m pip install --quiet pillow
+          python3 scripts/visual_compare.py compare build/Screenshots UITests/Baselines build/VisualDiffs "$GITHUB_STEP_SUMMARY"
+      - name: Upload the differences
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: VisualDiffs
+          path: build/VisualDiffs
+          if-no-files-found: ignore
+
   release:
     name: Release build
     needs: plan

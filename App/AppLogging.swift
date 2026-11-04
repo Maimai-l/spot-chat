@@ -62,7 +62,8 @@ enum AppLogging {
         ])
     }
 
-    /// Writes every log file, oldest first, into one file at `url`: the app's, then the reply writer's.
+    /// Writes every log file, oldest first, into one file at `url`: the app's, then the reply writer's, then
+    /// the crash reports of Spot Chat's processes.
     static func export(to url: URL) throws {
         DDLog.flushLog()
         let writerFiles = WriterLogFileManager(logsDirectory: directory.path).sortedLogFilePaths.reversed()
@@ -78,6 +79,7 @@ enum AppLogging {
         for path in paths {
             if let contents = FileManager.default.contents(atPath: path) { data.append(contents) }
         }
+        data.append(CrashReports.exportSection())
         try data.write(to: url, options: .atomic)
         SpotLog.app.info("Exported the log", metadata: ["files": "\(paths.count)", "bytes": "\(data.count)"])
     }

@@ -879,6 +879,7 @@ final class SpotChatUITests: XCTestCase {
         XCTAssertTrue(log.contains("Echo: log me"), "The reply's text is logged")
         XCTAssertTrue(log.contains("[reply] Shown text"), "The text the page showed is logged")
         XCTAssertFalse(log.contains("test-key"), "The API key is never logged")
+        XCTAssertTrue(log.contains("Crash reports: "), "Crash reports of Spot Chat's processes close the log")
 
         // The reply writer's own log is part of it, with what the writer used: its time and memory at the end.
         let finished = log.split(separator: "\n").filter { $0.contains("Writer finished") }

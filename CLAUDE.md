@@ -48,8 +48,10 @@ the values of environment variables. Errors are logged where they are caught, ne
 ## Code
 
 - Prefer maintained libraries and dsh's own code over writing equivalents.
-- CI builds with Xcode 16.4 (Swift 6.1). A dependency, direct or not, is held at a version whose manifest
+- CI builds with Xcode 16.4 (Swift 6.1). A Swift dependency, direct or not, is held at a version whose manifest
   that Swift can read, since a newer local toolchain resolves to versions CI can't build.
+- dsh is followed, not pinned: each CI run builds its newest release candidate, and Spot Chat adapts when one
+  breaks the smoke or command tests (`docs/maintenance.md`).
 - SpotKit holds the logic in packages (SpotCore, SpotData, SpotAI, SpotAgent); the app target holds the interface.
   Replies are written by `ChatReplyRunner` and `CommandReplyRunner`, which take a request and report events; the
   app only builds the request and shows what they report. Chat replies run in SpotChatWriter, a process of its
@@ -69,6 +71,11 @@ The commit message chooses what runs, so iterating stays fast:
 
 Core tests run when `Packages/`, `Web/`, `App/Reply/`, `scripts/` or `.github/` change. Screenshots are uploaded
 as PNGs in the `Screenshots` artifact, and each run's summary lists what ran and what failed.
+
+After the UI tests, a Linux job compares their screenshots with `UITests/Baselines` (`scripts/visual_compare.py`;
+the screens and their tolerances are in `screens.json`), failing on any screen that changed and uploading the
+differences in red as `VisualDiffs`. When a change to a screen is meant, look at it, then accept it:
+`python3 scripts/visual_compare.py accept <Screenshots folder> UITests/Baselines`, and commit the baselines.
 
 Pushing cancels the run in progress on the branch, so batch changes before pushing, and don't push over a run
 whose results are still needed.

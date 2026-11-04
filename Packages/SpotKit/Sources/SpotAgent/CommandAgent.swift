@@ -20,6 +20,16 @@ public struct CommandRuntime: Sendable {
 
     var launcher: URL { folder.appendingPathComponent("dsh") }
     var profile: URL { folder.appendingPathComponent("profile") }
+
+    /// The dsh version the runtime was built with, from the VERSION file the build writes beside it.
+    public var version: String {
+        let file = folder.appendingPathComponent("VERSION")
+        do {
+            return try String(contentsOf: file, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines)
+        } catch {
+            return "unknown"
+        }
+    }
 }
 
 /// What dsh is started with.
@@ -192,7 +202,7 @@ public actor CommandAgent {
         }
         // Only the names of the variables: one of them holds the API key.
         SpotLog.agent.info("Starting dsh", metadata: [
-            "launcher": "\(runtime.launcher.path)", "folder": "\(folder.path)",
+            "version": "\(runtime.version)", "launcher": "\(runtime.launcher.path)", "folder": "\(folder.path)",
             "environment": "\(process.environment?.keys.sorted().joined(separator: ",") ?? "")",
             "model": "\(options.model ?? "")", "effort": "\(options.effort ?? "")", "web": "\(options.searchesTheWeb)",
         ])

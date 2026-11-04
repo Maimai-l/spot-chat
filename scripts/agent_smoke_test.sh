@@ -2,10 +2,14 @@
 # Runs the bundled dsh runtime over ACP against a stand-in for DeepSeek's Messages API and checks
 # that a write inside the session folder runs, a write outside it is stopped by the sandbox, and the
 # retry asks for approval: allowed once it writes, rejected it doesn't.
+# With SPOT_LOAD_LOG set, every file dsh loads is recorded there, for the build to keep only those packages.
 # Usage: agent_smoke_test.sh <runtime folder from build_agent_runtime.py>
 set -euo pipefail
 runtime="$(cd "$1" && pwd)"
 here="$(cd "$(dirname "$0")" && pwd)"
+if [ -n "${SPOT_LOAD_LOG:-}" ]; then
+  export NODE_OPTIONS="--import=file://$here/agent_test/record_loads.mjs ${NODE_OPTIONS:-}"
+fi
 work="$(mktemp -d)"
 trap 'kill $(jobs -p) 2>/dev/null || true; rm -rf "$work"' EXIT
 # The outside folder must not be under a temporary root, which workspace-write leaves writable.
