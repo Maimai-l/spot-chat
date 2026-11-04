@@ -58,3 +58,9 @@ Problems this project hit and what fixed them, so they aren't solved twice.
   passed on a rerun; it now waits longer, and every failure attaches a screenshot.
 - **A UI test passed while the reply was blank**: it reads accessibility text, so the loading test also checks
   the reply's rendered height.
+- **The screenshot comparison flagged two Chinese input screens** at 0.07%: macOS showed its input source
+  bubble under the caret after Chinese text was typed. CI turns the indicator off, and those screens ignore
+  the spot under the caret.
+- **A dsh release added a tool, `working_directory`, that moves the model's folder.** The sandbox's writable
+  folder stays the one the session started in (`sandbox-policy`: `session.header.cwd`), so commands outside
+  it still ask; the smoke test's tool list shows new tools, worth a look on each release.

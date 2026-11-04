@@ -1,6 +1,6 @@
 {
   "tolerance": 0.05,
-  "about": "Screens the UI tests take and the comparison checks, by name. tolerance is the percentage of pixels that may change; the blinking caret alone changes about 0.006%. A screen can set its own tolerance, and ignore, a list of [left, top, right, bottom] rectangles. Screens in notCompared change from run to run on their own.",
+  "about": "Screens the UI tests take and the comparison checks, by name. tolerance is the percentage of pixels that may change; the blinking caret alone changes about 0.006%. A screen can set its own tolerance, and ignore, a list of [left, top, right, bottom] rectangles; the two zh Text screens ignore where macOS may show its input source bubble under the caret. Screens in notCompared change from run to run on their own.",
   "compare": {
     "Capsule": {},
     "Capsule with text": {},
@@ -31,8 +31,8 @@
     "zh Model menu": {},
     "zh Plus menu": {},
     "zh Plus menu off": {},
-    "zh Text one line": {},
-    "zh Text two lines": {}
+    "zh Text one line": {"ignore": [[528, 498, 570, 532]]},
+    "zh Text two lines": {"ignore": [[402, 498, 446, 532]]}
   },
   "notCompared": {
     "Full window": "After the card expands, replies render again at the new width and the scroll position depends on how long that takes.",

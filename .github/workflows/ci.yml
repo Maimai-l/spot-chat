@@ -117,7 +117,10 @@ jobs:
       - name: Start mock OpenAI server
         run: nohup python3 scripts/mock_openai_server.py 8765 > mock-server.log 2>&1 &
       - name: Allow UI automation
-        run: sudo automationmodetool enable-automationmode-without-authentication || true
+        run: |
+          sudo automationmodetool enable-automationmode-without-authentication || true
+          # The input source bubble macOS shows under the caret after typing Chinese lands in some screenshots.
+          defaults write kCFPreferencesAnyApplication TSMLanguageIndicatorEnabled -bool false
       - name: Run UI tests
         env:
           ONLY_TESTING: ${{ needs.plan.outputs.only }}

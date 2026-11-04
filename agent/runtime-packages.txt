@@ -51,6 +51,7 @@ node_modules/@deepseek-ai/dsh-deque
 node_modules/@deepseek-ai/dsh-fs
 node_modules/@deepseek-ai/dsh-fs-local
 node_modules/@deepseek-ai/dsh-fs-observation-policy
+node_modules/@deepseek-ai/dsh-fs-patch
 node_modules/@deepseek-ai/dsh-fs-sandbox
 node_modules/@deepseek-ai/dsh-goal
 node_modules/@deepseek-ai/dsh-goal-round-driver
@@ -152,6 +153,7 @@ node_modules/@deepseek-ai/dsh-web-search-deepseek
 node_modules/@deepseek-ai/dsh-win32-process
 node_modules/@deepseek-ai/dsh-working-directory
 node_modules/@deepseek-ai/node-addon-system
+node_modules/@deepseek-ai/node-addon-system-darwin-arm64
 node_modules/@deepseek-ai/node-addon-system-linux-x64
 node_modules/@deepseek-ai/schemastery
 node_modules/@earendil-works/pi-ai
@@ -186,6 +188,7 @@ node_modules/koffi
 node_modules/lru-cache
 node_modules/node-addon-native-custom-loader
 node_modules/node-addon-require-builtin
+node_modules/node-addon-require-builtin-darwin-arm64
 node_modules/node-addon-require-builtin-linux-x64-gnu
 node_modules/npm-run-path
 node_modules/npm-run-path/node_modules/path-key
@@ -196,6 +199,7 @@ node_modules/pkce-challenge
 node_modules/pretty-ms
 node_modules/readdirp
 node_modules/resolve.exports
+node_modules/rrule
 node_modules/semver
 node_modules/shebang-command
 node_modules/shebang-regex

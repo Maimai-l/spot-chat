@@ -441,7 +441,8 @@ public actor CommandAgent {
            case let .string(first)? = queries.first {
             query = first
         }
-        let detail = field("command") ?? query ?? field("query") ?? field("url") ?? field("path") ?? ""
+        // working_directory takes `cd`, the folder it moves to.
+        let detail = field("command") ?? query ?? field("query") ?? field("url") ?? field("path") ?? field("cd") ?? ""
         return CommandRun(
             id: id, tool: tool, summary: field("description") ?? "", detail: detail,
             justification: field("justification"),
