@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="zh-Hans"><head><meta charset="utf-8"><title>Mini Apps</title>
+<!-- Drawn at the app's own size in points, as the CI screenshots are, so the two can be laid side by side. -->
+<style>
+:root{--text:rgba(0,0,0,.86);--sec:rgba(0,0,0,.5);--ter:rgba(0,0,0,.3);--accent:#0a7aff;--surface:#ebebed;--rim:0 0 0 .5px rgba(0,0,0,.14);--shadow:0 12px 34px rgba(0,0,0,.3)}
+*{box-sizing:border-box}
+body{margin:0;background:#1e1e1e;height:max-content;font-family:-apple-system,"SF Pro Text","PingFang SC","Inter","WenQuanYi Zen Hei",sans-serif;color:var(--text);padding:32px;display:flex;flex-direction:column;gap:26px;width:1024px}
+.cap{color:#d4d4d4;font-size:14px;margin:0 0 10px 2px}
+.stage{position:relative;width:960px;height:600px;border-radius:12px;background:linear-gradient(165deg,#56677a,#2b3541);overflow:hidden}
+.sp{flex:1}
+.abs{position:absolute}
+/* mini window */
+.card{position:absolute;width:400px;border-radius:24px;background:var(--surface);box-shadow:var(--shadow),var(--rim);display:flex;flex-direction:column}
+.top{display:flex;align-items:center;padding:10px 10px 0;gap:8px}
+.cb{width:32px;height:32px;border-radius:16px;background:rgba(255,255,255,.55);box-shadow:var(--rim);display:grid;place-items:center}
+.body{padding:16px 22px 0;display:flex;flex-direction:column;gap:12px;flex:1}
+.q{align-self:flex-end;background:rgba(0,0,0,.07);border-radius:18px;padding:8px 16px;font-size:15px;max-width:300px;line-height:1.45}
+.mark{width:18px;height:18px;border-radius:9px;background:#2639b8;position:relative;margin-top:14px}
+.mark:after{content:"";position:absolute;width:5.5px;height:5.5px;border-radius:3px;background:var(--surface);left:8.5px;top:3px}
+.ans{font-size:15px;line-height:1.5}
+.stepcard{border-radius:10px;box-shadow:var(--rim);padding:0 10px;height:34px;display:flex;align-items:center;gap:8px;font-size:13px}
+.composer{margin:10px;border-radius:22px;background:rgba(255,255,255,.5);box-shadow:var(--rim);padding:10px 12px 9px}
+.ph{color:var(--ter);font-size:16px;padding:0 6px 10px}
+.typed{font-size:16px;padding:0 6px 10px}
+.caret{display:inline-block;width:1.5px;height:18px;background:var(--accent);vertical-align:-3px;margin-left:1px}
+.line{display:flex;align-items:center;gap:6px}
+.plus{width:28px;height:28px;border-radius:14px;display:grid;place-items:center}
+.orb{width:28px;height:28px;border-radius:14px;display:grid;place-items:center;background:rgba(10,122,255,.13);color:var(--accent)}
+.chip{display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 10px;border-radius:14px;background:rgba(10,122,255,.13);color:var(--accent);font-size:13px}
+.model{font-weight:600;font-size:15px;padding-right:6px}
+.btn{height:24px;padding:0 11px;border-radius:12px;background:rgba(0,0,0,.07);font-size:13px;display:inline-flex;align-items:center}
+.btn.pri{background:var(--accent);color:#fff}
+.ico{width:18px;height:18px;border-radius:5px;display:grid;place-items:center;background:rgba(0,0,0,.08);flex:none}
+/* a mini app: an ordinary macOS window in the app's colors */
+.app{position:absolute;width:240px;border-radius:12px;background:var(--surface);box-shadow:var(--shadow),var(--rim);overflow:hidden}
+.tb{height:30px;display:flex;align-items:center;padding:0 8px 0 10px;gap:8px;position:relative}
+.lights{display:flex;gap:7px}.lights i{width:12px;height:12px;border-radius:6px;background:#ff5f57;box-shadow:inset 0 0 0 .5px rgba(0,0,0,.15)}.lights i:nth-child(2){background:#febc2e}.lights i:nth-child(3){background:#28c840}
+.app.back .lights i{background:#d5d5d7}
+.tt{position:absolute;left:0;right:0;text-align:center;font-size:13px;font-weight:600;pointer-events:none}
+.keep{margin-left:auto;height:20px;padding:0 9px;border-radius:5px;background:rgba(0,0,0,.07);font-size:12px;display:inline-flex;align-items:center;position:relative}
+.ring{width:136px;height:136px;margin:8px auto 2px;position:relative}
+.ring .t{position:absolute;inset:0;display:grid;place-items:center;text-align:center}
+.big{font-size:31px;font-weight:300;font-variant-numeric:tabular-nums}
+.small{font-size:12px;color:var(--sec);margin-top:1px}
+.btns{display:flex;justify-content:center;gap:8px;padding:10px 0 16px}
+/* menus */
+.menu{position:absolute;border-radius:10px;background:rgba(240,240,242,.97);box-shadow:0 12px 34px rgba(0,0,0,.28),0 0 0 .5px rgba(0,0,0,.14);padding:5px;font-size:13px}
+.mi{display:flex;align-items:center;gap:8px;height:24px;padding:0 8px;border-radius:5px;white-space:nowrap}
+.mi.hl{background:var(--accent);color:#fff}
+.mi .r{margin-left:auto;opacity:.55;padding-left:20px}.mi.hl .r{opacity:.9}
+.mi .ico{width:16px;height:16px;border-radius:4px}.mi.hl .ico{background:rgba(255,255,255,.25)}
+.sepm{height:1px;background:rgba(0,0,0,.1);margin:4px 8px}
+/* settings */
+.set{position:absolute;left:160px;top:40px;width:700px;height:520px;border-radius:12px;background:#ececee;box-shadow:var(--shadow),var(--rim);overflow:hidden;font-size:13px}
+.sethead{height:84px;border-bottom:.5px solid rgba(0,0,0,.12);position:relative}
+.sethead .lights{position:absolute;left:12px;top:10px}
+.sethead .tt{top:8px}
+.tabs{position:absolute;left:0;right:0;top:30px;display:flex;justify-content:center;gap:4px}
+.tab{width:56px;height:46px;border-radius:7px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11px;color:var(--sec)}
+.tab.on{background:rgba(0,0,0,.07);color:var(--accent)}
+.setbody{padding:20px 50px}
+.group{background:rgba(255,255,255,.55);border-radius:8px;box-shadow:var(--rim)}
+.rowi{display:flex;align-items:center;gap:10px;height:40px;padding:0 10px}
+.rowi + .rowi{border-top:.5px solid rgba(0,0,0,.1)}
+.sc{height:22px;width:112px;border-radius:6px;background:#fff;box-shadow:var(--rim);display:inline-flex;align-items:center;justify-content:center;color:var(--sec);font-size:12px}
+.sc.set1{color:var(--text)}
+.mem{color:var(--sec);font-size:12px;width:48px;text-align:right}
+.pop{display:inline-flex;align-items:center;gap:6px}
+.hdr{font-weight:600;margin:18px 0 8px}
+.note{color:#c8c8c8;font-size:13px;line-height:1.75;margin:0 2px}
+.note b{color:#efefef;font-weight:600}
+</style></head><body>
+
+<svg width="0" height="0" style="position:absolute">
+ <symbol id="timer" viewBox="0 0 12 12"><g fill="none" stroke="currentColor" stroke-width="1.2"><circle cx="6" cy="6.8" r="4.3"/><path d="M6 6.8V4.6M4.7 1.2h2.6"/></g></symbol>
+ <symbol id="swap" viewBox="0 0 12 12"><path d="M1.8 4h8.4L8.2 2M10.2 8H1.8l2 2" fill="none" stroke="currentColor" stroke-width="1.2"/></symbol>
+ <symbol id="check" viewBox="0 0 12 12"><path d="M2.4 6.3l2.4 2.4 4.8-5.2" fill="none" stroke="currentColor" stroke-width="1.3"/></symbol>
+ <symbol id="x" viewBox="0 0 12 12"><path d="M2.5 2.5l7 7M9.5 2.5l-7 7" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+ <symbol id="plus" viewBox="0 0 14 14"><path d="M7 1.5v11M1.5 7h11" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+ <symbol id="globe" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-width="1.2"><circle cx="8" cy="8" r="6.3"/><ellipse cx="8" cy="8" rx="2.7" ry="6.3"/><path d="M1.8 8h12.4M2.8 4.8h10.4M2.8 11.2h10.4"/></g></symbol>
+ <symbol id="edit" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-width="1.3"><path d="M13 9v4.2a.8.8 0 0 1-.8.8H2.8a.8.8 0 0 1-.8-.8V3.8a.8.8 0 0 1 .8-.8H7"/><path d="M11.6 1.9l2.5 2.5L8 10.5H5.5V8z"/></g></symbol>
+ <symbol id="expand" viewBox="0 0 16 16"><path d="M9.5 2.5h4v4M6.5 13.5h-4v-4" fill="none" stroke="currentColor" stroke-width="1.4"/></symbol>
+ <symbol id="grid" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-width="1.2"><rect x="2" y="2" width="5" height="5" rx="1.2"/><rect x="9" y="2" width="5" height="5" rx="1.2"/><rect x="2" y="9" width="5" height="5" rx="1.2"/><rect x="9" y="9" width="5" height="5" rx="1.2"/></g></symbol>
+ <symbol id="clip" viewBox="0 0 16 16"><path d="M10.5 4.5l-5 5a1.6 1.6 0 0 0 2.3 2.3l5.4-5.4a3 3 0 0 0-4.2-4.2L3.6 7.6a4.3 4.3 0 0 0 6.1 6.1l4.6-4.6" fill="none" stroke="currentColor" stroke-width="1.2"/></symbol>
+ <symbol id="term" viewBox="0 0 14 12"><g fill="none" stroke="currentColor" stroke-width="1.1"><rect x=".6" y=".6" width="12.8" height="10.8" rx="2"/><path d="M3.5 4l2 2-2 2M7 8.2h3.3"/></g></symbol>
+ <symbol id="trash" viewBox="0 0 14 14"><path d="M2 3.5h10M5 3.5V2h4v1.5M3.2 3.5l.6 8.5h6.4l.6-8.5" fill="none" stroke="currentColor" stroke-width="1.15"/></symbol>
+ <symbol id="server" viewBox="0 0 20 20"><g fill="none" stroke="currentColor" stroke-width="1.3"><rect x="2.5" y="3" width="15" height="5.5" rx="1.3"/><rect x="2.5" y="11.5" width="15" height="5.5" rx="1.3"/></g></symbol>
+ <symbol id="sliders" viewBox="0 0 20 20"><g fill="none" stroke="currentColor" stroke-width="1.3"><path d="M3 5h14M3 10h14M3 15h14"/><circle cx="7" cy="5" r="1.8" fill="#ececee"/><circle cx="13" cy="10" r="1.8" fill="#ececee"/><circle cx="9" cy="15" r="1.8" fill="#ececee"/></g></symbol>
+</svg>
+
+<div>
+ <div class="cap">1 说一句就有：小应用写好、通过它自己的检查后，在小窗旁边打开</div>
+ <div class="stage">
+  <div class="card" style="left:150px;top:20px;height:560px">
+   <div class="top"><span class="cb"><svg width="12" height="12"><use href="#x"/></svg></span><span class="sp"></span><span class="cb"><svg width="15" height="15"><use href="#edit"/></svg></span><span class="cb"><svg width="14" height="14"><use href="#expand"/></svg></span></div>
+   <div class="body">
+    <div class="q">做一个番茄钟，25 分钟工作，5 分钟休息</div>
+    <div class="mark"></div>
+    <div class="stepcard"><span class="ico"><svg width="11" height="11"><use href="#timer"/></svg></span><span>番茄钟</span><span class="sp"></span><span class="btn" style="height:22px;font-size:12px">打开</span></div>
+    <div class="ans">番茄钟在右边。工作和休息自动交替，结束时会提醒。</div>
+   </div>
+   <div class="composer">
+    <div class="ph">问问 Spot</div>
+    <div class="line"><span class="plus"><svg width="14" height="14"><use href="#plus"/></svg></span><span class="orb"><svg width="15" height="15"><use href="#globe"/></svg></span><span class="sp"></span><span class="model">deepseek-flash</span></div>
+   </div>
+  </div>
+  <div class="app" style="left:566px;top:150px">
+   <div class="tb"><span class="lights"><i></i><i></i><i></i></span><span class="tt">番茄钟</span><span class="keep">留下</span></div>
+   <div class="ring"><svg width="136" height="136" viewBox="0 0 136 136"><circle cx="68" cy="68" r="60" fill="none" stroke="rgba(0,0,0,.08)" stroke-width="7"/><circle cx="68" cy="68" r="60" fill="none" stroke="var(--accent)" stroke-width="7" stroke-linecap="round" stroke-dasharray="377" transform="rotate(-90 68 68)"/></svg><div class="t"><div><div class="big">25:00</div><div class="small">工作</div></div></div></div>
+   <div class="btns"><span class="btn pri">开始</span><span class="btn">重置</span></div>
+  </div>
+ </div>
+</div>
+
+<div>
+ <div class="cap">2 对它说话来修改：小应用在前台时按快捷键，小窗接在它下面，改的就是它</div>
+ <div class="stage">
+  <div class="app" style="left:360px;top:120px">
+   <div class="tb"><span class="lights"><i></i><i></i><i></i></span><span class="tt">番茄钟</span><span class="keep">留下</span></div>
+   <div class="ring"><svg width="136" height="136" viewBox="0 0 136 136"><circle cx="68" cy="68" r="60" fill="none" stroke="rgba(0,0,0,.08)" stroke-width="7"/><circle cx="68" cy="68" r="60" fill="none" stroke="var(--accent)" stroke-width="7" stroke-linecap="round" stroke-dasharray="377" stroke-dashoffset="134" transform="rotate(-90 68 68)"/></svg><div class="t"><div><div class="big">16:07</div><div class="small">工作</div></div></div></div>
+   <div class="btns"><span class="btn">重置</span></div>
+  </div>
+  <div class="card" style="left:280px;top:426px;border-radius:24px">
+   <div class="composer" style="margin:0;background:transparent;box-shadow:none;padding:12px 14px 12px">
+    <div class="typed">加一个暂停<span class="caret"></span></div>
+    <div class="line"><span class="plus"><svg width="14" height="14"><use href="#plus"/></svg></span><span class="chip"><svg width="12" height="12"><use href="#timer"/></svg>番茄钟</span><span class="sp"></span><span class="model">deepseek-flash</span></div>
+   </div>
+  </div>
+ </div>
+</div>
+
+<div>
+ <div class="cap">3 留下的小应用在 + 菜单里，也能设自己的快捷键</div>
+ <div class="stage">
+  <div class="menu" style="left:494px;top:250px;width:200px">
+   <div class="mi hl"><span class="ico"><svg width="10" height="10"><use href="#timer"/></svg></span>番茄钟<span class="r">⌥⌘P</span></div>
+   <div class="mi"><span class="ico"><svg width="10" height="10"><use href="#swap"/></svg></span>单位换算</div>
+   <div class="mi"><span class="ico"><svg width="10" height="10"><use href="#check"/></svg></span>出门清单</div>
+  </div>
+  <div class="menu" style="left:292px;top:278px;width:206px">
+   <div class="mi"><svg width="15" height="15"><use href="#clip"/></svg>上传图片或文件…</div>
+   <div class="mi hl"><svg width="15" height="15"><use href="#grid"/></svg>小应用<span class="r">›</span></div>
+   <div class="sepm"></div>
+   <div class="mi"><svg width="15" height="15"><use href="#globe"/></svg>联网搜索</div>
+   <div class="mi"><svg width="15" height="13"><use href="#term"/></svg>运行命令</div>
+  </div>
+  <div class="card" style="left:280px;top:426px">
+   <div class="composer" style="margin:0;background:transparent;box-shadow:none;padding:12px 14px 12px">
+    <div class="ph">问问 Spot</div>
+    <div class="line"><span class="plus" style="background:rgba(0,0,0,.1)"><svg width="14" height="14"><use href="#plus"/></svg></span><span class="orb"><svg width="15" height="15"><use href="#globe"/></svg></span><span class="sp"></span><span class="model">deepseek-flash</span></div>
+   </div>
+  </div>
+ </div>
+</div>
+
+<div>
+ <div class="cap">4 设置里多一个“小应用”标签</div>
+ <div class="stage">
+  <div class="set">
+   <div class="sethead"><span class="lights"><i></i><i></i><i></i></span><span class="tt">小应用</span>
+    <div class="tabs"><div class="tab"><svg width="20" height="20"><use href="#server"/></svg>服务商</div><div class="tab"><svg width="20" height="20"><use href="#sliders"/></svg>通用</div><div class="tab on"><svg width="20" height="20"><use href="#grid"/></svg>小应用</div></div>
+   </div>
+   <div class="setbody">
+    <div class="group">
+     <div class="rowi"><span class="ico"><svg width="11" height="11"><use href="#timer"/></svg></span><span>番茄钟</span><span class="sp"></span><span class="mem">9 MB</span><span class="sc sc set1">⌥⌘P</span><svg width="14" height="14" style="color:var(--sec)"><use href="#trash"/></svg></div>
+     <div class="rowi"><span class="ico"><svg width="11" height="11"><use href="#swap"/></svg></span><span>单位换算</span><span class="sp"></span><span class="mem"></span><span class="sc">录制快捷键</span><svg width="14" height="14" style="color:var(--sec)"><use href="#trash"/></svg></div>
+     <div class="rowi"><span class="ico"><svg width="11" height="11"><use href="#check"/></svg></span><span>出门清单</span><span class="sp"></span><span class="mem"></span><span class="sc">录制快捷键</span><svg width="14" height="14" style="color:var(--sec)"><use href="#trash"/></svg></div>
+    </div>
+    <div class="group" style="margin-top:16px">
+     <div class="rowi"><span>删除没有留下的小应用</span><span class="sp"></span><span class="pop">关闭 10 分钟后<svg width="8" height="12" viewBox="0 0 8 12"><path d="M1.5 4.5L4 2l2.5 2.5M1.5 7.5L4 10l2.5-2.5" fill="none" stroke="currentColor" stroke-width="1.2"/></svg></span></div>
+    </div>
+   </div>
+  </div>
+ </div>
+</div>
+
+<div class="note"><b>没画出来的：</b>小应用第一次要用剪贴板、拖进来的文件或模型时，问一次是否允许。正在运行的小应用在设置里显示占用的内存。</div>
+</body></html>
