@@ -35,7 +35,7 @@ jobs:
       only: ${{ steps.plan.outputs.only }}
       release: ${{ steps.plan.outputs.release }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Read the commit's tags
@@ -86,7 +86,7 @@ jobs:
     if: needs.plan.outputs.core == 'true'
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Select Xcode 16
         run: |
           for v in 16.4 16.3 16.2 16.1 16; do
@@ -112,7 +112,7 @@ jobs:
     if: needs.plan.outputs.ui == 'true'
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/prepare-app
       - name: Start mock OpenAI server
         run: nohup python3 scripts/mock_openai_server.py 8765 > mock-server.log 2>&1 &
@@ -139,14 +139,14 @@ jobs:
         run: python3 scripts/export_test_results.py build/UITests.xcresult build/Screenshots "$GITHUB_STEP_SUMMARY"
       - name: Upload screenshots
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Screenshots
           path: build/Screenshots
           if-no-files-found: ignore
       - name: Upload UI test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: UITests-result
           path: build/UITests.xcresult
@@ -160,12 +160,12 @@ jobs:
     if: always() && needs.plan.outputs.ui == 'true' && needs.ui-tests.result != 'skipped' && needs.ui-tests.result != 'cancelled'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # A UI test run that didn't build uploads no screenshots; it fails on its own, so this compares nothing.
       - name: Download screenshots
         id: shots
         continue-on-error: true
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: Screenshots
           path: build/Screenshots
@@ -176,7 +176,7 @@ jobs:
           python3 scripts/visual_compare.py compare build/Screenshots UITests/Baselines build/VisualDiffs "$GITHUB_STEP_SUMMARY"
       - name: Upload the differences
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: VisualDiffs
           path: build/VisualDiffs
@@ -188,7 +188,7 @@ jobs:
     if: needs.plan.outputs.release == 'true'
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/prepare-app
       - name: Build release app
         run: |
@@ -207,7 +207,7 @@ jobs:
           echo "ALPHA_NAME=SpotChat-$VERSION-alpha.${{ github.run_number }}" >> "$GITHUB_ENV"
           ditto -c -k --keepParent build/DerivedData/Build/Products/Release/SpotChat.app "build/SpotChat-$VERSION-alpha.${{ github.run_number }}.zip"
       - name: Upload alpha build
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ env.ALPHA_NAME }}
           path: build/${{ env.ALPHA_NAME }}.zip

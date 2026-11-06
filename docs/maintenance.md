@@ -61,7 +61,7 @@ building on it.
 | KeyboardShortcuts | from 2.0.0 | Check the recording field in Settings after an update |
 | dsh | Followed, not pinned: `agent/package.json` names the `next` channel, its release candidates, on Node 24.22.2 | Each CI run builds the newest release whole, records what loads in the smoke test (which also changes the effort, stops a turn and resumes a session), trims to that and tests again. The run's summary names the dsh version and any package not yet in `agent/runtime-packages.txt`: add those. When the smoke or command tests fail on a new release, adapt to it; check telemetry is still off in `agent/profile/cordis.patch.yml` |
 | Reply page | exact versions in `Web/package.json` | `npm run build` and commit `App/Reply`; CI fails if the build isn't committed |
-| GitHub Actions | checkout, cache, setup-node, upload-artifact at v4 | GitHub now runs them on Node 24 with a deprecation warning; move to their next major versions |
+| GitHub Actions | checkout v7, cache v6, setup-node v7, upload-artifact v7, download-artifact v8 | Read each major version's breaking changes before moving |
 
 The app icon is drawn by `node scripts/make_app_icon.mjs`; see `docs/design/pinhole.md`.
 
@@ -76,8 +76,11 @@ The app icon is drawn by `node scripts/make_app_icon.mjs`; see `docs/design/pinh
 
 ## Watching dsh
 
-- dsh takes bug reports in its GitHub Discussions, not issues, and publishes security advisories on the
-  repository. On a new release, search the Discussions for `acp`, `llm-deepseek`, `sandbox` and `macOS`.
+- dsh takes bug reports in its GitHub Discussions, not issues. On a new release, search the Discussions for
+  `acp`, `llm-deepseek`, `sandbox` and `macOS`.
+- Its CVEs are filed by others (VulnCheck, VulDB, MITRE), not on the repository's advisories page. Search NVD
+  for "DeepSeek Harness", "deepseek-harness" and "DeepSeek dsh" (each finds records the others miss), OSV by
+  the repository (`ecosystem: GIT`), and GitHub's advisory database for "deepseek".
 - Bugs on Spot Chat's path, checked against 0.2.2-rc.1 on 2026-11-04, and what Spot Chat does about them:
 
 | Discussion | Bug | Spot Chat |
@@ -90,6 +93,26 @@ The app icon is drawn by `node scripts/make_app_icon.mjs`; see `docs/design/pinh
 | 10553 | Changing the tools mid-session can break it with a 400; the web switch does this | To test against the real API |
 | 11511 | A tall image through `read_image` can break later turns | To test |
 | 10363 | Sandboxed commands can't reach the local network on macOS | To test |
+
+CVEs naming dsh, checked against 0.2.2-rc.1 as Spot Chat runs it:
+
+| CVE | What | Spot Chat |
+| --- | --- | --- |
+| 2026-82533 | Local HTTP control API accepts a spoofed Host header | Not affected: fixed in 0.1.2-alpha.1 |
+| 2026-82033 | Web profile's RPC control plane has no authentication | Not affected: fixed in 0.1.2-alpha.2 |
+| 2026-101078 | bwrap sandbox run as root can remount the filesystem | Not affected: Linux only |
+| 2026-101102 | Code Mode `run_code` sandbox | Not affected: the tool isn't in the profile |
+| 2026-101131 | E2B sandbox trusts `E2B_API_KEY` | Not affected: E2B isn't in the runtime |
+| 2026-101132 | Path traversal through a profile's `dsh.bundle.patch` | Not affected: the only profile is the app's own, replaced on every start |
+| 2026-108789 | Workflow tool escapes its vm | Not affected: workflows are off and not in the runtime |
+| 2026-116367 | `cordis-host-runner` sandbox | Not affected: not in the runtime |
+| 2026-116368 | Browser authentication of the web client | Not affected: not in the runtime |
+| 2026-95182 | MCP servers and sandbox runners started by bare name through PATH | MCP: not affected, no servers are configured anywhere. Sandbox: `sandbox-exec` is found through PATH, where `/opt/homebrew/bin` comes first; open |
+| 2026-95183 | Instructions injected into fetched pages survive context compaction | Applies: web tools and compaction are on, and the sandbox leaves the network open; open |
+| 2026-108788 | Sandbox `spawn` with a crafted profile | Undetermined: the details are only in a Feishu document behind a login |
+
+Not a CVE, but on the same path: the macOS sandbox profile has no network rule, so commands can reach local
+services such as Docker Desktop's socket and ssh-agent (Discussion 4503); open.
 
 ## Backlog
 
@@ -106,5 +129,4 @@ The app icon is drawn by `node scripts/make_app_icon.mjs`; see `docs/design/pinh
 | Why "You are a helpful assistant." breaks deepseek-flash: other personas, a paraphrase, neutral text of the same length, 30 replies each | Research | Needs a temporary API key |
 | Each vendor's end-of-turn and end-of-text tokens, checked against their tokenizer configs | Research | Later |
 | The menu bar dot sits close to its ring at 1×; check on a 2× display | Interface | To check |
-| GitHub Actions on Node 24 | CI | To do |
 | dsh bugs still to test: the web switch mid-session, tall images, the local network (above) | Research | Needs a temporary API key |
