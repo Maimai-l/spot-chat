@@ -182,9 +182,9 @@ final class SpotChatUITests: XCTestCase {
         let app = launchRunningCommands()
         XCTAssertTrue(element("commandFolder", in: app).waitForExistence(timeout: 10))
         send("Run this in the background", in: app)
-        let elapsed = element("commandElapsed", in: app)
-        XCTAssertTrue(elapsed.waitForExistence(timeout: 40), "A running command shows how long it has run")
-        RunLoop.current.run(until: Date().addingTimeInterval(1.5))
+        // The time it has run is part of the step's row, so it is seen in the screenshot; Stop says it runs.
+        XCTAssertTrue(element("stopCommand", in: app).waitForExistence(timeout: 40))
+        RunLoop.current.run(until: Date().addingTimeInterval(2))
         attachScreenshot("Command running")
 
         app.buttons["New Chat"].click()

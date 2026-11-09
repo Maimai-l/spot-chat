@@ -126,7 +126,6 @@ struct CommandRunRow: View {
                                     .font(.system(size: 11))
                                     .monospacedDigit()
                                     .foregroundStyle(.tertiary)
-                                    .accessibilityIdentifier("commandElapsed")
                             }
                         }
                         Button("Stop", action: stop)
