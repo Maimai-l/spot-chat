@@ -176,6 +176,33 @@ final class SpotChatUITests: XCTestCase {
         attachScreenshot("Commands full window")
     }
 
+    /// A command goes on when its conversation is left: a new conversation runs its own commands meanwhile,
+    /// and the first one, opened again in the full window, has finished rather than stopped.
+    func testACommandGoesOnAfterANewConversation() {
+        let app = launchRunningCommands()
+        XCTAssertTrue(element("commandFolder", in: app).waitForExistence(timeout: 10))
+        send("Run this in the background", in: app)
+        let elapsed = element("commandElapsed", in: app)
+        XCTAssertTrue(elapsed.waitForExistence(timeout: 40), "A running command shows how long it has run")
+        RunLoop.current.run(until: Date().addingTimeInterval(1.5))
+        attachScreenshot("Command running")
+
+        app.buttons["New Chat"].click()
+        send("Please list the files", in: app)
+        XCTAssertTrue(reply(containing: "Listed the folder.", in: app).waitForExistence(timeout: 40))
+
+        app.buttons["Expand to Full Window"].click()
+        let first = app.descendants(matching: .any).matching(NSPredicate(
+            format: "identifier == %@ AND (label CONTAINS %@ OR value CONTAINS %@)",
+            "historyItem", "Run this in the background", "Run this in the background"
+        )).firstMatch
+        XCTAssertTrue(first.waitForExistence(timeout: 10))
+        first.click()
+        XCTAssertTrue(reply(containing: "Finished in the background.", in: app).waitForExistence(timeout: 40))
+        XCTAssertFalse(element("message.error", in: app).exists)
+        attachScreenshot("Command finished in the background")
+    }
+
     /// DeepSeek rejects a thinking-mode history whose tool call has no thinking, and dsh then fails every
     /// turn of that session; the turn runs again in a new one.
     func testACommandSessionDeepSeekRejectsIsLeftForANewOne() {

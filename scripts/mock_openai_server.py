@@ -180,6 +180,9 @@ def messages_steps(body):
         if len(results) == 1 and "sandbox" in results[0]:
             return ("Write a note in your home folder", ESCAPE, True)
         return "Finished."
+    # A command long enough to leave its conversation while it runs.
+    if "background" in question:
+        return ("Wait a few seconds", "sleep 8", False) if not results else "Finished in the background."
     if "slow" in question:
         return ("Wait a minute", "sleep 60", False) if not results else "Stopped."
     if "long" in question:

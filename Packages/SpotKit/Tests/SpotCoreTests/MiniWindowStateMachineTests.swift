@@ -193,11 +193,12 @@ import Testing
         #expect(effects == [.endConversation(conversation), .showCapsule, .focusInput])
     }
 
-    @Test func newConversationStopsGenerationFirst() {
+    @Test func newConversationLeavesTheReplyGoing() {
         var state = cardState()
         _ = state.handle(.generationStarted, isKey: true)
         let effects = state.handle(.newConversation, isKey: true)
-        #expect(effects.first == .stopGeneration)
+        #expect(!effects.contains(.stopGeneration))
+        #expect(state.mode == .capsule)
     }
 
     // MARK: 展开为完整窗口 / 收回小窗

@@ -133,10 +133,9 @@ public struct MiniWindowState: Equatable, Sendable {
 
         case .newConversation:
             guard mode == .card else { return [] }
+            // A reply or command under way goes on in the conversation it belongs to; leaving it doesn't stop it.
             var effects: [MiniWindowEffect] = []
-            if isGenerating {
-                effects.append(.stopGeneration)
-            }
+            isGenerating = false
             if let id = conversationID {
                 effects.append(.endConversation(id))
             }

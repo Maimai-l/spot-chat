@@ -120,6 +120,7 @@ services such as Docker Desktop's socket and ssh-agent (Discussion 4503); open.
 | Item | Kind | Status |
 | --- | --- | --- |
 | Bugs and requests from using alpha 134 | Bugs, requests | Owner is using it |
+| A command turn stops when a new conversation starts, and reopening it in the full window loses its context | Bug, P1 | Fixed, in testing |
 | The question being edited doesn't scroll with the wheel, and sometimes sticks | Bug, P1 | Fixed, in testing |
 | A conversation opened with the shortcut has no button back to the end until scrolled | Bug, P2 | Fixed, in testing |
 | Changing effort while a reply or command is under way | Edge case | Tested: the reply under way keeps its level, the next one uses the new level |

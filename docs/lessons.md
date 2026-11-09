@@ -68,3 +68,10 @@ Problems this project hit and what fixed them, so they aren't solved twice.
   Discussions, most about its desktop app. The few on Spot Chat's path are worked around in the client or the
   profile (`docs/maintenance.md`), and each has a mock scenario and a UI test.
 - **A failed dsh resume was dropped with `try?`**, so a lost session showed up nowhere; it is logged now.
+- **A command turn stopped halfway, and the next question lost its context.** Commands ran on a dsh that
+  belonged to the window: a new conversation stopped the turn, and the full window started a second dsh that
+  couldn't resume the session the first still held ("already owned by an active write handle"), so it began
+  an empty one. The same window also reused its dsh for another conversation in the same folder, carrying the
+  first conversation's session over. Each conversation now has one dsh, wherever it is shown, and its turn
+  goes on when the window shows something else. A long command also looked stuck, since dsh shows output only
+  at the end; a running step shows how long it has run.

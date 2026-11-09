@@ -27,8 +27,9 @@ final class ChatSession: ObservableObject {
 
     let app: AppModel
     var generation: Task<Void, Never>?
-    var agent: CommandAgent?
-    var approvalAnswer: CheckedContinuation<CommandApproval, Never>?
+    /// The reply of the conversation's command turn this window follows; the turn itself is the
+    /// conversation's, in `AppModel.commandRuns`, and goes on when the window shows something else.
+    var followedCommandReply: UUID?
     /// When the reply being written was last saved.
     var lastReplySave = Date.distantPast
     /// The reply writer at work on the reply shown, in a process of its own; nil while the app writes it.
@@ -44,11 +45,19 @@ final class ChatSession: ObservableObject {
     /// Shows a stored conversation, or none.
     func load(_ topicID: UUID?) {
         guard topicID != self.topicID || topicID == nil else { return }
-        // A reply the writer writes goes on without the window; one the app writes stops.
-        if writerPID != nil { leaveWriter() } else { stop() }
+        // A reply the writer writes, or a command turn, goes on without the window; a chat reply the app
+        // writes stops.
+        if writerPID != nil {
+            leaveWriter()
+        } else if followedCommandReply != nil {
+            leaveCommandTurn()
+        } else {
+            stop()
+        }
         self.topicID = topicID
         messages = stored(topicID.flatMap { try? app.messageService.list(topicID: $0) } ?? [])
         watchWriterOfShownReply()
+        if let topicID, app.commandRuns.isRunning(topicID) { followCommandTurn(of: topicID) }
         // A stored conversation runs commands where it did; one not stored yet keeps the current folder.
         if let topicID, (try? app.topicService.get(topicID)) != nil {
             setCommandFolderShown((try? app.topicService.commandSetup(of: topicID))?.folder)
@@ -60,7 +69,8 @@ final class ChatSession: ObservableObject {
         let dataDirectory = AppStorageLocation.dataDirectory()
         return messages.map { message in
             var message = message
-            if message.status == .pending, ReplyWriter.writer(of: message.id, dataDirectory: dataDirectory) == nil {
+            if message.status == .pending, !app.commandRuns.isWriting(message.id),
+               ReplyWriter.writer(of: message.id, dataDirectory: dataDirectory) == nil {
                 message.status = .paused
                 for index in message.commands.indices where !message.commands[index].isFinished {
                     message.commands[index].state = .stopped
@@ -72,24 +82,25 @@ final class ChatSession: ObservableObject {
 
     /// Tells the history what this conversation is doing: waiting for the user, working, or nothing.
     private func reportActivity() {
+        // A conversation's command turn reports itself, shown or not.
+        let runs = app.commandRuns
         let activity: TopicActivity? = pendingApproval != nil ? .needsInput : (isGenerating ? .working : nil)
         let current = topicID.flatMap { id in activity.map { (topicID: id, activity: $0) } }
-        if let old = reportedActivity, old.topicID != current?.topicID {
+        if let old = reportedActivity, old.topicID != current?.topicID, !runs.isRunning(old.topicID) {
             app.setActivity(nil, for: old.topicID)
             app.setStoppedByQuitting(false, for: old.topicID)
         }
         // Only what this process writes ends with it; the writer finishes its replies regardless.
-        if let topicID {
+        if let topicID, !runs.isRunning(topicID) {
             app.setStoppedByQuitting(current != nil && writerPID == nil, for: topicID)
         }
-        if let current {
+        if let current, !runs.isRunning(current.topicID) {
             app.setActivity(current.activity, for: current.topicID)
         }
         reportedActivity = current
     }
 
     func setCommandFolderShown(_ folder: URL?) {
-        if folder != commandFolder { endAgent() }
         commandFolder = folder
     }
 
@@ -121,8 +132,12 @@ final class ChatSession: ObservableObject {
             ReplyWriter.stop(writerPID)
             return
         }
+        // The command turn ends as stopped and reports it to the window following it.
+        if followedCommandReply != nil, let topicID {
+            app.commandRuns.stop(topicID)
+            return
+        }
         generation?.cancel()
-        answerApproval(.cancel)
     }
 
     /// Replaces a failed reply with a new attempt.

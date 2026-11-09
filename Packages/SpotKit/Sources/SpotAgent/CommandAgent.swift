@@ -158,6 +158,14 @@ public actor CommandAgent {
             shutDown()
             throw CommandAgentError.folderMissing(folder.lastPathComponent)
         }
+        // dsh holds one session; a question for another session starts it again in that one.
+        if let sessionID, let earlier, earlier != sessionID, isRunning {
+            SpotLog.agent.warning("dsh holds another session; starting it again", metadata: [
+                "holds": "\(sessionID)", "wanted": "\(earlier)",
+            ])
+            needsRestart = true
+            self.sessionID = earlier
+        }
         if let sessionID, isRunning, !needsRestart { return sessionID }
         var earlier = earlier
         if needsRestart {

@@ -6,12 +6,13 @@ import SpotCore
 /// Running commands: a conversation with a folder sends its questions to dsh, which answers with
 /// the commands it runs in that folder.
 extension ChatSession {
-    /// Turns commands on in `folder`, or off with nil.
+    /// Turns commands on in `folder`, or off with nil. The conversation's dsh ran in the old folder, so it
+    /// closes, and the next question starts one in the new folder.
     func setCommandFolder(_ folder: URL?) {
         guard folder != commandFolder else { return }
         stop()
-        endAgent()
         if let topicID {
+            app.commandRuns.end(topicID)
             logged { try app.topicService.setCommandFolder(folder, for: topicID) }
             app.historyDidChange()
         }
@@ -20,26 +21,8 @@ extension ChatSession {
 
     /// The user's answer on the approval card.
     func answerApproval(_ answer: CommandApproval) {
-        guard let approvalAnswer else { return }
-        self.approvalAnswer = nil
-        pendingApproval = nil
-        approvalAnswer.resume(returning: answer)
-    }
-
-    func endAgent() {
-        if let agent {
-            Task { await agent.shutDown() }
-        }
-        agent = nil
-    }
-
-    /// Waits for the user to allow or deny a command outside the folder.
-    private func askApproval(for run: CommandRun) async -> CommandApproval {
-        answerApproval(.cancel)
-        return await withCheckedContinuation { continuation in
-            approvalAnswer = continuation
-            pendingApproval = run
-        }
+        guard let topicID else { return }
+        app.commandRuns.answer(answer, in: topicID)
     }
 
     func generateCommandReply() {
@@ -58,45 +41,51 @@ extension ChatSession {
         }
         guard let runtime = app.commandRuntime, let question = messages.last, question.role == .user else { return }
 
-        let agent: CommandAgent
-        if let existing = self.agent {
-            agent = existing
-        } else {
-            agent = CommandAgent(runtime: runtime, options: options, folder: folder) { [weak self] run in
-                await self?.askApproval(for: run) ?? .cancel
-            }
-            self.agent = agent
-        }
         let earlierSession = (try? app.topicService.commandSetup(of: topicID))?.sessionID
         store(reply)
-        let replyID = reply.id
         SpotLog.reply.info("Command reply started", metadata: [
-            "reply": "\(replyID)", "topic": "\(topicID)", "folder": "\(folder.path)",
+            "reply": "\(reply.id)", "topic": "\(topicID)", "folder": "\(folder.path)",
             "resumes": "\(earlierSession ?? "")",
         ])
-        isGenerating = true
+        app.commandRuns.start(
+            topicID: topicID, folder: folder, runtime: runtime, options: options,
+            question: question, replyID: reply.id, earlierSession: earlierSession
+        )
+        followCommandTurn(of: topicID)
+    }
 
+    /// Shows the conversation's command turn here as it goes: the reply, the approval card, and how it ends.
+    func followCommandTurn(of topicID: UUID) {
+        guard let replyID = app.commandRuns.runningReply(of: topicID) else { return }
+        followedCommandReply = replyID
+        isGenerating = true
         lastReplySave = Date()
-        let app = app
-        generation = Task { [weak self] in
-            let result = await CommandReplyRunner.run(
-                agent: agent,
-                options: options,
-                question: question.text,
-                paths: question.paths.map { URL(fileURLWithPath: $0) },
-                earlierSession: earlierSession,
-                onSession: { sessionID in
-                    await MainActor.run { logged { try app.topicService.setAgentSession(sessionID, for: topicID) } }
-                },
-                describe: ErrorText.describe,
-                onProgress: { progress in
-                    await self?.showProgress(progress, ofReply: replyID)
-                }
-            )
-            self?.updateReply(replyID) { $0.commands = result.progress.steps }
-            self?.finishReply(
-                replyID, text: result.progress.text, reasoningDuration: nil, failure: result.failure, cancelled: result.stopped
-            )
+        app.commandRuns.follow(topicID, by: self) { [weak self] event in
+            guard let self, self.followedCommandReply == replyID else { return }
+            switch event {
+            case let .progress(progress):
+                // The turn saves the reply itself.
+                self.showProgress(progress, ofReply: replyID, saves: false)
+            case let .approval(run):
+                self.pendingApproval = run
+            case let .finished(result):
+                self.followedCommandReply = nil
+                self.pendingApproval = nil
+                app.commandRuns.unfollow(topicID, by: self)
+                self.updateReply(replyID) { $0.commands = result.progress.steps }
+                self.finishReply(
+                    replyID, text: result.progress.text, reasoningDuration: nil,
+                    failure: result.failure, cancelled: result.stopped
+                )
+            }
         }
+    }
+
+    /// Stops showing the command turn without stopping it, when the window shows another conversation.
+    func leaveCommandTurn() {
+        if let topicID { app.commandRuns.unfollow(topicID, by: self) }
+        followedCommandReply = nil
+        pendingApproval = nil
+        isGenerating = false
     }
 }

@@ -44,6 +44,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var modelsWithoutEffort: Set<String> = []
     /// What conversations are doing right now, for the dots in the history.
     @Published private(set) var activity: [UUID: TopicActivity] = [:]
+    /// Each conversation's dsh and the command turn it is on, whichever window shows it.
+    private(set) lazy var commandRuns = CommandRuns(app: self)
     /// Conversations whose reply or command stops if the app quits: those the app runs itself, not those
     /// the reply writer writes.
     @Published private(set) var workStoppedByQuitting: Set<UUID> = []
@@ -362,6 +364,7 @@ final class AppModel: ObservableObject {
     }
 
     func deleteTopic(_ id: UUID) {
+        commandRuns.end(id)
         logged { try topicService.delete(id) }
         reloadTopics()
         historyRevision += 1

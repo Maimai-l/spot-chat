@@ -118,6 +118,17 @@ struct CommandRunRow: View {
                     }
                     Spacer(minLength: 8)
                     if run.state == .running {
+                        // How long it has run, so a long command doesn't look stuck: dsh shows its output
+                        // only when it ends.
+                        if run.tool == .shell {
+                            TimelineView(.periodic(from: run.startedAt, by: 1)) { context in
+                                Text(Self.format(elapsed: context.date.timeIntervalSince(run.startedAt)))
+                                    .font(.system(size: 11))
+                                    .monospacedDigit()
+                                    .foregroundStyle(.tertiary)
+                                    .accessibilityIdentifier("commandElapsed")
+                            }
+                        }
                         Button("Stop", action: stop)
                             .controlSize(.small)
                             .accessibilityIdentifier("stopCommand")
@@ -262,6 +273,15 @@ struct CommandRunRow: View {
     /// Lines of output shown, from the end, and the characters kept of each.
     static let outputLines = 12
     static let outputLineLength = 240
+
+    /// Whole seconds while a command runs, as "12 s" or "2m 31s".
+    static func format(elapsed: TimeInterval) -> String {
+        let seconds = max(0, Int(elapsed))
+        if seconds < 60 {
+            return String(localized: "\(seconds, format: .number) s")
+        }
+        return Duration.seconds(seconds).formatted(.units(allowed: [.hours, .minutes, .seconds], width: .narrow))
+    }
 
     static func format(_ duration: TimeInterval) -> String {
         if duration < 60 {
