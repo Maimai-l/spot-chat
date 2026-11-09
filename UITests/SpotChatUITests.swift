@@ -182,8 +182,9 @@ final class SpotChatUITests: XCTestCase {
         let app = launchRunningCommands()
         XCTAssertTrue(element("commandFolder", in: app).waitForExistence(timeout: 10))
         send("Run this in the background", in: app)
-        // The time it has run is part of the step's row, so it is seen in the screenshot; Stop says it runs.
-        XCTAssertTrue(element("stopCommand", in: app).waitForExistence(timeout: 40))
+        // The time it has run is drawn in the step's row, which reads as one element, so it is checked in the
+        // screenshot; the step's state says it runs.
+        XCTAssertTrue(element("command.running", in: app).waitForExistence(timeout: 40))
         RunLoop.current.run(until: Date().addingTimeInterval(2))
         attachScreenshot("Command running")
 
