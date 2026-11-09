@@ -68,9 +68,8 @@ enum AppLogging {
         DDLog.flushLog()
         let writerFiles = WriterLogFileManager(logsDirectory: directory.path).sortedLogFilePaths.reversed()
         let paths = Array((fileLogger?.logFileManager.sortedLogFilePaths ?? []).reversed()) + writerFiles
-        let info = Bundle.main.infoDictionary ?? [:]
         var data = Data("""
-        Spot Chat \(info["CFBundleShortVersionString"] as? String ?? "") (\(info["CFBundleVersion"] as? String ?? ""))
+        Spot Chat \(AppVersion.display)
         macOS \(ProcessInfo.processInfo.operatingSystemVersionString)
         Exported \(Date().formatted(.iso8601))
 

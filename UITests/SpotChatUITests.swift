@@ -923,6 +923,35 @@ final class SpotChatUITests: XCTestCase {
         add(measured)
     }
 
+    /// Settings › General ends with the version, reachable without the full window. A UI test build has
+    /// build number 0, so it shows the version alone; a packaged alpha adds "alpha" and its run.
+    func testSettingsShowTheVersion() {
+        let app = launch(resetState: true, fullWindow: true)
+        let gear = element("openSettings", in: app)
+        XCTAssertTrue(gear.waitForExistence(timeout: 10))
+        gear.click()
+        let general = app.toolbars.buttons["General"]
+        XCTAssertTrue(general.waitForExistence(timeout: 5))
+        general.click()
+        let prompt = element("systemPrompt", in: app)
+        XCTAssertTrue(prompt.waitForExistence(timeout: 5))
+        // Scrolled as the Chinese tour scrolls, over the folder row, then over Export Logs to the end.
+        let folder = element("defaultCommandFolder", in: app)
+        XCTAssertTrue(folder.waitForExistence(timeout: 5))
+        folder.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).scroll(byDeltaX: 0, deltaY: -400)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.6))
+        let version = element("appVersion", in: app)
+        XCTAssertTrue(version.waitForExistence(timeout: 5))
+        let export = element("exportLogs", in: app)
+        for _ in 0..<4 where !version.isHittable && export.exists {
+            export.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).scroll(byDeltaX: 0, deltaY: -400)
+            RunLoop.current.run(until: Date().addingTimeInterval(0.6))
+        }
+        XCTAssertTrue(version.isHittable, "The version row scrolls into view")
+        XCTAssertEqual(text(of: version), "0.1.0")
+        attachScreenshot("Version in settings")
+    }
+
     func testSystemPromptIsSentFirst() throws {
         let app = launch(resetState: true, fullWindow: true)
         let gear = element("openSettings", in: app)

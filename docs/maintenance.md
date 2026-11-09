@@ -9,8 +9,9 @@ Tell Claude in a session, or open an issue on the repository, with:
 
 - **What you did, what you expected, what happened.** One line each is enough.
 - **A screenshot or screen recording** when something looks or moves wrong.
-- **The log.** Settings > General > Export Logs… saves it as one file. Its first lines name the build, such as
-  `Spot Chat 0.1.0 (134)`, and every line carries a time, so say roughly when it happened. It ends with the
+- **The log.** Settings > General > Export Logs… saves it as one file. Its first line names the build, such as
+  `Spot Chat 0.1.0 alpha 134`, as Settings > General > Version does, and every line carries a time, so say
+  roughly when it happened. It ends with the
   crash reports macOS kept for Spot Chat's processes in the last 30 days.
 
 A request for something new says what problem it solves and where it shows: the mini window, the full window,

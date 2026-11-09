@@ -360,6 +360,14 @@ struct GeneralSettingsView: View {
                     Button("Show in Finder", action: AppLogging.showInFinder)
                 }
             }
+
+            Section {
+                LabeledContent("Version") {
+                    Text(verbatim: AppVersion.display)
+                        .textSelection(.enabled)
+                        .accessibilityIdentifier("appVersion")
+                }
+            }
         }
         .formStyle(.grouped)
     }
