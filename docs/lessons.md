@@ -75,3 +75,7 @@ Problems this project hit and what fixed them, so they aren't solved twice.
   first conversation's session over. Each conversation now has one dsh, wherever it is shown, and its turn
   goes on when the window shows something else. A long command also looked stuck, since dsh shows output only
   at the end; a running step shows how long it has run.
+- **"New Chat" stopped the reply under way, chat replies included, after replies were meant to outlive the
+  window.** The rule was the mini window's from the first stage; when the reply writer made replies go on,
+  only switching conversations was changed. When a rule like this changes, search every place that stops a
+  reply (`stopGeneration`, `stop()`, `load`), not only the one at hand.
