@@ -8,7 +8,7 @@ let buffer = ''
 let admitted = null
 let nextId = 0
 const pending = new Map()
-const result = { label, admitted: false, stop: null, error: null, text: '', tools: [], approvals: 0 }
+const result = { label, admitted: false, stop: null, error: null, text: '', tools: [], outputs: [], approvals: 0, settings: null }
 const send = (message) => socket.write(JSON.stringify(message) + '\n')
 const request = (method, params) => new Promise((done) => {
   const id = ++nextId
@@ -40,6 +40,11 @@ socket.on('data', (chunk) => {
       const update = message.params.update
       if (update.sessionUpdate === 'agent_message_chunk') result.text += update.content.text
       if (update.sessionUpdate === 'tool_call') result.tools.push(`${update.title}:${update.rawInput?.command ?? ''}`)
+      // What each command printed, so a failing check shows why the sandbox did or didn't stop it.
+      if (update.sessionUpdate === 'tool_call_update' && (update.status === 'completed' || update.status === 'failed')) {
+        const printed = (update.content ?? []).map((item) => item.content?.text ?? '').join('\n')
+        result.outputs.push(`${update.status}: ${printed.slice(0, 400)}`)
+      }
     } else if (message.method === 'session/request_permission') {
       result.approvals += 1
       const options = message.params.options ?? []
@@ -64,6 +69,10 @@ socket.on('connect', async () => {
     return
   }
   const sessionId = session.result.sessionId
+  result.settings = {
+    mode: session.result.modes?.currentModeId ?? null,
+    options: Object.fromEntries((session.result.configOptions ?? []).map((option) => [option.id, option.currentValue])),
+  }
   // As Spot Chat does before a turn: the model, here DeepSeek's flash model when listed.
   const model = (session.result.configOptions ?? []).find((option) => option.id === 'model')
   const values = (model?.options ?? []).flatMap((option) => option.options ?? [option]).map((option) => option.value)

@@ -96,7 +96,7 @@ export function apply(ctx, config = {}) {
     const fiber = ctx.plugin({
       name: 'spot-chat-bridge-connection',
       inject: acp.inject,
-      apply: (connection) => acp.apply(connection, { stream, sessionListPageSize: 100, ...selection }),
+      apply: (connection) => acp.apply(withPresets(connection), { stream, sessionListPageSize: 100, ...selection }),
     })
     logger.info('spot-chat-bridge: Spot Chat connected')
     socket.once('close', () => {
@@ -129,6 +129,58 @@ export function apply(ctx, config = {}) {
     const actual = createHash('sha256').update(token).digest()
     return timingSafeEqual(actual, expected)
   }
+}
+
+/**
+ * The connection's context, with sessions composed as this dsh composes its own. The desktop and web
+ * profiles keep an agent's tools in agent presets that each session mounts when it is made; dsh's ACP
+ * server doesn't mount one, so without this its sessions would have no tools at all. A new session gets
+ * the user's default preset, and a resumed one the preset it recorded, as dsh's session API does.
+ * Approval requests from these sessions go to Spot Chat.
+ */
+function withPresets(connection) {
+  const presets = connection.get('agentPresets')
+  if (presets === undefined) return connection
+  const agents = connection.agents
+  const mounting = (setup, preset) => async (agentCtx, agent) => {
+    const commit = await setup?.(agentCtx, agent)
+    await presets.mount(agentCtx, await preset(agent))
+    return commit
+  }
+  const defaultPreset = async () => (await presets.resolve(undefined)).id
+  const wrapped = new Proxy(agents, {
+    get(target, key) {
+      if (key === 'create') {
+        return async (options) => {
+          const preset = await defaultPreset()
+          return target.create({
+            ...options,
+            meta: { ...options.meta, agentPreset: preset },
+            setup: mounting(options.setup, async () => preset),
+          })
+        }
+      }
+      if (key === 'resume') {
+        return (options) => target.resume({
+          ...options,
+          setup: mounting(options.setup, async (agent) => presets.presetForSession(agent.session) ?? await defaultPreset()),
+        })
+      }
+      const value = Reflect.get(target, key, target)
+      return typeof value === 'function' ? value.bind(target) : value
+    },
+  })
+  // dsh's own interface takes approval requests first and waits for someone to answer them there. The ACP
+  // server's handler goes ahead of it, so Spot Chat asks; it passes on requests from other sessions.
+  const on = (name, listener, options) =>
+    connection.on(name, listener, name === 'approval/request' ? true : options)
+  return new Proxy(connection, {
+    get(target, key) {
+      if (key === 'agents') return wrapped
+      if (key === 'on') return on
+      return Reflect.get(target, key)
+    },
+  })
 }
 
 /**

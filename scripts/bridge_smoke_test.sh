@@ -9,6 +9,11 @@ root="$(dirname "$here")"
 channel="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["dependencies"]["@deepseek-ai/dsh"])' "$root/agent/package.json")"
 work="$(mktemp -d)"
 cleanup() {
+  local status=$?
+  if [ "$status" -ne 0 ] && [ -f "$work/web.log" ]; then
+    echo "dsh web's log:"
+    tail -60 "$work/web.log"
+  fi
   # dsh first, then its files, so it doesn't reload a profile that is being deleted.
   [ -n "${web:-}" ] && { kill "$web" 2>/dev/null; wait "$web" 2>/dev/null; } || true
   [ -n "${mock:-}" ] && kill "$mock" 2>/dev/null || true
@@ -61,8 +66,10 @@ checks = [
     ("A wrong token is refused", not wrong["admitted"]),
     ("A question gets its answer", chat["admitted"] and chat["text"] == "Hello from dsh."),
     ("A second connection at the same time runs a command in the folder",
-     listed["text"] == "Listed the folder." and any(t.endswith(":ls -a") for t in listed["tools"])),
-    ("A command outside the folder asks the client first", outside["approvals"] >= 1 and outside["text"] == "Finished."),
+     any(t.endswith(":ls -a") for t in listed["tools"]) and any(o.startswith("completed:") for o in listed["outputs"])),
+    # The mock asks again with escalation only when the sandbox stopped the first try.
+    ("A command outside the folder asks the client first",
+     outside["approvals"] >= 1 and len(outside["tools"]) == 2 and outside["outputs"][-1].startswith("completed:")),
 ]
 lines = [f"{'pass' if ok else 'FAIL'}: {name}" for name, ok in checks]
 print("\n".join(lines))

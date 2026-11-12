@@ -144,6 +144,12 @@ sent_malformed = False
 BROKEN_HISTORY = "The `reasoning_content` in the thinking mode must be passed back to the API."
 
 
+def is_context(text):
+    """Whether a text block is what dsh adds to the user's message rather than the question: the runtime
+    context, the time, and the reminders a dsh with agent presets adds, such as its list of skills."""
+    return text.startswith(("Current runtime context", "Time sampled", "<system-reminder>"))
+
+
 def questions(body):
     """The questions in the conversation, earliest first."""
     asked = []
@@ -153,7 +159,7 @@ def questions(body):
         content = message.get("content")
         blocks = [{"type": "text", "text": content}] if isinstance(content, str) else content or []
         text = " ".join(b.get("text", "") for b in blocks if b.get("type") == "text"
-                        and not b.get("text", "").startswith("Current runtime context"))
+                        and not is_context(b.get("text", "")))
         if text.strip():
             asked.append(text)
     return asked
@@ -169,11 +175,11 @@ def messages_steps(body):
         blocks = content or []
         # A user message with text starts a new question; only its own tool results count.
         asked = [b.get("text", "") for b in blocks if message.get("role") == "user" and b.get("type") == "text"
-                 and not b.get("text", "").startswith("Current runtime context")]
+                 and not is_context(b.get("text", ""))]
         if asked:
             texts, results = asked, []
         results += [json.dumps(b) for b in blocks if b.get("type") == "tool_result"]
-    question = " ".join(t for t in texts if not t.startswith("Current runtime context"))
+    question = " ".join(texts)
     if "outside" in question:
         if not results:
             return ("Write a note in your home folder", ESCAPE, False)
