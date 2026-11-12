@@ -356,8 +356,11 @@ final class AppModel: ObservableObject {
             ?? (try? preferenceService.value(PreferenceKey.commandFolder, as: String.self)), !path.isEmpty {
             defaultCommandFolder = URL(fileURLWithPath: path, isDirectory: true)
         }
-        runsCommandsInHarness = UserDefaults.standard.object(forKey: AppDelegate.LaunchOption.runCommandsInHarness) as? Bool
-            ?? (try? preferenceService.value(PreferenceKey.commandsInHarness, as: Bool.self)) ?? false
+        // A launch argument arrives as the text "YES" or "NO", which only bool(forKey:) reads as a Bool.
+        let defaults = UserDefaults.standard
+        runsCommandsInHarness = defaults.object(forKey: AppDelegate.LaunchOption.runCommandsInHarness) != nil
+            ? defaults.bool(forKey: AppDelegate.LaunchOption.runCommandsInHarness)
+            : (try? preferenceService.value(PreferenceKey.commandsInHarness, as: Bool.self)) ?? false
         askedForSelectionAccess = (try? preferenceService.value(PreferenceKey.selectionAccessRequested, as: Bool.self)) ?? false
         thinkingLevels = (try? preferenceService.value(PreferenceKey.thinkingLevels, as: [String: ThinkingLevel].self)) ?? [:]
         modelsWithoutEffort = Set((try? preferenceService.value(PreferenceKey.modelsWithoutEffort, as: [String].self)) ?? [])
