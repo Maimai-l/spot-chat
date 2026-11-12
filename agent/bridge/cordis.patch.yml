@@ -1,0 +1,4 @@
+# Mounts the bridge in the profile it is installed into (web or desktop).
+- insert:
+    - id: spot-chat-bridge
+      name: spot-chat-dsh-bridge

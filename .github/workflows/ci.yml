@@ -31,6 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       core: ${{ steps.plan.outputs.core }}
+      bridge: ${{ steps.plan.outputs.bridge }}
       ui: ${{ steps.plan.outputs.ui }}
       only: ${{ steps.plan.outputs.only }}
       release: ${{ steps.plan.outputs.release }}
@@ -71,6 +72,12 @@ jobs:
             core=false
           fi
           echo "core=$core" >> "$GITHUB_OUTPUT"
+          # The bridge into the user's own dsh runs with the core tests, on a full run, and when agent/ changed.
+          if [ "$core" = true ] || [ -z "$tests" ] || { [ "$GITHUB_EVENT_NAME" = "push" ] && git cat-file -e "$BEFORE^{commit}" 2>/dev/null && git diff --name-only "$BEFORE" "$GITHUB_SHA" | grep -q '^agent/'; }; then
+            echo "bridge=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "bridge=false" >> "$GITHUB_OUTPUT"
+          fi
           echo "UI tests: ${tests:-all}; release build: $release; core tests: $core"
           {
             echo "## Plan"
@@ -181,6 +188,19 @@ jobs:
           name: VisualDiffs
           path: build/VisualDiffs
           if-no-files-found: ignore
+
+  bridge:
+    name: Forwarding to your dsh
+    needs: plan
+    if: needs.plan.outputs.bridge == 'true'
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.22.2
+      - name: Run commands through the bridge in a dsh web
+        run: bash scripts/bridge_smoke_test.sh
 
   release:
     name: Release build
