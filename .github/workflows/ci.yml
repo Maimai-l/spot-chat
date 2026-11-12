@@ -199,6 +199,9 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 24.22.2
+      # dsh installs plugins with pnpm.
+      - name: Install pnpm
+        run: npm install --global pnpm@10.28.0
       - name: Run commands through the bridge in a dsh web
         run: bash scripts/bridge_smoke_test.sh
 

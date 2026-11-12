@@ -38,7 +38,11 @@ web=$!
 socket="$SPOT_CHAT_BRIDGE_DIR/bridge.sock"
 for _ in $(seq 1 90); do [ -S "$socket" ] && break; sleep 1; done
 [ -S "$socket" ] || { echo "The bridge's socket never appeared"; cat "$work/web.log"; exit 1; }
-[ "$(stat -f %Lp "$socket" 2>/dev/null || stat -c %a "$socket")" = "600" ] || { echo "The socket isn't private"; exit 1; }
+# The plugin makes the socket private just after it binds; its folder is private before that.
+mode() { python3 -c 'import os, sys; print(oct(os.stat(sys.argv[1]).st_mode & 0o777))' "$1"; }
+[ "$(mode "$SPOT_CHAT_BRIDGE_DIR")" = "0o700" ] || { echo "The bridge's folder isn't private"; exit 1; }
+for _ in $(seq 1 50); do [ "$(mode "$socket")" = "0o600" ] && break; sleep 0.1; done
+[ "$(mode "$socket")" = "0o600" ] || { echo "The socket isn't private: $(mode "$socket")"; exit 1; }
 
 client="$here/agent_test/bridge_client.mjs"
 wrong="$(node "$client" "$socket" not-the-token "$work/folder" hello wrong)"
