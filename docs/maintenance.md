@@ -120,6 +120,11 @@ services such as Docker Desktop's socket and ssh-agent (Discussion 4503); open.
 | Item | Kind | Status |
 | --- | --- | --- |
 | Bugs and requests from using alpha 134 | Bugs, requests | Owner is using it |
+| Run commands in the user's DeepSeek Harness through Spot Chat's plugin (`agent/bridge`) | Request | Prototype: verified on macOS against `dsh web`; the desktop app is the owner's to try |
+| The plugin reaches into dsh-acp: it hands it an `agents` that mounts the agent preset, and puts its approval handler first | Follow-up | Breaks quietly if dsh changes either; the "Forwarding to your dsh" job checks both on every run |
+| A question the model asks with `ask_user_question` in a harness session goes to dsh's own interface, not Spot Chat | Follow-up | Open |
+| An alpha signed ad hoc is a new app to the Keychain, so macOS may ask before reading the harness token after an update | Follow-up | Open: to see with the owner |
+| The plugin installed in dsh is a copy; a newer one in a later alpha needs the install command again | Follow-up | Open |
 | A command turn stops when a new conversation starts, and reopening it in the full window loses its context | Bug, P1 | Fixed, in testing |
 | The question being edited doesn't scroll with the wheel, and sometimes sticks | Bug, P1 | Fixed, in testing |
 | A conversation opened with the shortcut has no button back to the end until scrolled | Bug, P2 | Fixed, in testing |
