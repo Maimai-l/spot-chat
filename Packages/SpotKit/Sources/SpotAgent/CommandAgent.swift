@@ -5,7 +5,7 @@ import Logging
 import SpotCore
 
 /// The dsh runtime bundled with the app: Node, dsh trimmed to what it loads, and Spot Chat's profile.
-public struct CommandRuntime: Sendable {
+public struct CommandRuntime: Sendable, Equatable {
     public let folder: URL
 
     public init?(folder: URL) {
@@ -29,6 +29,18 @@ public struct CommandRuntime: Sendable {
         } catch {
             return "unknown"
         }
+    }
+}
+
+/// Where commands run: in a dsh Spot Chat starts from its bundled runtime, or in the DeepSeek Harness the
+/// user runs, through Spot Chat's plugin there, where its sessions can be watched.
+public enum CommandConnection: Sendable, Equatable {
+    case bundled(CommandRuntime)
+    case bridge(DshBridge, token: String)
+
+    public var isHarness: Bool {
+        if case .bridge = self { return true }
+        return false
     }
 }
 
@@ -95,17 +107,20 @@ public enum CommandAgentError: LocalizedError {
     }
 }
 
-/// One dsh process speaking ACP, holding one session in one folder. dsh runs each command in its sandbox,
-/// which lets it write only inside the folder; when a command needs more, dsh asks and `approver` answers.
+/// One connection to dsh speaking ACP, holding one session in one folder: a dsh process of its own, or a
+/// connection to the user's DeepSeek Harness. dsh runs each command in its sandbox, which lets it write only
+/// inside the folder; when a command needs more, dsh asks and `approver` answers.
 public actor CommandAgent {
     public typealias Approver = @Sendable (CommandRun) async -> CommandApproval
 
     public let folder: URL
-    private let runtime: CommandRuntime
+    public nonisolated let connection: CommandConnection
     private var options: CommandAgentOptions
     private let approver: Approver
 
     private var process: Process?
+    /// Set while a connection to the user's DeepSeek Harness is open; a closing that isn't this one's is old.
+    private var bridgeConnection: UUID?
     private var rpc: ACPProtocol?
     private var stderrTail = ""
     public private(set) var sessionID: String?
@@ -129,8 +144,8 @@ public actor CommandAgent {
     private let inboundSink: AsyncStream<Inbound>.Continuation
     private var inboundReader: Task<Void, Never>?
 
-    public init(runtime: CommandRuntime, options: CommandAgentOptions, folder: URL, approver: @escaping Approver) {
-        self.runtime = runtime
+    public init(connection: CommandConnection, options: CommandAgentOptions, folder: URL, approver: @escaping Approver) {
+        self.connection = connection
         self.options = options
         self.folder = folder
         self.approver = approver
@@ -145,7 +160,7 @@ public actor CommandAgent {
     }
 
     public var isRunning: Bool {
-        process?.isRunning == true
+        process?.isRunning == true || bridgeConnection != nil
     }
 
     /// Starts dsh and opens a session: the earlier one when dsh still has it, otherwise a new one.
@@ -173,29 +188,8 @@ public actor CommandAgent {
             shutDown()
             needsRestart = false
         }
-        try prepareHome()
-
-        let process = Process()
-        process.executableURL = runtime.launcher
-        process.arguments = ["--profile", "spot"]
-        process.currentDirectoryURL = folder
-        process.environment = environment()
-        let input = Pipe()
-        let output = Pipe()
-        let errors = Pipe()
-        process.standardInput = input
-        process.standardOutput = output
-        process.standardError = errors
-        errors.fileHandleForReading.readabilityHandler = { [weak self] handle in
-            let data = handle.availableData
-            guard !data.isEmpty, let text = String(data: data, encoding: .utf8) else { return }
-            Task { await self?.noteError(text) }
-        }
-
         let sink = inboundSink
-        let transport = PipeTransport(
-            reading: output.fileHandleForReading, writing: input.fileHandleForWriting, ordered: ["session/update"]
-        ) { notification in
+        let onOrdered: @Sendable (JsonRpcNotification) -> Void = { notification in
             guard let params = notification.params,
                   let data = try? JSONEncoder().encode(params),
                   let note = try? JSONDecoder().decode(SessionNotification.self, from: data)
@@ -213,25 +207,15 @@ public actor CommandAgent {
                 }
             }
         }
+        let transport: PipeTransport
+        switch connection {
+        case let .bundled(runtime):
+            transport = try launch(runtime, onOrdered: onOrdered)
+        case let .bridge(bridge, token):
+            transport = try open(bridge, token: token, onOrdered: onOrdered)
+        }
         // A turn can run for a long time; it ends when dsh answers or exits.
         let rpc = ACPProtocol(transport: transport, defaultTimeoutSeconds: 7 * 24 * 3600)
-        process.terminationHandler = { [weak self] _ in
-            Task { await self?.exited() }
-        }
-        // Only the names of the variables: one of them holds the API key.
-        SpotLog.agent.info("Starting dsh", metadata: [
-            "version": "\(runtime.version)", "launcher": "\(runtime.launcher.path)", "folder": "\(folder.path)",
-            "environment": "\(process.environment?.keys.sorted().joined(separator: ",") ?? "")",
-            "model": "\(options.model ?? "")", "effort": "\(options.effort ?? "")", "web": "\(options.searchesTheWeb)",
-        ])
-        do {
-            try process.run()
-        } catch {
-            SpotLog.agent.error("Couldn't start dsh", metadata: ["error": "\(error)"])
-            throw error
-        }
-        SpotLog.agent.info("dsh started", metadata: ["pid": "\(process.processIdentifier)"])
-        self.process = process
         self.rpc = rpc
 
         await rpc.onRequest(method: "session/request_permission", requestType: RequestPermissionRequest.self) { [weak self] request in
@@ -285,7 +269,8 @@ public actor CommandAgent {
     public func update(model: String?, effort: String?, searchesTheWeb: Bool) {
         options.model = model
         options.effort = effort
-        if options.searchesTheWeb != searchesTheWeb {
+        // The user's own dsh keeps its own web settings.
+        if options.searchesTheWeb != searchesTheWeb, !connection.isHarness {
             options.searchesTheWeb = searchesTheWeb
             needsRestart = isRunning
         }
@@ -337,6 +322,8 @@ public actor CommandAgent {
 
     public func shutDown() {
         if process != nil { SpotLog.agent.info("Stopping dsh") }
+        if bridgeConnection != nil { SpotLog.agent.info("Disconnecting from DeepSeek Harness") }
+        bridgeConnection = nil
         process?.terminationHandler = nil
         if process?.isRunning == true { process?.terminate() }
         process = nil
@@ -545,7 +532,77 @@ public actor CommandAgent {
 
     // MARK: Process
 
-    private func prepareHome() throws {
+    /// Starts dsh from the bundled runtime, and returns ACP over its standard input and output.
+    private func launch(_ runtime: CommandRuntime, onOrdered: @escaping @Sendable (JsonRpcNotification) -> Void) throws -> PipeTransport {
+        try prepareHome(runtime)
+
+        let process = Process()
+        process.executableURL = runtime.launcher
+        process.arguments = ["--profile", "spot"]
+        process.currentDirectoryURL = folder
+        process.environment = environment()
+        let input = Pipe()
+        let output = Pipe()
+        let errors = Pipe()
+        process.standardInput = input
+        process.standardOutput = output
+        process.standardError = errors
+        errors.fileHandleForReading.readabilityHandler = { [weak self] handle in
+            let data = handle.availableData
+            guard !data.isEmpty, let text = String(data: data, encoding: .utf8) else { return }
+            Task { await self?.noteError(text) }
+        }
+        let transport = PipeTransport(
+            reading: output.fileHandleForReading, writing: input.fileHandleForWriting, ordered: ["session/update"],
+            onOrderedNotification: onOrdered
+        )
+        process.terminationHandler = { [weak self] _ in
+            Task { await self?.exited() }
+        }
+        // Only the names of the variables: one of them holds the API key.
+        SpotLog.agent.info("Starting dsh", metadata: [
+            "version": "\(runtime.version)", "launcher": "\(runtime.launcher.path)", "folder": "\(folder.path)",
+            "environment": "\(process.environment?.keys.sorted().joined(separator: ",") ?? "")",
+            "model": "\(options.model ?? "")", "effort": "\(options.effort ?? "")", "web": "\(options.searchesTheWeb)",
+        ])
+        do {
+            try process.run()
+        } catch {
+            SpotLog.agent.error("Couldn't start dsh", metadata: ["error": "\(error)"])
+            throw error
+        }
+        SpotLog.agent.info("dsh started", metadata: ["pid": "\(process.processIdentifier)"])
+        self.process = process
+        return transport
+    }
+
+    /// Connects to the user's DeepSeek Harness through Spot Chat's plugin, and returns ACP over the socket.
+    /// The user's dsh runs with its own settings, key and model list; Spot Chat only picks the model.
+    private func open(_ bridge: DshBridge, token: String, onOrdered: @escaping @Sendable (JsonRpcNotification) -> Void) throws -> PipeTransport {
+        SpotLog.agent.info("Connecting to DeepSeek Harness", metadata: [
+            "socket": "\(bridge.socket.path)", "folder": "\(folder.path)",
+            "model": "\(options.model ?? "")", "effort": "\(options.effort ?? "")",
+        ])
+        let (handle, version) = try bridge.connect(token: token)
+        let id = UUID()
+        bridgeConnection = id
+        SpotLog.agent.info("Connected to DeepSeek Harness", metadata: ["acp": "\(version)"])
+        return PipeTransport(
+            reading: handle, writing: handle, ordered: ["session/update"], onOrderedNotification: onOrdered,
+            onClose: { [weak self] in
+                Task { await self?.bridgeClosed(id) }
+            }
+        )
+    }
+
+    private func bridgeClosed(_ id: UUID) async {
+        guard bridgeConnection == id else { return }
+        SpotLog.agent.warning("DeepSeek Harness closed the connection")
+        stderrTail = String(localized: "DeepSeek Harness closed the connection.")
+        await exited()
+    }
+
+    private func prepareHome(_ runtime: CommandRuntime) throws {
         let files = FileManager.default
         let profile = options.home.appendingPathComponent("profiles/spot")
         try files.createDirectory(at: profile.deletingLastPathComponent(), withIntermediateDirectories: true)
@@ -593,6 +650,7 @@ public actor CommandAgent {
         await rpc?.close()
         rpc = nil
         process = nil
+        bridgeConnection = nil
         sessionID = nil
     }
 

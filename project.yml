@@ -68,6 +68,12 @@ targets:
             mkdir -p "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/Agent"
             rsync -a --delete "$SRCROOT/build/AgentRuntime/" "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/Agent/"
           fi
+      # Spot Chat's plugin for the DeepSeek Harness the user runs; Settings copies the command that adds it.
+      - name: Embed DeepSeek Harness plugin
+        basedOnDependencyAnalysis: false
+        script: |
+          mkdir -p "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/dsh-bridge"
+          rsync -a --delete "$SRCROOT/agent/bridge/" "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/dsh-bridge/"
     info:
       path: App/Info.plist
       properties:

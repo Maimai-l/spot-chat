@@ -28,8 +28,9 @@ extension ChatSession {
     func generateCommandReply() {
         guard let folder = commandFolder, let topicID else { return }
         var reply = ChatMessage(role: .assistant, text: "", status: .pending, modelID: app.currentModel?.id)
+        let connection: CommandConnection
         let options: CommandAgentOptions
-        switch app.commandOptions() {
+        switch app.commandSetup() {
         case let .failure(reason):
             SpotLog.reply.error("Commands unavailable", metadata: ["reason": "\(reason.errorDescription ?? "")"])
             reply.status = .error
@@ -37,18 +38,18 @@ extension ChatSession {
             store(reply)
             return
         case let .success(value):
-            options = value
+            (connection, options) = value
         }
-        guard let runtime = app.commandRuntime, let question = messages.last, question.role == .user else { return }
+        guard let question = messages.last, question.role == .user else { return }
 
         let earlierSession = (try? app.topicService.commandSetup(of: topicID))?.sessionID
         store(reply)
         SpotLog.reply.info("Command reply started", metadata: [
             "reply": "\(reply.id)", "topic": "\(topicID)", "folder": "\(folder.path)",
-            "resumes": "\(earlierSession ?? "")",
+            "resumes": "\(earlierSession ?? "")", "harness": "\(connection.isHarness)",
         ])
         app.commandRuns.start(
-            topicID: topicID, folder: folder, runtime: runtime, options: options,
+            topicID: topicID, folder: folder, connection: connection, options: options,
             question: question, replyID: reply.id, earlierSession: earlierSession
         )
         followCommandTurn(of: topicID)

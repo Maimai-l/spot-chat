@@ -27,6 +27,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         static let webToolsURL = "SpotChatWebToolsURL"
         /// Uses this folder in place of ~/Documents/Spot Chat.
         static let defaultCommandFolder = "SpotChatDefaultCommandFolder"
+        /// Looks for the DeepSeek Harness plugin's socket in this folder, for tests.
+        static let bridgeFolder = "SpotChatBridgeFolder"
+        /// Runs commands in DeepSeek Harness, or in Spot Chat, whatever Settings says.
+        static let runCommandsInHarness = "SpotChatRunCommandsInHarness"
         /// Export Logs writes here instead of asking where.
         static let logExportPath = "SpotChatLogExportPath"
     }

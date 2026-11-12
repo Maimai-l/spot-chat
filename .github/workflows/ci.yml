@@ -123,6 +123,12 @@ jobs:
       - uses: ./.github/actions/prepare-app
       - name: Start mock OpenAI server
         run: nohup python3 scripts/mock_openai_server.py 8765 > mock-server.log 2>&1 &
+      # The test that runs commands in DeepSeek Harness needs one, with Spot Chat's plugin.
+      - name: Start DeepSeek Harness
+        if: needs.plan.outputs.only == '' || contains(needs.plan.outputs.only, 'Harness')
+        run: |
+          npm install --global pnpm@10.28.0
+          bash scripts/start_test_harness.sh 8765
       - name: Allow UI automation
         run: |
           sudo automationmodetool enable-automationmode-without-authentication || true
@@ -141,6 +147,9 @@ jobs:
             -clonedSourcePackagesDirPath build/SourcePackages \
             -resultBundlePath build/UITests.xcresult \
             $ONLY_TESTING
+      - name: Show DeepSeek Harness's log
+        if: failure()
+        run: tail -100 /tmp/spot-chat-harness-dsh/web.log 2>/dev/null || true
       - name: Export screenshots and summarize
         if: always()
         run: python3 scripts/export_test_results.py build/UITests.xcresult build/Screenshots "$GITHUB_STEP_SUMMARY"

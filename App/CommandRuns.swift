@@ -63,14 +63,15 @@ final class CommandRuns {
 
     /// Starts a turn on the conversation's dsh, starting dsh when the conversation has none open.
     func start(
-        topicID: UUID, folder: URL, runtime: CommandRuntime, options: CommandAgentOptions,
+        topicID: UUID, folder: URL, connection: CommandConnection, options: CommandAgentOptions,
         question: ChatMessage, replyID: UUID, earlierSession: String?
     ) {
-        if let existing = conversations[topicID], existing.folder != folder {
+        // A new folder, or commands moved between Spot Chat and DeepSeek Harness, needs another dsh.
+        if let existing = conversations[topicID], existing.folder != folder || existing.agent.connection != connection {
             end(topicID)
         }
         let conversation = conversations[topicID] ?? {
-            let made = Conversation(agent: CommandAgent(runtime: runtime, options: options, folder: folder) { [weak self] run in
+            let made = Conversation(agent: CommandAgent(connection: connection, options: options, folder: folder) { [weak self] run in
                 await self?.askApproval(for: run, in: topicID) ?? .cancel
             }, folder: folder)
             conversations[topicID] = made

@@ -1677,6 +1677,126 @@
           }
         }
       }
+    },
+    "Run In": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "运行位置"
+          }
+        }
+      }
+    },
+    "Status": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "状态"
+          }
+        }
+      }
+    },
+    "Connected": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已连接"
+          }
+        }
+      }
+    },
+    "Not Connected": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未连接"
+          }
+        }
+      }
+    },
+    "Check": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "检查"
+          }
+        }
+      }
+    },
+    "Plugin": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "插件"
+          }
+        }
+      }
+    },
+    "Copy Install Command": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拷贝安装命令"
+          }
+        }
+      }
+    },
+    "Can’t connect to DeepSeek Harness. Open it, and make sure it has the Spot Chat plugin.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法连接 DeepSeek Harness。请打开它，并确认已安装 Spot Chat 插件。"
+          }
+        }
+      }
+    },
+    "DeepSeek Harness didn’t accept Spot Chat.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DeepSeek Harness 未接受 Spot Chat。"
+          }
+        }
+      }
+    },
+    "DeepSeek Harness didn’t answer.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DeepSeek Harness 没有响应。"
+          }
+        }
+      }
+    },
+    "Couldn’t pair with DeepSeek Harness: %@": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法与 DeepSeek Harness 配对：%@"
+          }
+        }
+      }
+    },
+    "DeepSeek Harness closed the connection.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DeepSeek Harness 关闭了连接。"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

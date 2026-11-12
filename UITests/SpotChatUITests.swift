@@ -312,6 +312,59 @@ final class SpotChatUITests: XCTestCase {
         XCTAssertTrue(notes.contains("Ran outside the folder"), "\(notes)")
     }
 
+    /// Commands run in the user's DeepSeek Harness through Spot Chat's plugin there. CI starts a `dsh web`
+    /// with the plugin (scripts/start_test_harness.sh); the conversation is saved among that dsh's own
+    /// sessions, where its interface shows it, and the approval still comes to Spot Chat.
+    func testCommandsRunInDeepSeekHarness() {
+        let app = launch(resetState: true, arguments: [
+            "-SpotChatCommandFolder", dataDirectory + "/Work",
+            "-SpotChatDefaultCommandFolder", dataDirectory + "/Default",
+            "-SpotChatBridgeFolder", "/tmp/spot-chat-harness",
+            "-SpotChatRunCommandsInHarness", "YES",
+        ])
+        XCTAssertTrue(element("commandFolder", in: app).waitForExistence(timeout: 10))
+        send("Please list the files", in: app)
+        XCTAssertTrue(reply(containing: "Listed the folder.", in: app).waitForExistence(timeout: 60))
+        XCTAssertTrue(element("command.succeeded", in: app).waitForExistence(timeout: 5))
+        XCTAssertTrue(harnessSessions(mention: "Please list the files"), "The conversation is among the harness's sessions")
+
+        send("Write outside the folder", in: app)
+        let card = element("commandApproval", in: app)
+        XCTAssertTrue(card.waitForExistence(timeout: 40))
+        RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        attachScreenshot("Harness command approval")
+        element("allowCommand", in: app).click()
+        XCTAssertTrue(reply(containing: "Finished.", in: app).waitForExistence(timeout: 30))
+        XCTAssertFalse(element("message.error", in: app).exists)
+
+        app.buttons["Expand to Full Window"].click()
+        let gear = element("openSettings", in: app)
+        XCTAssertTrue(gear.waitForExistence(timeout: 10))
+        gear.click()
+        let general = app.toolbars.buttons["General"]
+        XCTAssertTrue(general.waitForExistence(timeout: 5))
+        general.click()
+        let status = element("harnessStatus", in: app)
+        XCTAssertTrue(status.waitForExistence(timeout: 10))
+        XCTAssertEqual(text(of: status), "Connected")
+        element("systemPrompt", in: app).coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .scroll(byDeltaX: 0, deltaY: -400)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.8))
+        attachScreenshot("Harness settings")
+    }
+
+    /// Whether a session file of the test's DeepSeek Harness contains `text`.
+    private func harnessSessions(mention text: String) -> Bool {
+        let home = URL(fileURLWithPath: "/tmp/spot-chat-harness-dsh/home")
+        guard let files = FileManager.default.enumerator(at: home, includingPropertiesForKeys: [.fileSizeKey]) else { return false }
+        for case let file as URL in files where ["jsonl", "json"].contains(file.pathExtension) {
+            let size = (try? file.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+            guard size < 5_000_000, let contents = try? String(contentsOf: file, encoding: .utf8) else { continue }
+            if contents.contains(text) { return true }
+        }
+        return false
+    }
+
     func testDeniedCommandDoesNotRun() {
         let app = launchRunningCommands()
         send("Write outside the folder", in: app)

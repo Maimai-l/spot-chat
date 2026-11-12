@@ -1,6 +1,8 @@
 import AppKit
 import KeyboardShortcuts
+import Logging
 import SwiftUI
+import SpotAgent
 import SpotCore
 
 // MARK: Providers
@@ -313,6 +315,17 @@ struct GeneralSettingsView: View {
                     }
                 }
                 .accessibilityIdentifier("defaultCommandFolder")
+                Picker("Run In", selection: Binding(
+                    get: { app.runsCommandsInHarness },
+                    set: { app.setRunsCommandsInHarness($0) }
+                )) {
+                    Text(verbatim: "Spot Chat").tag(false)
+                    Text(verbatim: "DeepSeek Harness").tag(true)
+                }
+                .accessibilityIdentifier("commandsRunIn")
+                if app.runsCommandsInHarness {
+                    HarnessRows(app: app)
+                }
             }
 
             Section("Shortcuts") {
@@ -443,5 +456,59 @@ enum InterfaceLanguage: String {
         NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: configuration) { _, _ in
             DispatchQueue.main.async { NSApp.terminate(nil) }
         }
+    }
+}
+
+/// Whether Spot Chat reaches the user's DeepSeek Harness, and the command that adds its plugin there.
+private struct HarnessRows: View {
+    @ObservedObject var app: AppModel
+    @State private var connected: Bool?
+
+    var body: some View {
+        LabeledContent("Status") {
+            HStack(spacing: 8) {
+                if let connected {
+                    Text(connected ? "Connected" : "Not Connected")
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("harnessStatus")
+                }
+                Button("Check") { check() }
+                    .accessibilityIdentifier("checkHarness")
+            }
+        }
+        LabeledContent("Plugin") {
+            Button("Copy Install Command") { copyInstallCommand() }
+                .disabled(app.harnessPlugin == nil)
+                .accessibilityIdentifier("copyHarnessInstallCommand")
+        }
+        .task { check() }
+    }
+
+    private func check() {
+        let bridge = app.harnessBridge
+        guard case let .success(token) = app.pairWithHarness() else {
+            connected = false
+            return
+        }
+        Task {
+            // Connecting waits up to a few seconds, off the main thread.
+            let result = await Task.detached { bridge.check(token: token) }.value
+            switch result {
+            case let .success(version):
+                SpotLog.agent.info("DeepSeek Harness answers", metadata: ["acp": "\(version)"])
+            case let .failure(failure):
+                SpotLog.agent.notice("DeepSeek Harness doesn't answer", metadata: ["reason": "\(failure)"])
+            }
+            connected = (try? result.get()) != nil
+        }
+    }
+
+    /// dsh installs plugins into the desktop app's profile while the app is closed.
+    private func copyInstallCommand() {
+        guard let plugin = app.harnessPlugin else { return }
+        let command = "dsh plugin --profile desktop add \"file:\(plugin.path)\""
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(command, forType: .string)
+        SpotLog.app.info("Copied the DeepSeek Harness plugin's install command", metadata: ["command": "\(command)"])
     }
 }

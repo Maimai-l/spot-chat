@@ -37,6 +37,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var searchesTheWeb = true
     /// Where commands run unless a conversation picks another folder, as dsh keeps a default workspace.
     @Published private(set) var defaultCommandFolder = AppModel.standardCommandFolder
+    /// Whether commands run in the DeepSeek Harness the user runs, through Spot Chat's plugin there.
+    @Published private(set) var runsCommandsInHarness = false
     private(set) var askedForSelectionAccess = false
     /// Thinking level by model; a model not listed thinks as its service decides.
     @Published private(set) var thinkingLevels: [String: ThinkingLevel] = [:]
@@ -174,6 +176,62 @@ final class AppModel: ObservableObject {
     /// dsh, when this build bundles it.
     let commandRuntime = CommandRuntime.bundled()
 
+    /// The way into the user's DeepSeek Harness.
+    var harnessBridge: DshBridge {
+        let override = UserDefaults.standard.string(forKey: AppDelegate.LaunchOption.bridgeFolder).flatMap { $0.isEmpty ? nil : $0 }
+        return DshBridge(folder: override.map { URL(fileURLWithPath: $0, isDirectory: true) } ?? DshBridge.standardFolder)
+    }
+
+    /// The Spot Chat plugin for DeepSeek Harness, in the app's resources.
+    var harnessPlugin: URL? {
+        Bundle.main.resourceURL.map { $0.appendingPathComponent("dsh-bridge", isDirectory: true) }
+            .flatMap { FileManager.default.fileExists(atPath: $0.path) ? $0 : nil }
+    }
+
+    func setRunsCommandsInHarness(_ on: Bool) {
+        runsCommandsInHarness = on
+        SpotLog.app.info("Commands run in", metadata: ["place": "\(on ? "DeepSeek Harness" : "Spot Chat")"])
+        logged { try preferenceService.set(PreferenceKey.commandsInHarness, to: on) }
+        if on { _ = pairWithHarness() }
+    }
+
+    /// Makes sure the plugin accepts Spot Chat: the token from the Keychain, and its hash where the plugin
+    /// reads it. Returns the token.
+    func pairWithHarness() -> Result<String, DshBridge.Failure> {
+        do {
+            let token = try DshBridgeToken.current()
+            try harnessBridge.writeTokenHash(of: token)
+            return .success(token)
+        } catch let failure as DshBridge.Failure {
+            return .failure(failure)
+        } catch {
+            SpotLog.agent.error("Couldn't pair with DeepSeek Harness", metadata: ["error": "\(error)"])
+            return .failure(.pairing(error.localizedDescription))
+        }
+    }
+
+    /// Where the conversation's commands run, and with what, or why they can't.
+    func commandSetup() -> Result<(CommandConnection, CommandAgentOptions), CommandUnavailable> {
+        guard runsCommandsInHarness else {
+            guard let runtime = commandRuntime else { return .failure(.notBundled) }
+            return commandOptions().map { (.bundled(runtime), $0) }
+        }
+        let token: String
+        switch pairWithHarness() {
+        case let .success(value): token = value
+        case let .failure(failure): return .failure(.harness(failure))
+        }
+        // The user's dsh has its own key and models; Spot Chat picks DeepSeek's model when one is chosen here.
+        var options = CommandAgentOptions(
+            apiKey: "", home: AppStorageLocation.dataDirectory().appendingPathComponent("Agent", isDirectory: true)
+        )
+        if let model = currentModel, isDeepSeek(model) {
+            options.model = model.modelID
+            options.effort = Self.commandEffort(requestThinking(for: model))
+        }
+        return .success((.bridge(harnessBridge, token: token), options))
+    }
+
     /// How dsh starts for the current model, or why it can't. dsh talks to DeepSeek only,
     /// so it takes the key of the DeepSeek provider; another model there stays on dsh's default.
     func commandOptions() -> Result<CommandAgentOptions, CommandUnavailable> {
@@ -298,6 +356,8 @@ final class AppModel: ObservableObject {
             ?? (try? preferenceService.value(PreferenceKey.commandFolder, as: String.self)), !path.isEmpty {
             defaultCommandFolder = URL(fileURLWithPath: path, isDirectory: true)
         }
+        runsCommandsInHarness = UserDefaults.standard.object(forKey: AppDelegate.LaunchOption.runCommandsInHarness) as? Bool
+            ?? (try? preferenceService.value(PreferenceKey.commandsInHarness, as: Bool.self)) ?? false
         askedForSelectionAccess = (try? preferenceService.value(PreferenceKey.selectionAccessRequested, as: Bool.self)) ?? false
         thinkingLevels = (try? preferenceService.value(PreferenceKey.thinkingLevels, as: [String: ThinkingLevel].self)) ?? [:]
         modelsWithoutEffort = Set((try? preferenceService.value(PreferenceKey.modelsWithoutEffort, as: [String].self)) ?? [])
@@ -396,11 +456,13 @@ enum TopicActivity: Equatable {
 enum CommandUnavailable: LocalizedError {
     case notBundled
     case noDeepSeekKey
+    case harness(DshBridge.Failure)
 
     var errorDescription: String? {
         switch self {
         case .notBundled: return String(localized: "This build can't run commands.")
         case .noDeepSeekKey: return String(localized: "Running commands needs a DeepSeek API key. Add one in Settings.")
+        case let .harness(failure): return failure.errorDescription
         }
     }
 }

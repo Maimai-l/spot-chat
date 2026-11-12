@@ -559,6 +559,8 @@ public enum PreferenceKey {
     public static let webSearch = "chat.web_search"
     /// The folder new conversations run commands in.
     public static let commandFolder = "commands.default_folder"
+    /// Whether commands run in the DeepSeek Harness the user runs, rather than in Spot Chat's own dsh.
+    public static let commandsInHarness = "commands.run_in_harness"
 }
 
 /// Key-value settings, stored as JSON like Cherry Studio's preference table.

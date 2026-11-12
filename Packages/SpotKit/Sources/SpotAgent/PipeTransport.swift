@@ -4,8 +4,8 @@ import Foundation
 import Logging
 import SpotCore
 
-/// ACP's newline-delimited JSON-RPC over a child process's pipes. Lines are read as data arrives,
-/// so no thread waits on the pipe.
+/// ACP's newline-delimited JSON-RPC over a child process's pipes, or over one socket for both ways. Lines
+/// are read as data arrives, so no thread waits on the pipe.
 ///
 /// Notifications named in `ordered` go to `onOrderedNotification` instead, in the order they were read:
 /// the SDK hands each notification to a task of its own, which can reorder a reply's chunks.
@@ -29,16 +29,20 @@ final class PipeTransport: Transport, @unchecked Sendable {
 
     private let ordered: Set<String>
     private let onOrderedNotification: @Sendable (JsonRpcNotification) -> Void
+    private let onClose: @Sendable () -> Void
 
-    /// `reading` is the child's standard output, `writing` its standard input.
+    /// `reading` is the child's standard output, `writing` its standard input; for a socket, both are the
+    /// socket. `onClose` is called once, when the other end or `close()` ends the connection.
     init(
         reading: FileHandle, writing: FileHandle, ordered: Set<String> = [],
-        onOrderedNotification: @escaping @Sendable (JsonRpcNotification) -> Void = { _ in }
+        onOrderedNotification: @escaping @Sendable (JsonRpcNotification) -> Void = { _ in },
+        onClose: @escaping @Sendable () -> Void = {}
     ) {
         self.reading = reading
         self.writing = writing
         self.ordered = ordered
         self.onOrderedNotification = onOrderedNotification
+        self.onClose = onClose
         (state, stateContinuation) = AsyncStream.makeStream()
         (messages, messageContinuation) = AsyncStream.makeStream()
         stateContinuation.yield(.created)
@@ -67,7 +71,7 @@ final class PipeTransport: Transport, @unchecked Sendable {
 
     private func received(_ data: Data) {
         guard !data.isEmpty else {
-            // The child closed its output: it has exited.
+            // The child closed its output, or the socket's other end closed: it has exited.
             finish()
             return
         }
@@ -101,9 +105,14 @@ final class PipeTransport: Transport, @unchecked Sendable {
         }
         guard !wasClosed else { return }
         reading.readabilityHandler = nil
-        try? writing.close()
+        do {
+            try writing.close()
+        } catch {
+            SpotLog.agent.notice("Closing the connection to dsh failed", metadata: ["error": "\(error)"])
+        }
         stateContinuation.yield(.closed)
         stateContinuation.finish()
         messageContinuation.finish()
+        onClose()
     }
 }
