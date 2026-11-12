@@ -79,3 +79,8 @@ Problems this project hit and what fixed them, so they aren't solved twice.
   window.** The rule was the mini window's from the first stage; when the reply writer made replies go on,
   only switching conversations was changed. When a rule like this changes, search every place that stops a
   reply (`stopGeneration`, `stop()`, `load`), not only the one at hand.
+- **The test of the dsh bridge passed while no command had run.** In dsh's desktop and web profiles an
+  agent's tools live in an agent preset each session mounts; dsh's ACP server mounts none, so every bash call
+  failed with "unknown tool", and the mock model answered "Listed the folder." either way. A check of a
+  command must look at what the command did (its output, the file it wrote), never at the model's words
+  about it. The same test then showed approvals going to dsh's own interface, which takes them first.
