@@ -9,7 +9,8 @@ root="$(dirname "$here")"
 channel="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["dependencies"]["@deepseek-ai/dsh"])' "$root/agent/package.json")"
 work="$(mktemp -d)"
 cleanup() {
-  [ -n "${web:-}" ] && kill "$web" 2>/dev/null || true
+  # dsh first, then its files, so it doesn't reload a profile that is being deleted.
+  [ -n "${web:-}" ] && { kill "$web" 2>/dev/null; wait "$web" 2>/dev/null; } || true
   [ -n "${mock:-}" ] && kill "$mock" 2>/dev/null || true
   rm -rf "$work"
 }

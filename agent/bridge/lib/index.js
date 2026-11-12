@@ -37,10 +37,16 @@ export function apply(ctx, config = {}) {
   const logger = ctx.logger
   let acpLoading
 
+  // Nothing here may throw out of a callback: an uncaught error would take the whole dsh down with it.
   ctx.effect(() => {
-    mkdirSync(directory, { recursive: true, mode: 0o700 })
-    chmodSync(directory, 0o700)
-    rmSync(socketPath, { force: true })
+    try {
+      mkdirSync(directory, { recursive: true, mode: 0o700 })
+      chmodSync(directory, 0o700)
+      rmSync(socketPath, { force: true })
+    } catch (error) {
+      logger.error(`spot-chat-bridge: can't prepare ${directory}: ${String(error)}`)
+      return () => {}
+    }
     const connections = new Set()
     const server = createServer((socket) => {
       connections.add(socket)
@@ -52,13 +58,22 @@ export function apply(ctx, config = {}) {
     })
     server.on('error', (error) => logger.error(`spot-chat-bridge: socket failed: ${String(error)}`))
     server.listen(socketPath, () => {
-      chmodSync(socketPath, 0o600)
-      logger.info(`spot-chat-bridge: listening on ${socketPath}`)
+      try {
+        chmodSync(socketPath, 0o600)
+        logger.info(`spot-chat-bridge: listening on ${socketPath}`)
+      } catch (error) {
+        logger.error(`spot-chat-bridge: closing, the socket can't be made private: ${String(error)}`)
+        server.close()
+      }
     })
     return () => {
       for (const socket of connections) socket.destroy()
       server.close()
-      rmSync(socketPath, { force: true })
+      try {
+        rmSync(socketPath, { force: true })
+      } catch (error) {
+        logger.warn(`spot-chat-bridge: can't remove ${socketPath}: ${String(error)}`)
+      }
     }
   }, 'spot-chat-bridge.socket')
 
@@ -86,8 +101,13 @@ export function apply(ctx, config = {}) {
     logger.info('spot-chat-bridge: Spot Chat connected')
     socket.once('close', () => {
       logger.info('spot-chat-bridge: Spot Chat disconnected')
-      fiber.dispose()
+      try {
+        fiber.dispose()
+      } catch (error) {
+        logger.warn(`spot-chat-bridge: closing the connection's sessions failed: ${String(error)}`)
+      }
     })
+    socket.on('error', (error) => logger.warn(`spot-chat-bridge: connection error: ${String(error)}`))
   }
 
   /** Whether the line carries the token whose SHA-256 Spot Chat wrote when it paired. */
