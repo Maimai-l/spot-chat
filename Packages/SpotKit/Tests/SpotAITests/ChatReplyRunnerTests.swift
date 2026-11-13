@@ -166,7 +166,12 @@ struct ChatReplyRunnerTests {
         let responder = ScriptedResponder([.init(chunks: chunks, pause: .milliseconds(10))])
         let events = ReportedEvents()
         let task = Task { await run(responder, events: events) }
-        try await Task.sleep(for: .milliseconds(150))
+        // Stopped once text has arrived, however long a busy machine takes to start it.
+        for _ in 0..<500 {
+            if let text = await events.progress.last?.text, !text.isEmpty { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        try await Task.sleep(for: .milliseconds(50))
         task.cancel()
         let result = await task.value
 
