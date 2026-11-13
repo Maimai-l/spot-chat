@@ -80,7 +80,8 @@ final class CommandRuns {
         conversation.progress = ReplyProgress()
         conversation.lastUsed = Date()
         app.setActivity(.working, for: topicID)
-        app.setStoppedByQuitting(true, for: topicID)
+        // A turn in DeepSeek Harness goes on there when Spot Chat quits, and is caught up when it opens again.
+        app.setStoppedByQuitting(!connection.isHarness, for: topicID)
 
         let app = app
         let agent = conversation.agent

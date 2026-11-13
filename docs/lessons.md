@@ -84,3 +84,7 @@ Problems this project hit and what fixed them, so they aren't solved twice.
   failed with "unknown tool", and the mock model answered "Listed the folder." either way. A check of a
   command must look at what the command did (its output, the file it wrote), never at the model's words
   about it. The same test then showed approvals going to dsh's own interface, which takes them first.
+- **Spot Chat's history request never reached the plugin.** The plugin looked for `"_spotchat/` in a line
+  before parsing it, and Swift's `JSONEncoder` writes the slash as `\/`; the test client, in Node, doesn't,
+  so the bridge test passed and only the UI test failed. A test client that stands in for the app sends what
+  the app sends; the bridge test now escapes the slash as Swift does.
