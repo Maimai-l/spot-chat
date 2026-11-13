@@ -20,7 +20,7 @@ struct CommandHistoryTests {
           {"sessionUpdate": "agent_thought_chunk", "content": {"type": "text", "text": "Look first."}},
           {"sessionUpdate": "tool_call", "toolCallId": "t1", "title": "bash", "kind": "other", "status": "in_progress",
            "rawInput": {"description": "List the folder", "command": "ls -a"}},
-          {"sessionUpdate": "tool_call_update", "toolCallId": "t1", "status": "completed",
+          {"sessionUpdate": "tool_call_update", "toolCallId": "t1", "status": "completed", "_spotchat_seconds": 1.5,
            "content": [{"type": "content", "content": {"type": "text", "text": ".\\n..\\n"}}]},
           {"sessionUpdate": "agent_message_chunk", "content": {"type": "text", "text": "Listed the folder."}},
           {"sessionUpdate": "_spotchat_turn_end", "stopReason": "end_turn"}
@@ -32,6 +32,8 @@ struct CommandHistoryTests {
         #expect(turns[1].progress.text == "Listed the folder.")
         #expect(turns[1].progress.steps.map(\.detail) == ["ls -a"])
         #expect(turns[1].progress.steps.first?.state == .succeeded)
+        // How long it ran is dsh's record of it.
+        #expect(turns[1].progress.steps.first?.duration == 1.5)
         #expect(turns.map(\.status) == [.success, .success])
     }
 
@@ -47,6 +49,8 @@ struct CommandHistoryTests {
         """))
         #expect(turns.map(\.status) == [.paused, .paused])
         #expect(turns[0].progress.steps.first?.state == .stopped)
+        // Without dsh's record, no time is shown rather than a wrong one.
+        #expect(turns[0].progress.steps.first?.duration == nil)
         #expect(turns[1].progress.text == "Hi.")
     }
 

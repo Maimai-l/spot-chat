@@ -64,8 +64,18 @@ public enum CommandHistory {
             guard !turns.isEmpty,
                   let data = try? JSONEncoder().encode(value),
                   let update = try? JSONDecoder().decode(SessionUpdate.self, from: data),
-                  let event = CommandAgent.event(for: update, runs: &runs, cancelling: false)
+                  var event = CommandAgent.event(for: update, runs: &runs, cancelling: false)
             else { continue }
+            // How long a command ran is what dsh recorded; reading the history now says nothing about it.
+            if case var .run(run) = event {
+                switch object["_spotchat_seconds"] {
+                case let .double(seconds)?: run.duration = seconds
+                case let .int(seconds)?: run.duration = TimeInterval(seconds)
+                default: run.duration = nil
+                }
+                runs[run.id]?.duration = run.duration
+                event = .run(run)
+            }
             turns[turns.count - 1].progress.apply(event)
         }
         return turns

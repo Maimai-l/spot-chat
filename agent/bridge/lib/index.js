@@ -256,13 +256,19 @@ function answerOwnRequest(request, ctx, tell, logger) {
 
 /**
  * A session's events as ACP session updates, made as dsh's ACP server makes them live, with the questions
- * and the end of each turn added: `_spotchat_turn_end` carries its stop reason, `end_turn`, `cancelled` or
+ * and the end of each turn added: a command's result carries `_spotchat_seconds`, how long it ran, when dsh
+ * knows; `_spotchat_turn_end` carries its stop reason, `end_turn`, `cancelled` or
  * `error` with the error's message.
  */
 function historyUpdates(events) {
   const updates = []
+  // How long each command ran, from the background job dsh runs it as.
+  const jobs = new Map()
   for (const event of events) {
     const data = event.data ?? {}
+    if (event.type === 'job/settled' && data.toolCall?.callId && data.finishedAt > data.startedAt) {
+      jobs.set(data.toolCall.callId, (data.finishedAt - data.startedAt) / 1000)
+    }
     if (event.type === 'user/message') {
       const update = questionUpdate(event)
       if (update !== undefined) updates.push(update)
@@ -289,6 +295,7 @@ function historyUpdates(events) {
       const message = data.message ?? {}
       updates.push({
         sessionUpdate: 'tool_call_update', toolCallId: message.toolCallId,
+        ...(jobs.has(message.toolCallId) ? { _spotchat_seconds: jobs.get(message.toolCallId) } : {}),
         status: message.isError === true ? 'failed' : 'completed',
         content: (message.content ?? []).filter((block) => block.type === 'text')
           .map((block) => ({ type: 'content', content: { type: 'text', text: block.text } })),

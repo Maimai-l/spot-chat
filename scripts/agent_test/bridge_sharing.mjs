@@ -146,6 +146,7 @@ checks.historyHasEveryQuestion = JSON.stringify(questions) === JSON.stringify([
 const listedUpdate = updates.find((u) => u.sessionUpdate === 'tool_call' && u.rawInput?.command === 'ls -a')
 const listedResult = updates.find((u) => u.sessionUpdate === 'tool_call_update' && u.toolCallId === listedUpdate?.toolCallId)
 checks.historyHasCommands = listedResult?.status === 'completed' && listedResult.content[0]?.content.text.includes('..')
+  && listedResult._spotchat_seconds > 0
 checks.historyHasEnds = updates.filter((u) => u.sessionUpdate === '_spotchat_turn_end').map((u) => u.stopReason).includes('cancelled')
 if (!checks.historyHasEveryQuestion) checks.questions = questions
 
