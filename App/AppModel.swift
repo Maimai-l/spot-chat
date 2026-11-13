@@ -39,6 +39,9 @@ final class AppModel: ObservableObject {
     @Published private(set) var defaultCommandFolder = AppModel.standardCommandFolder
     /// Whether commands run in the DeepSeek Harness the user runs, through Spot Chat's plugin there.
     @Published private(set) var runsCommandsInHarness = false
+    /// A conversation's stored messages changed outside the window showing it, as when one catches up from
+    /// DeepSeek Harness.
+    let conversationChanged = PassthroughSubject<UUID, Never>()
     private(set) var askedForSelectionAccess = false
     /// Thinking level by model; a model not listed thinks as its service decides.
     @Published private(set) var thinkingLevels: [String: ThinkingLevel] = [:]
@@ -199,7 +202,8 @@ final class AppModel: ObservableObject {
     /// reads it. Returns the token.
     func pairWithHarness() -> Result<String, DshBridge.Failure> {
         do {
-            let token = try DshBridgeToken.current()
+            let given = UserDefaults.standard.string(forKey: AppDelegate.LaunchOption.harnessToken).flatMap { $0.isEmpty ? nil : $0 }
+            let token = try given ?? DshBridgeToken.current()
             try harnessBridge.writeTokenHash(of: token)
             return .success(token)
         } catch let failure as DshBridge.Failure {

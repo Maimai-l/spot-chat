@@ -134,6 +134,13 @@ public actor CommandAgent {
     private var isCancelling = false
     /// Set when a setting dsh reads at launch has changed.
     private var needsRestart = false
+    /// Spot Chat's question hasn't come back from DeepSeek Harness yet; the plugin passes on every question.
+    private var awaitingOwnQuestion = false
+    /// A question asked in DeepSeek Harness joined Spot Chat's turn, and what follows answers it.
+    private var answeringElsewhere = false
+    /// Called when DeepSeek Harness's side of the session does something: a question asked there, or a turn
+    /// that isn't Spot Chat's. The conversation then catches up from the session's history.
+    private var onElsewhere: (@Sendable () -> Void)?
 
     /// dsh's session updates in the order it sent them, and marks for catching up with them.
     private enum Inbound: Sendable {
@@ -163,9 +170,9 @@ public actor CommandAgent {
         process?.isRunning == true || bridgeConnection != nil
     }
 
-    /// Starts dsh and opens a session: the earlier one when dsh still has it, otherwise a new one.
-    /// Returns the session's id.
-    public func start(resuming earlier: String?) async throws -> String {
+    /// Starts dsh and opens a session: the earlier one when dsh still has it, otherwise a new one, unless
+    /// `newWhenGone` is false. Returns the session's id.
+    public func start(resuming earlier: String?, newWhenGone: Bool = true) async throws -> String {
         // dsh keeps the folder it started in, and fails every turn once it is renamed or moved.
         var isDirectory: ObjCBool = false
         guard FileManager.default.fileExists(atPath: folder.path, isDirectory: &isDirectory), isDirectory.boolValue else {
@@ -249,6 +256,7 @@ public actor CommandAgent {
             }
         }
         if sessionID == nil {
+            guard newWhenGone else { throw CommandAgentError.noSession }
             let created = try await rpc.sendRequest(
                 method: "session/new", params: NewSessionRequest(cwd: folder.path, mcpServers: [])
             )
@@ -290,7 +298,12 @@ public actor CommandAgent {
         self.onEvent = onEvent
         runs = [:]
         isCancelling = false
-        defer { self.onEvent = nil }
+        awaitingOwnQuestion = connection.isHarness
+        answeringElsewhere = false
+        defer {
+            self.onEvent = nil
+            awaitingOwnQuestion = false
+        }
         let response = try await rpc.sendRequest(
             method: "session/prompt", params: PromptRequest(sessionId: SessionId(value: sessionID), prompt: blocks)
         )
@@ -311,6 +324,31 @@ public actor CommandAgent {
             onEvent(.run(run))
         }
         return !stopped
+    }
+
+    /// Tells `handler` whenever DeepSeek Harness's side of the session does something.
+    public func whenElsewhere(_ handler: @escaping @Sendable () -> Void) {
+        onElsewhere = handler
+    }
+
+    /// The session's whole conversation, as DeepSeek Harness has it, read through Spot Chat's plugin there.
+    public func history() async throws -> [CommandHistory.Turn] {
+        guard connection.isHarness, let rpc, let sessionID else { throw CommandAgentError.noSession }
+        let response = try await rpc.sendRequest(
+            method: "_spotchat/history", params: HistoryRequest(sessionId: sessionID), timeoutSeconds: 30
+        )
+        guard case let .object(result) = response.result, case let .array(updates)? = result["updates"] else {
+            throw CommandAgentError.noSession
+        }
+        let turns = CommandHistory.turns(from: updates)
+        SpotLog.agent.info("Read the session's history", metadata: [
+            "session": "\(sessionID)", "updates": "\(updates.count)", "questions": "\(turns.count)",
+        ])
+        return turns
+    }
+
+    private struct HistoryRequest: Codable, Sendable {
+        let sessionId: String
     }
 
     /// Asks dsh to stop the turn; `send` then returns.
@@ -336,16 +374,42 @@ public actor CommandAgent {
     // MARK: Updates
 
     private func handle(_ update: SessionUpdate) {
+        if case let .userMessageChunk(chunk) = update {
+            // The first question after Spot Chat sends one is its own; any other was asked in dsh.
+            if awaitingOwnQuestion {
+                awaitingOwnQuestion = false
+                return
+            }
+            guard case let .text(text) = chunk.content else { return }
+            SpotLog.agent.info("A question was asked in DeepSeek Harness", metadata: [
+                "session": "\(sessionID ?? "")", "duringOwnTurn": "\(onEvent != nil)", "text": "\(SpotLog.clip(text.text, limit: 200))",
+            ])
+            // The rest of this turn answers that question, not Spot Chat's.
+            if onEvent != nil { answeringElsewhere = true }
+            onElsewhere?()
+            return
+        }
+        guard onEvent != nil, !awaitingOwnQuestion, !answeringElsewhere else {
+            // A turn asked for in dsh's interface, the rest of one that was under way when Spot Chat asked,
+            // or the part of one that answers a question from there.
+            onElsewhere?()
+            return
+        }
+        if let event = Self.event(for: update, runs: &runs, cancelling: isCancelling) { onEvent?(event) }
+    }
+
+    /// What the reply shows for an update from dsh, keeping `runs`, the tool calls so far, up to date.
+    static func event(for update: SessionUpdate, runs: inout [String: CommandRun], cancelling: Bool) -> CommandEvent? {
         switch update {
         case let .agentMessageChunk(chunk):
-            if case let .text(text) = chunk.content { onEvent?(.text(text.text)) }
+            if case let .text(text) = chunk.content { return .text(text.text) }
         case let .agentThoughtChunk(chunk):
-            if case let .text(text) = chunk.content { onEvent?(.thought(text.text)) }
+            if case let .text(text) = chunk.content { return .thought(text.text) }
         case let .toolCall(call):
             var run = Self.run(id: call.toolCallId.value, title: call.title, input: call.rawInput)
-            if let status = call.status { apply(status, content: call.content, to: &run) }
+            if let status = call.status { apply(status, content: call.content, to: &run, cancelling: cancelling) }
             runs[run.id] = run
-            onEvent?(.run(run))
+            return .run(run)
         case let .toolCallUpdate(change):
             let id = change.toolCallId.value
             var run = runs[id] ?? Self.run(id: id, title: change.title ?? "", input: change.rawInput)
@@ -354,15 +418,16 @@ public actor CommandAgent {
                 run.summary = fresh.summary
                 run.detail = fresh.detail
             }
-            if let status = change.status { apply(status, content: change.content ?? [], to: &run) }
+            if let status = change.status { apply(status, content: change.content ?? [], to: &run, cancelling: cancelling) }
             runs[id] = run
-            onEvent?(.run(run))
+            return .run(run)
         default:
             break
         }
+        return nil
     }
 
-    private func apply(_ status: ToolCallStatus, content: [ToolCallContent], to run: inout CommandRun) {
+    static func apply(_ status: ToolCallStatus, content: [ToolCallContent], to run: inout CommandRun, cancelling: Bool) {
         let raw = content.compactMap { item -> String? in
             if case let .content(block) = item, case let .text(text) = block.content { return text.text }
             return nil
@@ -389,7 +454,7 @@ public actor CommandAgent {
         }
         run.duration = Date().timeIntervalSince(run.startedAt)
         if run.state == .denied { return }
-        if isCancelling, status == .failed {
+        if cancelling, status == .failed {
             run.state = .stopped
         } else if result.blockedBySandbox {
             run.state = .blocked

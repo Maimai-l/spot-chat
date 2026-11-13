@@ -31,6 +31,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         static let bridgeFolder = "SpotChatBridgeFolder"
         /// Runs commands in DeepSeek Harness, or in Spot Chat, whatever Settings says.
         static let runCommandsInHarness = "SpotChatRunCommandsInHarness"
+        /// Pairs with DeepSeek Harness with this token instead of the Keychain's, so a test can connect as the
+        /// other side of a conversation.
+        static let harnessToken = "SpotChatHarnessToken"
         /// Export Logs writes here instead of asking where.
         static let logExportPath = "SpotChatLogExportPath"
     }

@@ -309,8 +309,8 @@ function historyUpdates(events) {
 /** A question someone asked, as an ACP update; dsh's runtime and time notes aren't questions. */
 function questionUpdate(event) {
   if (event.type !== 'user/message' || event.data?.source?.kind !== 'user') return undefined
+  // A question of files alone still comes through, with no text, so Spot Chat knows its own came back.
   const text = (event.data.content ?? []).filter((block) => block.type === 'text').map((block) => block.text).join('\n')
-  if (text.length === 0) return undefined
   return { sessionUpdate: 'user_message_chunk', messageId: event.data.id, content: { type: 'text', text } }
 }
 

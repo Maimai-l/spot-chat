@@ -1,5 +1,6 @@
 import Logging
 import AppKit
+import Combine
 import PDFKit
 import SpotAgent
 import SpotAI
@@ -40,7 +41,13 @@ final class ChatSession: ObservableObject {
     init(app: AppModel, topicID: UUID? = nil) {
         self.app = app
         load(topicID)
+        changes = app.conversationChanged.sink { [weak self] changed in
+            guard let self, changed == self.topicID else { return }
+            self.reload()
+        }
     }
+
+    private var changes: AnyCancellable?
 
     /// Shows a stored conversation, or none.
     func load(_ topicID: UUID?) {
@@ -58,6 +65,8 @@ final class ChatSession: ObservableObject {
         messages = stored(topicID.flatMap { try? app.messageService.list(topicID: $0) } ?? [])
         watchWriterOfShownReply()
         if let topicID, app.commandRuns.isRunning(topicID) { followCommandTurn(of: topicID) }
+        // One that runs commands in DeepSeek Harness may have gone on there.
+        if let topicID { app.commandRuns.open(topicID) }
         // A stored conversation runs commands where it did; one not stored yet keeps the current folder.
         if let topicID, (try? app.topicService.get(topicID)) != nil {
             setCommandFolderShown((try? app.topicService.commandSetup(of: topicID))?.folder)

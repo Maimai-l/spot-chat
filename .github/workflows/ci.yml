@@ -129,6 +129,9 @@ jobs:
         run: |
           npm install --global pnpm@10.28.0
           bash scripts/start_test_harness.sh 8765
+          # The other side of a conversation shared with it, as someone typing in dsh's window.
+          nohup node scripts/agent_test/harness_other_side.mjs /tmp/spot-chat-harness/bridge.sock ui-test-harness-token \
+            > /tmp/spot-chat-harness-dsh/other-side.log 2>&1 &
       - name: Allow UI automation
         run: |
           sudo automationmodetool enable-automationmode-without-authentication || true
@@ -149,7 +152,9 @@ jobs:
             $ONLY_TESTING
       - name: Show DeepSeek Harness's log
         if: failure()
-        run: tail -100 /tmp/spot-chat-harness-dsh/web.log 2>/dev/null || true
+        run: |
+          tail -100 /tmp/spot-chat-harness-dsh/web.log 2>/dev/null || true
+          cat /tmp/spot-chat-harness-dsh/other-side.log 2>/dev/null || true
       - name: Export screenshots and summarize
         if: always()
         run: python3 scripts/export_test_results.py build/UITests.xcresult build/Screenshots "$GITHUB_STEP_SUMMARY"

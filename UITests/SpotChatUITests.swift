@@ -353,6 +353,34 @@ final class SpotChatUITests: XCTestCase {
         attachScreenshot("Harness settings")
     }
 
+    /// A conversation in DeepSeek Harness is one conversation on both sides: a question asked in dsh's window
+    /// shows up in Spot Chat with its reply, without asking anything here. CI's stand-in for that window
+    /// (scripts/agent_test/harness_other_side.mjs) waits for "Ask from both sides", then joins the session and
+    /// asks "Please list the files" there.
+    func testAConversationIsSharedWithDeepSeekHarness() {
+        let app = launch(resetState: true, arguments: [
+            "-SpotChatCommandFolder", dataDirectory + "/Work",
+            "-SpotChatDefaultCommandFolder", dataDirectory + "/Default",
+            "-SpotChatBridgeFolder", "/tmp/spot-chat-harness",
+            "-SpotChatRunCommandsInHarness", "YES",
+            "-SpotChatHarnessToken", "ui-test-harness-token",
+        ])
+        XCTAssertTrue(element("commandFolder", in: app).waitForExistence(timeout: 10))
+        send("Ask from both sides", in: app)
+        XCTAssertTrue(reply(containing: "Hello from dsh.", in: app).waitForExistence(timeout: 60))
+
+        let asked = app.descendants(matching: .any).matching(NSPredicate(
+            format: "identifier == %@ AND (value CONTAINS %@ OR label CONTAINS %@)",
+            "message.user", "Please list the files", "Please list the files"
+        )).firstMatch
+        XCTAssertTrue(asked.waitForExistence(timeout: 90), "The question asked in DeepSeek Harness shows here")
+        XCTAssertTrue(reply(containing: "Listed the folder.", in: app).waitForExistence(timeout: 30))
+        XCTAssertTrue(element("command.succeeded", in: app).waitForExistence(timeout: 5))
+        XCTAssertFalse(element("message.error", in: app).exists)
+        RunLoop.current.run(until: Date().addingTimeInterval(1))
+        attachScreenshot("Harness question from dsh")
+    }
+
     /// Whether a session file of the test's DeepSeek Harness contains `text`.
     private func harnessSessions(mention text: String) -> Bool {
         let home = URL(fileURLWithPath: "/tmp/spot-chat-harness-dsh/home")
