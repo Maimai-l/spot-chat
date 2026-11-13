@@ -54,7 +54,8 @@ class Client {
     return new Promise((done) => {
       const id = ++this.nextId
       this.pending.set(id, done)
-      this.send({ jsonrpc: '2.0', id, method, params })
+      // Written as Swift's JSONEncoder writes it, with the slash escaped, as Spot Chat sends it.
+      this.socket.write(JSON.stringify({ jsonrpc: '2.0', id, method, params }).replaceAll('/', '\\/') + '\n')
     })
   }
 

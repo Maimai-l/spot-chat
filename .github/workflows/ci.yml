@@ -155,6 +155,16 @@ jobs:
         run: |
           tail -100 /tmp/spot-chat-harness-dsh/web.log 2>/dev/null || true
           cat /tmp/spot-chat-harness-dsh/other-side.log 2>/dev/null || true
+      # What the app logged, to see why a test failed rather than guess from its code.
+      - name: Upload the app's log
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: AppLogs
+          path: |
+            ~/Library/Logs/Spot Chat
+            /tmp/spot-chat-harness-dsh/*.log
+          if-no-files-found: ignore
       - name: Export screenshots and summarize
         if: always()
         run: python3 scripts/export_test_results.py build/UITests.xcresult build/Screenshots "$GITHUB_STEP_SUMMARY"

@@ -379,7 +379,8 @@ function readable(socket, ending, answer) {
         }
       })
       const answered = (line) => {
-        if (!line.includes('"_spotchat/')) return false
+        // Only a quick look before parsing: Swift's JSONEncoder writes the slash as "\/".
+        if (!line.includes('_spotchat')) return false
         try {
           return answer(JSON.parse(line))
         } catch {
