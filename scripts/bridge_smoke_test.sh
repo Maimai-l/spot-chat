@@ -59,11 +59,15 @@ chat="$(cat "$work/chat.json")"
 list="$(cat "$work/list.json")"
 outside="$(node "$client" "$socket" "$token" "$work/folder" "Write outside the folder" outside)"
 sharing="$(node "$here/agent_test/bridge_sharing.mjs" "$socket" "$token" "$work/folder" || true)"
+# Every request here comes from a session of Spot Chat's.
+session_logs="$(curl -s "http://127.0.0.1:$port/session-logs")"
+sessions_mode="$(python3 -c 'import os, sys; print(oct(os.stat(sys.argv[1]).st_mode & 0o777))' "$SPOT_CHAT_BRIDGE_DIR/sessions" 2>/dev/null || echo none)"
 
-python3 - "$wrong" "$chat" "$list" "$outside" "$version" "${sharing:-{\}}" <<'PY'
+python3 - "$wrong" "$chat" "$list" "$outside" "$version" "${sharing:-{\}}" "$session_logs" "$sessions_mode" <<'PY'
 import json, os, sys
 wrong, chat, listed, outside = (json.loads(a) for a in sys.argv[1:5])
 sharing = json.loads(sys.argv[6])
+session_logs = json.loads(sys.argv[7] or "[]")
 checks = [
     ("A wrong token is refused", not wrong["admitted"]),
     ("A question gets its answer", chat["admitted"] and chat["text"] == "Hello from dsh."),
@@ -81,6 +85,10 @@ checks = [
     ("Spot Chat sees a question asked on dsh's side, before what was done for it", sharing.get("spotSawTheQuestion")),
     ("The history has every question, the commands and how each turn ended",
      sharing.get("historyHasEveryQuestion") and sharing.get("historyHasCommands") and sharing.get("historyHasEnds")),
+    # dsh's own sessions still carry it; that was checked by hand in dsh web's window.
+    ("Requests from Spot Chat's sessions leave dsh's session log out",
+     len(session_logs) > 0 and not any(request["sessionLog"] for request in session_logs)),
+    ("The list of Spot Chat's sessions is private", sys.argv[8] == "0o600"),
 ]
 lines = [f"{'pass' if ok else 'FAIL'}: {name}" for name, ok in checks]
 print("\n".join(lines))

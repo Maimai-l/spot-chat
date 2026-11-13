@@ -10,7 +10,7 @@
 // the token in the Keychain and writes only its SHA-256 here, so reading the files gets nothing usable.
 
 import { createHash, timingSafeEqual } from 'node:crypto'
-import { chmodSync, mkdirSync, readFileSync, rmSync } from 'node:fs'
+import { appendFileSync, chmodSync, mkdirSync, readFileSync, rmSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { createServer } from 'node:net'
 import { homedir } from 'node:os'
@@ -35,8 +35,44 @@ export function apply(ctx, config = {}) {
   const directory = config.directory ?? process.env.SPOT_CHAT_BRIDGE_DIR ?? defaultDirectory
   const socketPath = join(directory, 'bridge.sock')
   const tokenPath = join(directory, 'token.sha256')
+  const sessionsPath = join(directory, 'sessions')
   const logger = ctx.logger
   let acpLoading
+
+  // The sessions Spot Chat has created or joined, kept across restarts of dsh.
+  const spotChatSessions = new Set()
+  try {
+    for (const id of readFileSync(sessionsPath, 'utf8').split('\n')) if (id) spotChatSessions.add(id)
+  } catch (error) {
+    if (error?.code !== 'ENOENT') logger.warn(`spot-chat-bridge: can't read ${sessionsPath}: ${String(error)}`)
+  }
+  const remember = (sessionId) => {
+    if (spotChatSessions.has(sessionId)) return
+    spotChatSessions.add(sessionId)
+    try {
+      appendFileSync(sessionsPath, sessionId + '\n', { mode: 0o600 })
+    } catch (error) {
+      logger.warn(`spot-chat-bridge: can't note session ${sessionId}: ${String(error)}`)
+    }
+  }
+  /** Whether a session is Spot Chat's, or a subagent's under one. */
+  const isSpotChat = (sessionId) => {
+    for (let id = sessionId, depth = 0; id && depth < 16; depth += 1) {
+      if (spotChatSessions.has(id)) return true
+      id = ctx.sessions?.get(id)?.header?.parentSession
+    }
+    return false
+  }
+
+  // Spot Chat keeps conversation logs on the Mac. dsh adds each session's log to its requests to DeepSeek's
+  // official API (session-log-deepseek, on by default); for Spot Chat's sessions that field is left out, as
+  // Spot Chat's own dsh leaves it out. Other sessions are as the user set them. The registry of these
+  // fields may load after this plugin, so this waits for it.
+  ctx.plugin({
+    name: 'spot-chat-bridge-session-log',
+    inject: ['deepseekLlmApiExtensions'],
+    apply: (sub) => keepSessionLogOut(sub, sub.deepseekLlmApiExtensions, isSpotChat, logger),
+  })
 
   // Nothing here may throw out of a callback: an uncaught error would take the whole dsh down with it.
   ctx.effect(() => {
@@ -101,7 +137,7 @@ export function apply(ctx, config = {}) {
       name: 'spot-chat-bridge-connection',
       inject: acp.inject,
       apply: (connection) => acp.apply(
-        forSpotChat(connection, ctx.agents, detaching, tell, logger), { stream, sessionListPageSize: 100, ...selection }
+        forSpotChat(connection, ctx.agents, detaching, tell, remember, logger), { stream, sessionListPageSize: 100, ...selection }
       ),
     })
     logger.info('spot-chat-bridge: Spot Chat connected')
@@ -151,7 +187,7 @@ export function apply(ctx, config = {}) {
  *   message sent while a turn runs.
  * - Approval requests from these sessions go to Spot Chat.
  */
-function forSpotChat(connection, hostAgents, detaching, tell, logger) {
+function forSpotChat(connection, hostAgents, detaching, tell, remember, logger) {
   const presets = connection.get('agentPresets')
   const defaultPreset = async () => (await presets.resolve(undefined)).id
   const mounting = (setup, preset) => presets === undefined ? setup : async (agentCtx, agent) => {
@@ -164,6 +200,7 @@ function forSpotChat(connection, hostAgents, detaching, tell, logger) {
   const kept = (handle) => {
     detaching.watch(handle.agent)
     open.add(handle.agent.session.id)
+    remember(handle.agent.session.id)
     return new Proxy(handle, {
       get: (target, key) => (key === 'dispose' ? () => {} : Reflect.get(target, key)),
     })
@@ -319,6 +356,42 @@ function questionUpdate(event) {
   // A question of files alone still comes through, with no text, so Spot Chat knows its own came back.
   const text = (event.data.content ?? []).filter((block) => block.type === 'text').map((block) => block.text).join('\n')
   return { sessionUpdate: 'user_message_chunk', messageId: event.data.id, content: { type: 'text', text } }
+}
+
+/**
+ * Leaves `dsh_session_log` out of DeepSeek API requests from Spot Chat's sessions: for those the registry
+ * prepares its fields without the session log's provider, so the field isn't made and its record of what
+ * was uploaded doesn't move. Restored when the plugin goes.
+ */
+function keepSessionLogOut(ctx, registry, isSpotChat, logger) {
+  ctx.effect(() => {
+    const prepare = registry.prepare
+    const noted = new Set()
+    const filtered = function (request) {
+      const sessionId = request?.sessionId
+      if (!this.providers?.has?.('dsh_session_log') || !isSpotChat(sessionId)) return prepare.call(this, request)
+      if (!noted.has(sessionId)) {
+        noted.add(sessionId)
+        logger.info(`spot-chat-bridge: leaving the session log out of requests from Spot Chat's session ${sessionId}`)
+      }
+      const providers = new Map([...this.providers].filter(([field]) => field !== 'dsh_session_log'))
+      return prepare.call(Object.create(this, { providers: { value: providers } }), request)
+    }
+    try {
+      registry.prepare = filtered
+      logger.info('spot-chat-bridge: session logs of Spot Chat\'s sessions stay out of API requests')
+    } catch (error) {
+      logger.error(`spot-chat-bridge: can't keep session logs out of API requests: ${String(error)}`)
+      return () => {}
+    }
+    return () => {
+      try {
+        if (registry.prepare === filtered) registry.prepare = prepare
+      } catch (error) {
+        logger.warn(`spot-chat-bridge: can't restore the API request fields: ${String(error)}`)
+      }
+    }
+  }, 'spot-chat-bridge.session-log')
 }
 
 /**

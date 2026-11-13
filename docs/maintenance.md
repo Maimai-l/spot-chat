@@ -124,7 +124,7 @@ services such as Docker Desktop's socket and ssh-agent (Discussion 4503); open.
 | The plugin reaches into dsh-acp: it hands it an `agents` that mounts the agent preset, and puts its approval handler first | Follow-up | Breaks quietly if dsh changes either; the "Forwarding to your dsh" job checks both on every run |
 | A question the model asks with `ask_user_question` in a harness session goes to dsh's own interface, not Spot Chat | Follow-up | Open |
 | A conversation in DeepSeek Harness is one conversation on both sides: questions asked in dsh's window show in Spot Chat, rebuilt from the session's history | Request | Prototype, in testing |
-| The user's dsh appends each session's log to requests to DeepSeek's official API (`session-log-deepseek`, on by default), Spot Chat's harness conversations included; Spot Chat's own dsh has it off | Privacy | Owner to decide |
+| The user's dsh appends each session's log to requests to DeepSeek's official API (`session-log-deepseek`, on by default) | Privacy | Done: the plugin leaves it out of requests from Spot Chat's sessions and their subagents, as Spot Chat's own dsh does; the user's other sessions are as they set them. dsh Desktop's product analytics, of what is done in its window, is outside the plugin's reach |
 | Quitting Spot Chat while a harness turn runs lets it go on in dsh; the conversation catches up when opened again, and quitting doesn't warn | Request | Prototype, in testing |
 | An alpha signed ad hoc is a new app to the Keychain, so macOS may ask before reading the harness token after an update | Follow-up | Open: to see with the owner |
 | The plugin installed in dsh is a copy; a newer one in a later alpha needs the install command again | Follow-up | Open |

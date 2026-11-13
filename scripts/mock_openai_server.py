@@ -138,6 +138,8 @@ LONG_OUTPUT = (
 )
 ESCAPE = 'echo out > "$HOME/.spot-chat-ui-test-escape" && rm "$HOME/.spot-chat-ui-test-escape"'
 last_messages_request = {}
+# Whether each Messages request carried dsh's session log, with its question, oldest first.
+session_logs_seen = []
 # "malformed" sends a tool call with broken JSON once, then answers.
 sent_malformed = False
 # DeepSeek's answer to a thinking-mode history with a tool call but no thinking.
@@ -232,6 +234,10 @@ class Handler(BaseHTTPRequestHandler):
         return False
 
     def do_GET(self):
+        if self.path.endswith("/session-logs"):
+            with lock:
+                self.send_json(200, list(session_logs_seen))
+            return
         if self.path.endswith("/last-messages-request"):
             with lock:
                 self.send_json(200, last_messages_request)
@@ -385,6 +391,8 @@ class Handler(BaseHTTPRequestHandler):
         with lock:
             last_messages_request.clear()
             last_messages_request.update({k: v for k, v in body.items() if k in ("model", "thinking", "output_config")})
+            asked_now = questions(body)
+            session_logs_seen.append({"question": asked_now[-1] if asked_now else "", "sessionLog": "dsh_session_log" in body})
         step = messages_steps(body)
         asked = questions(body)
         question = asked[-1] if asked else ""
