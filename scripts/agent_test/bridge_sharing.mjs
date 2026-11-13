@@ -66,6 +66,10 @@ class Client {
     return this.updates.filter((u) => u.sessionUpdate === 'agent_message_chunk').map((u) => u.content.text).join('')
   }
 
+  questions() {
+    return this.updates.filter((u) => u.sessionUpdate === 'user_message_chunk').map((u) => u.content.text)
+  }
+
   commands() {
     return this.updates.filter((u) => u.sessionUpdate === 'tool_call').map((u) => u.rawInput?.command ?? '')
   }
@@ -105,6 +109,10 @@ if (checks.joinedWhileHeld) {
   const listed = await other.prompt(sessionId, 'Please list the files')
   checks.otherSideRan = listed.result?.stopReason === 'end_turn' && other.commands().includes('ls -a')
   checks.spotSawIt = await spot.until(() => spot.commands().includes('ls -a') && spot.text().includes('Listed the folder.'), 5)
+  // The question comes before what was done for it.
+  const asked = spot.updates.findIndex((u) => u.sessionUpdate === 'user_message_chunk' && u.content.text === 'Please list the files')
+  const ran = spot.updates.findIndex((u) => u.sessionUpdate === 'tool_call' && u.rawInput?.command === 'ls -a')
+  checks.spotSawTheQuestion = asked >= 0 && asked < ran
 }
 
 // Spot Chat leaves while its command runs; the turn finishes, as the other side sees.
@@ -125,6 +133,20 @@ const slow = back.prompt(sessionId, 'run something slow')
 await back.until(() => back.commands().includes('sleep 60'), 20)
 back.send({ jsonrpc: '2.0', method: 'session/cancel', params: { sessionId } })
 checks.stopStops = (await slow).result?.stopReason === 'cancelled'
+
+// The whole conversation, both sides' questions included, read back from dsh.
+await back.prompt(sessionId, '你好，列出文件以外的事')
+const history = await back.request('_spotchat/history', { sessionId })
+const updates = history.result?.updates ?? []
+const questions = updates.filter((u) => u.sessionUpdate === 'user_message_chunk').map((u) => u.content.text)
+checks.historyHasEveryQuestion = JSON.stringify(questions) === JSON.stringify([
+  'hello', 'Please list the files', 'Run this in the background', 'hello', 'run something slow', '你好，列出文件以外的事',
+])
+const listedUpdate = updates.find((u) => u.sessionUpdate === 'tool_call' && u.rawInput?.command === 'ls -a')
+const listedResult = updates.find((u) => u.sessionUpdate === 'tool_call_update' && u.toolCallId === listedUpdate?.toolCallId)
+checks.historyHasCommands = listedResult?.status === 'completed' && listedResult.content[0]?.content.text.includes('..')
+checks.historyHasEnds = updates.filter((u) => u.sessionUpdate === '_spotchat_turn_end').map((u) => u.stopReason).includes('cancelled')
+if (!checks.historyHasEveryQuestion) checks.questions = questions
 
 clearTimeout(timer)
 other.close()

@@ -78,6 +78,9 @@ checks = [
     ("A turn goes on after Spot Chat leaves", sharing.get("turnWentOn")),
     ("Spot Chat comes back to the session and goes on with it", sharing.get("cameBack")),
     ("Stopping still stops", sharing.get("stopStops")),
+    ("Spot Chat sees a question asked on dsh's side, before what was done for it", sharing.get("spotSawTheQuestion")),
+    ("The history has every question, the commands and how each turn ended",
+     sharing.get("historyHasEveryQuestion") and sharing.get("historyHasCommands") and sharing.get("historyHasEnds")),
 ]
 lines = [f"{'pass' if ok else 'FAIL'}: {name}" for name, ok in checks]
 print("\n".join(lines))

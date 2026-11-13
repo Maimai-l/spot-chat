@@ -16,6 +16,7 @@ import { createServer } from 'node:net'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { Writable } from 'node:stream'
+import { StringDecoder } from 'node:string_decoder'
 import { pathToFileURL } from 'node:url'
 
 export const name = 'spot-chat-bridge'
@@ -89,7 +90,9 @@ export function apply(ctx, config = {}) {
     socket.write(JSON.stringify({ ok: true, version: acpVersion }) + '\n')
     if (rest.length > 0) socket.unshift(rest)
     const detaching = detacher()
-    const stream = ndJsonStream(Writable.toWeb(socket), readable(socket, detaching.start))
+    const tell = (message) => socket.write(JSON.stringify(message) + '\n')
+    const answer = (request) => answerOwnRequest(request, ctx, tell, logger)
+    const stream = ndJsonStream(Writable.toWeb(socket), readable(socket, detaching.start, answer))
     // A session needs a model to start from; Spot Chat then sets the one it uses.
     const selection = config.provider && config.model
       ? { provider: config.provider, model: config.model }
@@ -98,7 +101,7 @@ export function apply(ctx, config = {}) {
       name: 'spot-chat-bridge-connection',
       inject: acp.inject,
       apply: (connection) => acp.apply(
-        forSpotChat(connection, ctx.agents, detaching, logger), { stream, sessionListPageSize: 100, ...selection }
+        forSpotChat(connection, ctx.agents, detaching, tell, logger), { stream, sessionListPageSize: 100, ...selection }
       ),
     })
     logger.info('spot-chat-bridge: Spot Chat connected')
@@ -148,7 +151,7 @@ export function apply(ctx, config = {}) {
  *   message sent while a turn runs.
  * - Approval requests from these sessions go to Spot Chat.
  */
-function forSpotChat(connection, hostAgents, detaching, logger) {
+function forSpotChat(connection, hostAgents, detaching, tell, logger) {
   const presets = connection.get('agentPresets')
   const defaultPreset = async () => (await presets.resolve(undefined)).id
   const mounting = (setup, preset) => presets === undefined ? setup : async (agentCtx, agent) => {
@@ -157,8 +160,10 @@ function forSpotChat(connection, hostAgents, detaching, logger) {
     return commit
   }
   // dsh's ACP server disposes its sessions when the connection closes; here that leaves them running.
+  const open = new Set()
   const kept = (handle) => {
     detaching.watch(handle.agent)
+    open.add(handle.agent.session.id)
     return new Proxy(handle, {
       get: (target, key) => (key === 'dispose' ? () => {} : Reflect.get(target, key)),
     })
@@ -200,6 +205,18 @@ function forSpotChat(connection, hostAgents, detaching, logger) {
       return typeof value === 'function' ? value.bind(target) : value
     },
   })
+  // dsh's ACP server reports what the model and tools do, not the questions; Spot Chat needs those from
+  // dsh's side to tell them from its own and start a new message.
+  connection.on('session/event', (session, event) => {
+    if (!open.has(session.header.id)) return
+    const update = questionUpdate(event)
+    if (update === undefined) return
+    try {
+      tell({ jsonrpc: '2.0', method: 'session/update', params: { sessionId: session.header.id, update } })
+    } catch (error) {
+      logger.warn(`spot-chat-bridge: couldn't pass on a question: ${String(error)}`)
+    }
+  })
   // dsh's own interface takes approval requests first and waits for someone to answer them there. The ACP
   // server's handler goes ahead of it, so Spot Chat asks; it passes on requests from other sessions.
   const on = (name, listener, options) =>
@@ -212,6 +229,89 @@ function forSpotChat(connection, hostAgents, detaching, logger) {
       return Reflect.get(target, key)
     },
   })
+}
+
+/**
+ * Answers the plugin's own requests, which ACP lets a client add with names starting with an underscore.
+ * `_spotchat/history` returns a session's conversation as the updates a client following it would have
+ * seen, so Spot Chat can rebuild it with what was said in dsh's interface. Returns whether it answered.
+ */
+function answerOwnRequest(request, ctx, tell, logger) {
+  if (request.method !== '_spotchat/history' || request.id === undefined) return false
+  const sessionId = request.params?.sessionId
+  ;(async () => {
+    const query = ctx.get('sessionQuery')
+    if (query === undefined) throw new Error('this dsh has no session query service')
+    const { events } = await query.readSession(sessionId)
+    return { updates: historyUpdates(events) }
+  })().then(
+    (result) => tell({ jsonrpc: '2.0', id: request.id, result }),
+    (error) => {
+      logger.warn(`spot-chat-bridge: couldn't read the history of ${sessionId}: ${String(error)}`)
+      tell({ jsonrpc: '2.0', id: request.id, error: { code: -32603, message: String(error?.message ?? error) } })
+    },
+  )
+  return true
+}
+
+/**
+ * A session's events as ACP session updates, made as dsh's ACP server makes them live, with the questions
+ * and the end of each turn added: `_spotchat_turn_end` carries its stop reason, `end_turn`, `cancelled` or
+ * `error` with the error's message.
+ */
+function historyUpdates(events) {
+  const updates = []
+  for (const event of events) {
+    const data = event.data ?? {}
+    if (event.type === 'user/message') {
+      const update = questionUpdate(event)
+      if (update !== undefined) updates.push(update)
+    } else if (event.type === 'assistant/message') {
+      for (const block of data.message?.content ?? []) {
+        if (block.type === 'reasoning' && block.text) {
+          updates.push({ sessionUpdate: 'agent_thought_chunk', content: { type: 'text', text: block.text } })
+        } else if (block.type === 'text' && block.text) {
+          updates.push({ sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: block.text } })
+        }
+      }
+    } else if (event.type === 'tool/call') {
+      let input
+      try {
+        input = JSON.parse(data.arguments)
+      } catch {
+        input = data.arguments
+      }
+      updates.push({
+        sessionUpdate: 'tool_call', toolCallId: data.callId, title: data.name, kind: 'other',
+        status: 'in_progress', rawInput: input,
+      })
+    } else if (event.type === 'tool/result') {
+      const message = data.message ?? {}
+      updates.push({
+        sessionUpdate: 'tool_call_update', toolCallId: message.toolCallId,
+        status: message.isError === true ? 'failed' : 'completed',
+        content: (message.content ?? []).filter((block) => block.type === 'text')
+          .map((block) => ({ type: 'content', content: { type: 'text', text: block.text } })),
+      })
+    } else if (event.type === 'turn/end') {
+      // In ACP's words where it has them: dsh's turn ends completed, aborted or with an error.
+      const kind = data.reason?.kind
+      updates.push({
+        sessionUpdate: '_spotchat_turn_end',
+        stopReason: kind === 'aborted' ? 'cancelled' : kind === 'error' ? 'error' : 'end_turn',
+        ...(kind === 'error' ? { error: data.reason?.error?.message ?? '' } : {}),
+      })
+    }
+  }
+  return updates
+}
+
+/** A question someone asked, as an ACP update; dsh's runtime and time notes aren't questions. */
+function questionUpdate(event) {
+  if (event.type !== 'user/message' || event.data?.source?.kind !== 'user') return undefined
+  const text = (event.data.content ?? []).filter((block) => block.type === 'text').map((block) => block.text).join('\n')
+  if (text.length === 0) return undefined
+  return { sessionUpdate: 'user_message_chunk', messageId: event.data.id, content: { type: 'text', text } }
 }
 
 /**
@@ -246,11 +346,17 @@ function passOverCancels(agent, until) {
   cancelsPassedOverUntil.set(agent, until)
 }
 
-/** The socket as a web stream, which tells `ending` before it ends so ending comes first. */
-function readable(socket, ending) {
+/**
+ * The socket as a web stream of lines, which tells `ending` before it ends so ending comes first. A request
+ * `answer` takes, one of the plugin's own, doesn't go on to dsh's ACP server.
+ */
+function readable(socket, ending, answer) {
   return new ReadableStream({
     start(controller) {
       let ended = false
+      let pending = ''
+      // A character split between two reads is held until its other bytes come.
+      const decoder = new StringDecoder('utf8')
       const end = () => {
         if (ended) return
         ended = true
@@ -263,8 +369,23 @@ function readable(socket, ending) {
         } catch {}
       }
       socket.on('data', (chunk) => {
-        if (!ended) controller.enqueue(new Uint8Array(chunk))
+        if (ended) return
+        pending += decoder.write(chunk)
+        let end
+        while ((end = pending.indexOf('\n')) >= 0) {
+          const line = pending.slice(0, end + 1)
+          pending = pending.slice(end + 1)
+          if (!answered(line)) controller.enqueue(new TextEncoder().encode(line))
+        }
       })
+      const answered = (line) => {
+        if (!line.includes('"_spotchat/')) return false
+        try {
+          return answer(JSON.parse(line))
+        } catch {
+          return false
+        }
+      }
       socket.once('end', end)
       socket.once('close', end)
       socket.resume()
