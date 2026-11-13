@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Checks Spot Chat's bridge into a dsh the user runs: installs dsh from the channel agent/package.json
 # names, adds the bridge to its web profile, starts `dsh web` against the mock model, and connects as Spot
-# Chat does. A wrong token is refused, two connections work at once, a command runs in the folder, and one
-# outside the folder asks the client first.
+# Chat does. A wrong token is refused, two connections work at once, a command runs in the folder, one
+# outside the folder asks the client first, and a session is shared with the dsh it runs in.
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 root="$(dirname "$here")"
@@ -58,10 +58,12 @@ wait "$chat_pid" || true
 chat="$(cat "$work/chat.json")"
 list="$(cat "$work/list.json")"
 outside="$(node "$client" "$socket" "$token" "$work/folder" "Write outside the folder" outside)"
+sharing="$(node "$here/agent_test/bridge_sharing.mjs" "$socket" "$token" "$work/folder" || true)"
 
-python3 - "$wrong" "$chat" "$list" "$outside" "$version" <<'PY'
+python3 - "$wrong" "$chat" "$list" "$outside" "$version" "${sharing:-{\}}" <<'PY'
 import json, os, sys
 wrong, chat, listed, outside = (json.loads(a) for a in sys.argv[1:5])
+sharing = json.loads(sys.argv[6])
 checks = [
     ("A wrong token is refused", not wrong["admitted"]),
     ("A question gets its answer", chat["admitted"] and chat["text"] == "Hello from dsh."),
@@ -70,10 +72,16 @@ checks = [
     # The mock asks again with escalation only when the sandbox stopped the first try.
     ("A command outside the folder asks the client first",
      outside["approvals"] >= 1 and len(outside["tools"]) == 2 and outside["outputs"][-1].startswith("completed:")),
+    # A second connection stands in for dsh's own interface.
+    ("dsh's side joins a session Spot Chat holds, and runs a command Spot Chat sees",
+     sharing.get("joinedWhileHeld") and sharing.get("otherSideRan") and sharing.get("spotSawIt")),
+    ("A turn goes on after Spot Chat leaves", sharing.get("turnWentOn")),
+    ("Spot Chat comes back to the session and goes on with it", sharing.get("cameBack")),
+    ("Stopping still stops", sharing.get("stopStops")),
 ]
 lines = [f"{'pass' if ok else 'FAIL'}: {name}" for name, ok in checks]
 print("\n".join(lines))
-for result in (wrong, chat, listed, outside):
+for result in (wrong, chat, listed, outside, sharing):
     print(json.dumps(result))
 summary = os.environ.get("GITHUB_STEP_SUMMARY")
 if summary:

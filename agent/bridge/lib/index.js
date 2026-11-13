@@ -15,7 +15,7 @@ import { createRequire } from 'node:module'
 import { createServer } from 'node:net'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { Readable, Writable } from 'node:stream'
+import { Writable } from 'node:stream'
 import { pathToFileURL } from 'node:url'
 
 export const name = 'spot-chat-bridge'
@@ -88,7 +88,8 @@ export function apply(ctx, config = {}) {
     const { acp, ndJsonStream } = await (acpLoading ??= loadAcp())
     socket.write(JSON.stringify({ ok: true, version: acpVersion }) + '\n')
     if (rest.length > 0) socket.unshift(rest)
-    const stream = ndJsonStream(Writable.toWeb(socket), Readable.toWeb(socket))
+    const detaching = detacher()
+    const stream = ndJsonStream(Writable.toWeb(socket), readable(socket, detaching.start))
     // A session needs a model to start from; Spot Chat then sets the one it uses.
     const selection = config.provider && config.model
       ? { provider: config.provider, model: config.model }
@@ -96,7 +97,9 @@ export function apply(ctx, config = {}) {
     const fiber = ctx.plugin({
       name: 'spot-chat-bridge-connection',
       inject: acp.inject,
-      apply: (connection) => acp.apply(withPresets(connection), { stream, sessionListPageSize: 100, ...selection }),
+      apply: (connection) => acp.apply(
+        forSpotChat(connection, ctx.agents, detaching, logger), { stream, sessionListPageSize: 100, ...selection }
+      ),
     })
     logger.info('spot-chat-bridge: Spot Chat connected')
     socket.once('close', () => {
@@ -132,40 +135,67 @@ export function apply(ctx, config = {}) {
 }
 
 /**
- * The connection's context, with sessions composed as this dsh composes its own. The desktop and web
- * profiles keep an agent's tools in agent presets that each session mounts when it is made; dsh's ACP
- * server doesn't mount one, so without this its sessions would have no tools at all. A new session gets
- * the user's default preset, and a resumed one the preset it recorded, as dsh's session API does.
- * Approval requests from these sessions go to Spot Chat.
+ * The connection's context, changed so its sessions are shared with this dsh rather than owned by the
+ * connection:
+ *
+ * - Sessions are composed as this dsh composes its own. The desktop and web profiles keep an agent's tools
+ *   in agent presets that each session mounts when it is made; dsh's ACP server doesn't mount one, so its
+ *   sessions would have no tools at all. A new session gets the user's default preset, and a resumed one
+ *   the preset it recorded, as dsh's session API does.
+ * - Sessions belong to the plugin, not the connection, so they go on when Spot Chat disconnects or quits,
+ *   and dsh's interface can go on with them. A session that is already running, in dsh's interface or from
+ *   an earlier connection, is joined rather than refused; both sides then write to it, and dsh queues a
+ *   message sent while a turn runs.
+ * - Approval requests from these sessions go to Spot Chat.
  */
-function withPresets(connection) {
+function forSpotChat(connection, hostAgents, detaching, logger) {
   const presets = connection.get('agentPresets')
-  if (presets === undefined) return connection
-  const agents = connection.agents
-  const mounting = (setup, preset) => async (agentCtx, agent) => {
+  const defaultPreset = async () => (await presets.resolve(undefined)).id
+  const mounting = (setup, preset) => presets === undefined ? setup : async (agentCtx, agent) => {
     const commit = await setup?.(agentCtx, agent)
     await presets.mount(agentCtx, await preset(agent))
     return commit
   }
-  const defaultPreset = async () => (await presets.resolve(undefined)).id
-  const wrapped = new Proxy(agents, {
+  // dsh's ACP server disposes its sessions when the connection closes; here that leaves them running.
+  const kept = (handle) => {
+    detaching.watch(handle.agent)
+    return new Proxy(handle, {
+      get: (target, key) => (key === 'dispose' ? () => {} : Reflect.get(target, key)),
+    })
+  }
+  const wrapped = new Proxy(hostAgents, {
     get(target, key) {
       if (key === 'create') {
         return async (options) => {
-          const preset = await defaultPreset()
-          return target.create({
+          const preset = presets === undefined ? undefined : await defaultPreset()
+          return kept(await target.create({
             ...options,
-            meta: { ...options.meta, agentPreset: preset },
+            meta: preset === undefined ? options.meta : { ...options.meta, agentPreset: preset },
             setup: mounting(options.setup, async () => preset),
-          })
+          }))
         }
       }
       if (key === 'resume') {
-        return (options) => target.resume({
-          ...options,
-          setup: mounting(options.setup, async (agent) => presets.presetForSession(agent.session) ?? await defaultPreset()),
-        })
+        return async (options) => {
+          const live = target.get(options.resumeSessionId)
+          if (live !== undefined) {
+            logger.info(`spot-chat-bridge: joined the running session ${options.resumeSessionId}`)
+            return kept({ agent: live, dispose() {} })
+          }
+          return kept(await target.resume({
+            ...options,
+            setup: mounting(options.setup, async (agent) => presets.presetForSession(agent.session) ?? await defaultPreset()),
+          }))
+        }
       }
+      const value = Reflect.get(target, key, target)
+      return typeof value === 'function' ? value.bind(target) : value
+    },
+  })
+  // The ACP server refuses a session dsh already has open; it may join one here.
+  const sessions = new Proxy(connection.sessions, {
+    get(target, key) {
+      if (key === 'get') return () => undefined
       const value = Reflect.get(target, key, target)
       return typeof value === 'function' ? value.bind(target) : value
     },
@@ -177,8 +207,67 @@ function withPresets(connection) {
   return new Proxy(connection, {
     get(target, key) {
       if (key === 'agents') return wrapped
+      if (key === 'sessions') return sessions
       if (key === 'on') return on
       return Reflect.get(target, key)
+    },
+  })
+}
+
+/**
+ * What happens to a connection's sessions when Spot Chat goes. dsh's ACP server then cancels what each of
+ * its sessions is doing before it lets go of them: once as the prompt's request is aborted, again as it
+ * closes the session. Those cancels are passed over, so a turn under way, Spot Chat's or one started in
+ * dsh's interface, finishes. They come at once; a cancel after that, as Spot Chat asks for, goes through.
+ * The sessions themselves stay open in dsh, so Spot Chat joins them again when it comes back.
+ */
+function detacher() {
+  const agents = new Set()
+  return {
+    watch: (agent) => agents.add(agent),
+    start: () => {
+      // Both come within a millisecond or two of the close.
+      const until = Date.now() + 100
+      for (const agent of agents) passOverCancels(agent, until)
+    },
+  }
+}
+
+const cancelsPassedOverUntil = new WeakMap()
+
+function passOverCancels(agent, until) {
+  if (!cancelsPassedOverUntil.has(agent)) {
+    const cancel = agent.cancel
+    agent.cancel = function (...args) {
+      if (Date.now() < cancelsPassedOverUntil.get(agent)) return
+      return cancel.apply(this, args)
+    }
+  }
+  cancelsPassedOverUntil.set(agent, until)
+}
+
+/** The socket as a web stream, which tells `ending` before it ends so ending comes first. */
+function readable(socket, ending) {
+  return new ReadableStream({
+    start(controller) {
+      let ended = false
+      const end = () => {
+        if (ended) return
+        ended = true
+        // Nothing may throw out of a socket's event: it would take dsh down.
+        try {
+          ending()
+        } catch {}
+        try {
+          controller.close()
+        } catch {}
+      }
+      socket.on('data', (chunk) => {
+        if (!ended) controller.enqueue(new Uint8Array(chunk))
+      })
+      socket.once('end', end)
+      socket.once('close', end)
+      socket.resume()
     },
   })
 }
