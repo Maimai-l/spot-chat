@@ -375,6 +375,10 @@ final class SpotChatUITests: XCTestCase {
         )).firstMatch
         XCTAssertTrue(asked.waitForExistence(timeout: 90), "The question asked in DeepSeek Harness shows here")
         XCTAssertTrue(reply(containing: "Listed the folder.", in: app).waitForExistence(timeout: 30))
+        // A reply read from the history shows its steps folded, as a stored one does.
+        let steps = element("commands", in: app)
+        XCTAssertTrue(steps.waitForExistence(timeout: 5))
+        steps.click()
         XCTAssertTrue(element("command.succeeded", in: app).waitForExistence(timeout: 5))
         XCTAssertFalse(element("message.error", in: app).exists)
         RunLoop.current.run(until: Date().addingTimeInterval(1))
