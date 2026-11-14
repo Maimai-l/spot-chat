@@ -6,13 +6,10 @@ Spot Chat.
 
 ## Install
 
-Quit DeepSeek Harness, then run the command Spot Chat copies from Settings > General > Run Commands:
-
-```bash
-dsh plugin --profile desktop add "file:/Applications/Spot Chat.app/Contents/Resources/dsh-bridge"
-```
-
-For `dsh web`, use `--profile web`. Then choose DeepSeek Harness under Run In.
+In Spot Chat, choose DeepSeek Harness under Settings > General > Run In, and follow the steps it shows: in
+DeepSeek Harness, open Plugins > Add Plugin and paste the location Spot Chat copies, which is
+`/Applications/SpotChat.app/Contents/Resources/dsh-bridge` for the app in Applications. Spot Chat connects
+once DeepSeek Harness has loaded the plugin.
 
 ## How it works
 
