@@ -234,6 +234,8 @@ jobs:
     needs: plan
     if: needs.plan.outputs.release == 'true'
     runs-on: macos-15
+    outputs:
+      alpha: ${{ steps.package.outputs.alpha }}
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/prepare-app
@@ -248,10 +250,22 @@ jobs:
             -derivedDataPath build/DerivedData \
             -clonedSourcePackagesDirPath build/SourcePackages \
             CURRENT_PROJECT_VERSION=${{ github.run_number }}
+      # Updates need Sparkle inside the app and a signature that holds, ad hoc as it is.
+      - name: Check the app updates itself
+        run: |
+          app=build/DerivedData/Build/Products/Release/SpotChat.app
+          test -d "$app/Contents/Frameworks/Sparkle.framework" || { echo "Sparkle isn't in the app"; exit 1; }
+          codesign --verify --deep "$app"
+          /usr/libexec/PlistBuddy -c 'Print SUFeedURL' "$app/Contents/Info.plist"
+          if [ -z "$(/usr/libexec/PlistBuddy -c 'Print SUPublicEDKey' "$app/Contents/Info.plist")" ]; then
+            echo "::warning::No Sparkle public key in project.yml; this alpha won't update itself"
+          fi
       - name: Package alpha build
+        id: package
         run: |
           VERSION="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' build/DerivedData/Build/Products/Release/SpotChat.app/Contents/Info.plist)"
           echo "ALPHA_NAME=SpotChat-$VERSION-alpha.${{ github.run_number }}" >> "$GITHUB_ENV"
+          echo "alpha=SpotChat-$VERSION-alpha.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
           ditto -c -k --keepParent build/DerivedData/Build/Products/Release/SpotChat.app "build/SpotChat-$VERSION-alpha.${{ github.run_number }}.zip"
       - name: Upload alpha build
         uses: actions/upload-artifact@v7
@@ -260,3 +274,50 @@ jobs:
           path: build/${{ env.ALPHA_NAME }}.zip
       - name: Summarize
         run: echo "## Release build"$'\n\n'"$ALPHA_NAME" >> "$GITHUB_STEP_SUMMARY"
+
+  # Publishes the alpha as an update: the feed Sparkle reads, the archive and deltas from the builds before,
+  # on GitHub Pages; no release or tag. Signed with the EdDSA key in the SPARKLE_PRIVATE_KEY secret.
+  publish-update:
+    name: Publish the update
+    needs: release
+    if: github.event_name != 'pull_request'
+    runs-on: macos-15
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    env:
+      SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+    steps:
+      - name: Look for the signing key
+        id: key
+        run: |
+          if [ -n "$SPARKLE_PRIVATE_KEY" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::No SPARKLE_PRIVATE_KEY secret, so this alpha isn't published as an update"
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v7
+        if: steps.key.outputs.present == 'true'
+      - name: Download the alpha
+        if: steps.key.outputs.present == 'true'
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ needs.release.outputs.alpha }}
+          path: build
+      - name: Make the update site
+        if: steps.key.outputs.present == 'true'
+        run: bash scripts/publish_update.sh "build/${{ needs.release.outputs.alpha }}.zip" build/site
+      - name: Upload the site
+        if: steps.key.outputs.present == 'true'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: build/site
+      - name: Publish on GitHub Pages
+        id: deploy
+        if: steps.key.outputs.present == 'true'
+        uses: actions/deploy-pages@v5

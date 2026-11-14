@@ -223,6 +223,7 @@ struct GeneralSettingsView: View {
     @ObservedObject var app: AppModel
     @State private var language = InterfaceLanguage.chosen
     @State private var settingUpHarness = false
+    @ObservedObject private var updates = Updates.shared
 
     var body: some View {
         Form {
@@ -381,9 +382,16 @@ struct GeneralSettingsView: View {
 
             Section {
                 LabeledContent("Version") {
-                    Text(verbatim: AppVersion.display)
-                        .textSelection(.enabled)
-                        .accessibilityIdentifier("appVersion")
+                    HStack(spacing: 8) {
+                        Text(verbatim: AppVersion.display)
+                            .textSelection(.enabled)
+                            .accessibilityIdentifier("appVersion")
+                        if Updates.shared.isOn {
+                            Button("Check for Updates…") { Updates.shared.checkNow() }
+                                .disabled(!updates.canCheck)
+                                .accessibilityIdentifier("checkForUpdates")
+                        }
+                    }
                 }
             }
         }

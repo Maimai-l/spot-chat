@@ -14,6 +14,8 @@ settings:
     CODE_SIGN_STYLE: Manual
     DEVELOPMENT_TEAM: ""
     ENABLE_HARDENED_RUNTIME: NO
+    # Sparkle's public EdDSA key; updates are signed with its private key, a CI secret. Empty turns updates off.
+    SPARKLE_PUBLIC_KEY: ""
     # The runtime-embedding script copies a folder Xcode doesn't track.
     ENABLE_USER_SCRIPT_SANDBOXING: NO
 packages:
@@ -26,6 +28,10 @@ packages:
   CocoaLumberjack:
     url: https://github.com/CocoaLumberjack/CocoaLumberjack
     exactVersion: "3.9.0"
+  # Updates alpha builds from the feed CI publishes to GitHub Pages, with deltas between builds.
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    exactVersion: "2.10.1"
 targets:
   SpotChat:
     type: application
@@ -52,6 +58,7 @@ targets:
         product: CocoaLumberjackSwift
       - package: CocoaLumberjack
         product: CocoaLumberjackSwiftLogBackend
+      - package: Sparkle
       # Writes chat replies in a process of its own, so they finish and are saved after the app quits.
       - target: SpotChatWriter
         embed: true
@@ -95,6 +102,11 @@ targets:
         CFBundleDevelopmentRegion: en
         CFBundleLocalizations: [en, zh-Hans]
         SpotChatReleaseChannel: alpha
+        SUFeedURL: https://maimai-l.github.io/spot-chat/appcast.xml
+        SUPublicEDKey: $(SPARKLE_PUBLIC_KEY)
+        SUEnableAutomaticChecks: true
+        # Every six hours, as alphas come often.
+        SUScheduledCheckInterval: 21600
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
     settings:

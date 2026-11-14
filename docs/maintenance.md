@@ -46,7 +46,15 @@ Settings or the menu bar.
   log names the alpha it came from.
 - Each alpha goes out with a checklist in Chinese: what changed, and how to check each change in the app.
 - The app isn't notarized; the README gives the command that lets it open.
-- There are no releases or tags.
+- There are no releases or tags. A full run also publishes the alpha as an update on GitHub Pages
+  (`scripts/publish_update.sh`): Sparkle's feed at `maimai-l.github.io/spot-chat/appcast.xml` on the `alpha`
+  channel, the archive, and deltas to it from the three builds before. An installed alpha checks every six
+  hours and downloads the delta; Settings › General › Version and the menu bar menu check by hand.
+- Updates are signed with an EdDSA key: the private key is the `SPARKLE_PRIVATE_KEY` secret and the owner's
+  Keychain, the public key is `SPARKLE_PUBLIC_KEY` in `project.yml`. Sparkle accepts an update whose EdDSA
+  signature holds even though each build's ad hoc signature differs (`SUUpdateValidator.m`: "Either DSA must
+  be valid, or Apple Code Signing must be valid"). Losing the private key means installing the next alpha by
+  hand.
 
 ## Keeping it building
 
@@ -60,6 +68,7 @@ building on it.
 | swift-collections | 1.2.1 | A local resolve picked 1.7.5, which needs Swift 6.4 |
 | GRDB.swift, MacPaw OpenAI, ACP swift-sdk, swift-log | as resolved: 7.11.1, 0.5.3, 0.2.2, 1.9.1 | Update one at a time and run the core tests |
 | KeyboardShortcuts | from 2.0.0 | Check the recording field in Settings after an update |
+| Sparkle | 2.10.1, exact | A binary framework; `scripts/publish_update.sh` uses the same version's tools. Update both together, then check an alpha updates to the next |
 | dsh | Followed, not pinned: `agent/package.json` names the `next` channel, its release candidates, on Node 24.22.2 | Each CI run builds the newest release whole, records what loads in the smoke test (which also changes the effort, stops a turn and resumes a session), trims to that and tests again. The run's summary names the dsh version and any package not yet in `agent/runtime-packages.txt`: add those. When the smoke or command tests fail on a new release, adapt to it; check telemetry is still off in `agent/profile/cordis.patch.yml` |
 | Reply page | exact versions in `Web/package.json` | `npm run build` and commit `App/Reply`; CI fails if the build isn't committed |
 | GitHub Actions | checkout v7, cache v6, setup-node v7, upload-artifact v7, download-artifact v8 | Read each major version's breaking changes before moving |

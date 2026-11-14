@@ -16,6 +16,11 @@ struct SpotChatApp: App {
                 appDelegate.showSettings()
             }
             .keyboardShortcut(",")
+            if Updates.shared.isOn {
+                Button("Check for Updates…") {
+                    Updates.shared.checkNow()
+                }
+            }
             Divider()
             Button("Quit Spot Chat") {
                 NSApp.terminate(nil)

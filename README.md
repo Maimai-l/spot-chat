@@ -16,6 +16,8 @@ Spot Chat is in alpha. There are no releases yet; every build is an alpha build 
 
 4. Spot Chat lives in the menu bar. Press Option+Space to open the mini window.
 
+From then on, Spot Chat updates itself to each new alpha, downloading only what changed.
+
 The interface follows the system language, Simplified Chinese or English. Settings › General › Language sets it for Spot Chat alone.
 
 ## Searching the web

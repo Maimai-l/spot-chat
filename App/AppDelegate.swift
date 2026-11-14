@@ -61,6 +61,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Starts checking for updates in a packaged alpha.
+        _ = Updates.shared
         let defaults = UserDefaults.standard
         if defaults.bool(forKey: LaunchOption.resetState) {
             UserDefaultsDraftStorage().saveDraft("")
