@@ -15,7 +15,7 @@ settings:
     DEVELOPMENT_TEAM: ""
     ENABLE_HARDENED_RUNTIME: NO
     # Sparkle's public EdDSA key; updates are signed with its private key, a CI secret. Empty turns updates off.
-    SPARKLE_PUBLIC_KEY: ""
+    SPARKLE_PUBLIC_KEY: "ppF+wyycvdyGAA7MfteuiIGy4GO2IxOTWMIf7pYqkPs="
     # The runtime-embedding script copies a folder Xcode doesn't track.
     ENABLE_USER_SCRIPT_SANDBOXING: NO
 packages:
