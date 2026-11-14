@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="zh-Hans"><head><meta charset="utf-8"><title>Harness Setup</title>
+<!-- Connecting DeepSeek Harness from Settings, drawn at the app's size in points beside the Settings window
+     the CI screenshots show. One accent color; everything else gray. -->
+<style>
+:root{--text:rgba(0,0,0,.86);--sec:rgba(0,0,0,.5);--ter:rgba(0,0,0,.28);--accent:#0a7aff;--rim:0 0 0 .5px rgba(0,0,0,.14);--shadow:0 12px 34px rgba(0,0,0,.28)}
+*{box-sizing:border-box}
+body{margin:0;background:#1e1e1e;font-family:-apple-system,"SF Pro Text","PingFang SC","Inter","WenQuanYi Zen Hei",sans-serif;color:var(--text);padding:32px;display:flex;flex-direction:column;gap:28px;width:1024px}
+.cap{color:#d4d4d4;font-size:14px;margin:0 0 10px 2px}
+.stage{position:relative;width:960px;height:560px;border-radius:12px;background:linear-gradient(165deg,#56677a,#2b3541);overflow:hidden}
+/* Settings window */
+.set{position:absolute;left:130px;top:28px;width:700px;height:504px;border-radius:12px;background:#ececee;box-shadow:var(--shadow),var(--rim);overflow:hidden;font-size:13px}
+.head{height:84px;border-bottom:.5px solid rgba(0,0,0,.12);position:relative}
+.lights{position:absolute;left:12px;top:10px;display:flex;gap:7px}.lights i{width:12px;height:12px;border-radius:6px;background:#ff5f57;box-shadow:inset 0 0 0 .5px rgba(0,0,0,.15)}.lights i:nth-child(2){background:#febc2e}.lights i:nth-child(3){background:#28c840}
+.title{position:absolute;left:0;right:0;top:7px;text-align:center;font-weight:600}
+.tabs{position:absolute;left:0;right:0;top:30px;display:flex;justify-content:center;gap:4px}
+.tab{width:58px;height:46px;border-radius:7px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:11px;color:var(--sec)}
+.tab.on{background:rgba(0,0,0,.07);color:var(--accent)}
+.tab b{width:18px;height:14px;border:1.5px solid currentColor;border-radius:3px;display:block}
+.body{padding:18px 50px}
+.h{font-weight:600;margin:14px 0 8px 10px}
+.group{background:rgba(255,255,255,.55);border-radius:9px;box-shadow:var(--rim)}
+.row{display:flex;align-items:center;gap:10px;min-height:38px;padding:0 10px}
+.row + .row{border-top:.5px solid rgba(0,0,0,.09)}
+.sp{flex:1}
+.v{color:var(--sec)}
+.pop{display:inline-flex;align-items:center;gap:6px}
+/* The pop-up button's up-and-down chevrons, drawn. */
+.pop:after{content:"";width:7px;height:11px;background:no-repeat center/7px 11px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 11'%3E%3Cpath d='M1 4l2.5-2.5L6 4M1 7l2.5 2.5L6 7' fill='none' stroke='rgba(0,0,0,.5)' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
+.btn{height:22px;padding:0 10px;border-radius:6px;background:#fff;box-shadow:0 .5px 1.5px rgba(0,0,0,.18),var(--rim);display:inline-flex;align-items:center;font-size:13px;white-space:nowrap}
+.btn.pri{background:var(--accent);color:#fff;box-shadow:0 .5px 1.5px rgba(0,0,0,.2)}
+.btn.off{color:var(--ter)}
+/* the sheet, attached under the toolbar as macOS draws one */
+.dim{position:absolute;inset:84px 0 0;background:rgba(0,0,0,.08)}
+.sheet{position:absolute;left:110px;top:84px;width:480px;border-radius:0 0 12px 12px;background:#f2f2f4;box-shadow:0 10px 30px rgba(0,0,0,.25),var(--rim);padding:20px 22px 18px}
+.sheet h2{font-size:15px;font-weight:600;margin:0 0 16px}
+.step{display:flex;align-items:flex-start;gap:12px;padding:12px 0}
+.step + .step{border-top:.5px solid rgba(0,0,0,.09)}
+.step{flex-wrap:wrap}
+.hint{flex-basis:100%;padding-left:32px;font-size:12px;color:var(--sec);margin-top:-4px;line-height:1.45}
+.dot{width:20px;height:20px;flex:none;margin-top:1px}
+.st{flex:1;min-width:0}
+.st .n{font-size:13px;font-weight:600}
+.st .s{font-size:12px;color:var(--sec);margin-top:3px;line-height:1.45}
+.step.later .n{color:var(--ter);font-weight:500}
+.step .btn{margin-top:1px}
+.foot{display:flex;justify-content:flex-end;margin-top:14px}
+.en{font-family:-apple-system,"SF Pro Text","Inter",sans-serif}
+</style></head><body>
+
+<!-- Circles drawn, not symbols: a ring to do, a ring in the accent for the step at hand, a filled check when done. -->
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="todo" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8.25" fill="none" stroke="rgba(0,0,0,.22)" stroke-width="1.5"/></symbol>
+  <symbol id="now" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8.25" fill="none" stroke="#0a7aff" stroke-width="1.5"/><circle cx="10" cy="10" r="3.2" fill="#0a7aff"/></symbol>
+  <symbol id="done" viewBox="0 0 20 20"><circle cx="10" cy="10" r="9" fill="#0a7aff"/><path d="M6 10.3l2.7 2.6L14 7.4" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+</svg>
+
+<template id="settings">
+  <div class="head"><div class="lights"><i></i><i></i><i></i></div><div class="title">通用</div>
+    <div class="tabs"><div class="tab"><b></b>服务商</div><div class="tab on"><b></b>通用</div></div></div>
+  <div class="body">
+    <div class="h">运行命令</div>
+    <div class="group">
+      <div class="row">默认文件夹<span class="sp"></span><span class="v">~/Documents/Spot Chat</span><span class="btn">更改…</span></div>
+      <div class="row">运行位置<span class="sp"></span><span class="pop">DeepSeek Harness</span></div>
+    </div>
+  </div>
+</template>
+
+<div>
+  <p class="cap">1  在“运行位置”选择 DeepSeek Harness 后出现；DeepSeek Harness 未运行。取消即不切换，运行位置回到 Spot Chat</p>
+  <div class="stage"><div class="set" data-settings>
+    <div class="dim"></div>
+    <div class="sheet">
+      <h2>连接 DeepSeek Harness</h2>
+      <div class="step"><svg class="dot"><use href="#now"/></svg><div class="st"><div class="n">DeepSeek Harness</div><div class="s">未运行</div></div><span class="btn">打开</span></div>
+      <div class="step later"><svg class="dot"><use href="#todo"/></svg><div class="st"><div class="n">Spot Chat 插件</div></div></div>
+      <div class="step later"><svg class="dot"><use href="#todo"/></svg><div class="st"><div class="n">连接</div></div></div>
+      <div class="foot"><span class="btn">取消</span></div>
+    </div>
+  </div></div>
+</div>
+
+<div>
+  <p class="cap">2  DeepSeek Harness 正在运行，等待插件；装好后自动检测并连接，不用再点</p>
+  <div class="stage"><div class="set" data-settings>
+    <div class="dim"></div>
+    <div class="sheet">
+      <h2>连接 DeepSeek Harness</h2>
+      <div class="step"><svg class="dot"><use href="#done"/></svg><div class="st"><div class="n">DeepSeek Harness</div><div class="s">正在运行</div></div></div>
+      <div class="step"><svg class="dot"><use href="#now"/></svg><div class="st"><div class="n">Spot Chat 插件</div><div class="s">未添加</div></div><span class="btn">拷贝插件位置</span><div class="hint">在 DeepSeek Harness 的“插件”中点按“添加插件”，粘贴后安装</div></div>
+      <div class="step later"><svg class="dot"><use href="#todo"/></svg><div class="st"><div class="n">连接</div><div class="s">正在等待</div></div></div>
+      <div class="foot"><span class="btn">取消</span></div>
+    </div>
+  </div></div>
+</div>
+
+<div>
+  <p class="cap">3  已连接，按钮变为“完成”</p>
+  <div class="stage"><div class="set" data-settings>
+    <div class="dim"></div>
+    <div class="sheet">
+      <h2>连接 DeepSeek Harness</h2>
+      <div class="step"><svg class="dot"><use href="#done"/></svg><div class="st"><div class="n">DeepSeek Harness</div><div class="s">正在运行</div></div></div>
+      <div class="step"><svg class="dot"><use href="#done"/></svg><div class="st"><div class="n">Spot Chat 插件</div><div class="s">已添加</div></div></div>
+      <div class="step"><svg class="dot"><use href="#done"/></svg><div class="st"><div class="n">连接</div><div class="s">已连接</div></div></div>
+      <div class="foot"><span class="btn pri">完成</span></div>
+    </div>
+  </div></div>
+</div>
+
+<div>
+  <p class="cap">4  之后的设置：只留状态，有问题时用“设置…”再打开同一个面板</p>
+  <div class="stage"><div class="set">
+    <div class="head"><div class="lights"><i></i><i></i><i></i></div><div class="title">通用</div>
+      <div class="tabs"><div class="tab"><b></b>服务商</div><div class="tab on"><b></b>通用</div></div></div>
+    <div class="body">
+      <div class="h">运行命令</div>
+      <div class="group">
+        <div class="row">默认文件夹<span class="sp"></span><span class="v">~/Documents/Spot Chat</span><span class="btn">更改…</span></div>
+        <div class="row">运行位置<span class="sp"></span><span class="pop">DeepSeek Harness</span></div>
+        <div class="row">状态<span class="sp"></span><span class="v">已连接</span><span class="btn">设置…</span></div>
+      </div>
+    </div>
+  </div></div>
+</div>
+
+<div class="en">
+  <p class="cap">2 in English</p>
+  <div class="stage"><div class="set">
+    <div class="head"><div class="lights"><i></i><i></i><i></i></div><div class="title">General</div>
+      <div class="tabs"><div class="tab"><b></b>Providers</div><div class="tab on"><b></b>General</div></div></div>
+    <div class="body">
+      <div class="h">Run Commands</div>
+      <div class="group">
+        <div class="row">Default Folder<span class="sp"></span><span class="v">~/Documents/Spot Chat</span><span class="btn">Change…</span></div>
+        <div class="row">Run In<span class="sp"></span><span class="pop">DeepSeek Harness</span></div>
+      </div>
+    </div>
+    <div class="dim"></div>
+    <div class="sheet">
+      <h2>Connect DeepSeek Harness</h2>
+      <div class="step"><svg class="dot"><use href="#done"/></svg><div class="st"><div class="n">DeepSeek Harness</div><div class="s">Running</div></div></div>
+      <div class="step"><svg class="dot"><use href="#now"/></svg><div class="st"><div class="n">Spot Chat Plugin</div><div class="s">Not Added</div></div><span class="btn">Copy Plugin Location</span><div class="hint">In DeepSeek Harness, choose Plugins › Add Plugin, paste, and install</div></div>
+      <div class="step later"><svg class="dot"><use href="#todo"/></svg><div class="st"><div class="n">Connection</div><div class="s">Waiting</div></div></div>
+      <div class="foot"><span class="btn">Cancel</span></div>
+    </div>
+  </div></div>
+</div>
+
+<script>
+  for (const host of document.querySelectorAll('[data-settings]')) {
+    host.prepend(document.getElementById('settings').content.cloneNode(true))
+  }
+</script>
+</body></html>
