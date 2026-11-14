@@ -603,6 +603,8 @@ struct HarnessSetupSheet: View {
         .padding(.top, 20)
         .padding(.bottom, 18)
         .frame(width: 480)
+        // Contains its controls rather than naming them all, so each keeps its own identifier.
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("harnessSetup")
         .task {
             while !Task.isCancelled {

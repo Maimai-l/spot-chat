@@ -88,3 +88,6 @@ Problems this project hit and what fixed them, so they aren't solved twice.
   before parsing it, and Swift's `JSONEncoder` writes the slash as `\/`; the test client, in Node, doesn't,
   so the bridge test passed and only the UI test failed. A test client that stands in for the app sends what
   the app sends; the bridge test now escapes the slash as Swift does.
+- **A UI test couldn't find the Done button on a sheet it could see.** The sheet's stack had an
+  accessibility identifier, which SwiftUI gives every element inside it, so the button's own was lost. A
+  container that carries an identifier also gets `.accessibilityElement(children: .contain)`.
