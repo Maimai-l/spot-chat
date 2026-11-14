@@ -385,6 +385,37 @@ final class SpotChatUITests: XCTestCase {
         attachScreenshot("Harness question from dsh")
     }
 
+    /// Choosing DeepSeek Harness in Settings opens the steps to connect it; with CI's DeepSeek Harness running
+    /// with the plugin (scripts/start_test_harness.sh), each one checks itself and the last connects.
+    func testSettingUpDeepSeekHarness() {
+        let app = launch(resetState: true, fullWindow: true, arguments: [
+            "-SpotChatBridgeFolder", "/tmp/spot-chat-harness",
+        ])
+        let gear = element("openSettings", in: app)
+        XCTAssertTrue(gear.waitForExistence(timeout: 10))
+        gear.click()
+        let general = app.toolbars.buttons["General"]
+        XCTAssertTrue(general.waitForExistence(timeout: 5))
+        general.click()
+        let runIn = element("commandsRunIn", in: app)
+        XCTAssertTrue(runIn.waitForExistence(timeout: 5))
+        runIn.click()
+        let harness = app.menuItems["DeepSeek Harness"]
+        XCTAssertTrue(harness.waitForExistence(timeout: 5))
+        harness.click()
+
+        XCTAssertTrue(element("harnessSetup", in: app).waitForExistence(timeout: 5), "Choosing it opens the steps")
+        let done = element("harnessSetupDone", in: app)
+        XCTAssertTrue(done.waitForExistence(timeout: 20), "The steps check themselves and connect")
+        RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        attachScreenshot("Harness setup connected")
+        done.click()
+        let status = element("harnessStatus", in: app)
+        XCTAssertTrue(status.waitForExistence(timeout: 10))
+        XCTAssertEqual(text(of: status), "Connected")
+        XCTAssertTrue(element("setUpHarness", in: app).exists)
+    }
+
     /// Whether a session file of the test's DeepSeek Harness contains `text`.
     private func harnessSessions(mention text: String) -> Bool {
         let home = URL(fileURLWithPath: "/tmp/spot-chat-harness-dsh/home")

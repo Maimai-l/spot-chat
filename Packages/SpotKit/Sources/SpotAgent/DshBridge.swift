@@ -53,6 +53,14 @@ public struct DshBridge: Sendable, Equatable {
     }
 
     var socket: URL { folder.appendingPathComponent("bridge.sock") }
+
+    /// Whether the plugin is listening: its socket is there, which it is while DeepSeek Harness runs with it.
+    public var isListening: Bool {
+        guard let type = try? FileManager.default.attributesOfItem(atPath: socket.path)[.type] as? FileAttributeType else {
+            return false
+        }
+        return type == .typeSocket
+    }
     var tokenHash: URL { folder.appendingPathComponent("token.sha256") }
 
     // MARK: Pairing

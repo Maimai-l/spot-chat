@@ -222,6 +222,7 @@ struct ProviderDetailView: View {
 struct GeneralSettingsView: View {
     @ObservedObject var app: AppModel
     @State private var language = InterfaceLanguage.chosen
+    @State private var settingUpHarness = false
 
     var body: some View {
         Form {
@@ -317,14 +318,18 @@ struct GeneralSettingsView: View {
                 .accessibilityIdentifier("defaultCommandFolder")
                 Picker("Run In", selection: Binding(
                     get: { app.runsCommandsInHarness },
-                    set: { app.setRunsCommandsInHarness($0) }
+                    set: { inHarness in
+                        app.setRunsCommandsInHarness(inHarness)
+                        // Choosing DeepSeek Harness starts connecting to it.
+                        if inHarness { settingUpHarness = true }
+                    }
                 )) {
                     Text(verbatim: "Spot Chat").tag(false)
                     Text(verbatim: "DeepSeek Harness").tag(true)
                 }
                 .accessibilityIdentifier("commandsRunIn")
                 if app.runsCommandsInHarness {
-                    HarnessRows(app: app)
+                    HarnessStatusRow(app: app) { settingUpHarness = true }
                 }
             }
 
@@ -383,6 +388,9 @@ struct GeneralSettingsView: View {
             }
         }
         .formStyle(.grouped)
+        .sheet(isPresented: $settingUpHarness) {
+            HarnessSetupSheet(app: app)
+        }
     }
 
     /// Saves the log as one file where the user picks.
@@ -459,9 +467,43 @@ enum InterfaceLanguage: String {
     }
 }
 
-/// Whether Spot Chat reaches the user's DeepSeek Harness, and the command that adds its plugin there.
-private struct HarnessRows: View {
+/// Where DeepSeek Harness stands, as connecting to it goes: running, with Spot Chat's plugin listening, and
+/// answering Spot Chat.
+struct HarnessState: Equatable {
+    var running = false
+    var listening = false
+    var connected = false
+
+    /// DeepSeek Harness's app, where it is usually installed.
+    static var app: URL? {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        return ["/Applications/DeepSeek Harness.app", home + "/Applications/DeepSeek Harness.app"]
+            .map { URL(fileURLWithPath: $0) }
+            .first { FileManager.default.fileExists(atPath: $0.path) }
+    }
+
+    /// Looks now. The plugin listening means DeepSeek Harness runs it, whatever its app is called.
+    @MainActor
+    static func now(_ app: AppModel) async -> HarnessState {
+        let bridge = app.harnessBridge
+        var state = HarnessState()
+        state.listening = bridge.isListening
+        state.running = state.listening || NSWorkspace.shared.runningApplications.contains { $0.localizedName == "DeepSeek Harness" }
+        guard state.listening, case let .success(token) = app.pairWithHarness() else { return state }
+        // Connecting waits up to a few seconds, off the main thread.
+        let result = await Task.detached { bridge.check(token: token) }.value
+        if case let .failure(failure) = result {
+            SpotLog.agent.notice("DeepSeek Harness doesn't answer", metadata: ["reason": "\(failure)"])
+        }
+        state.connected = (try? result.get()) != nil
+        return state
+    }
+}
+
+/// Whether Spot Chat reaches the user's DeepSeek Harness, and the way back to connecting it.
+private struct HarnessStatusRow: View {
     @ObservedObject var app: AppModel
+    let setUp: () -> Void
     @State private var connected: Bool?
 
     var body: some View {
@@ -472,43 +514,154 @@ private struct HarnessRows: View {
                         .foregroundStyle(.secondary)
                         .accessibilityIdentifier("harnessStatus")
                 }
-                Button("Check") { check() }
-                    .accessibilityIdentifier("checkHarness")
+                Button("Set Up…", action: setUp)
+                    .accessibilityIdentifier("setUpHarness")
             }
         }
-        LabeledContent("Plugin") {
-            Button("Copy Install Command") { copyInstallCommand() }
-                .disabled(app.harnessPlugin == nil)
-                .accessibilityIdentifier("copyHarnessInstallCommand")
-        }
-        .task { check() }
-    }
-
-    private func check() {
-        let bridge = app.harnessBridge
-        guard case let .success(token) = app.pairWithHarness() else {
-            connected = false
-            return
-        }
-        Task {
-            // Connecting waits up to a few seconds, off the main thread.
-            let result = await Task.detached { bridge.check(token: token) }.value
-            switch result {
-            case let .success(version):
-                SpotLog.agent.info("DeepSeek Harness answers", metadata: ["acp": "\(version)"])
-            case let .failure(failure):
-                SpotLog.agent.notice("DeepSeek Harness doesn't answer", metadata: ["reason": "\(failure)"])
+        .task {
+            // Kept current while Settings shows it, as DeepSeek Harness opens and quits.
+            while !Task.isCancelled {
+                let now = await HarnessState.now(app).connected
+                if connected != now {
+                    SpotLog.agent.info("DeepSeek Harness connection", metadata: ["connected": "\(now)"])
+                    connected = now
+                }
+                do {
+                    try await Task.sleep(for: .seconds(5))
+                } catch {
+                    break
+                }
             }
-            connected = (try? result.get()) != nil
+        }
+    }
+}
+
+/// Connecting DeepSeek Harness, in three steps that check themselves: it runs, it has Spot Chat's plugin, and
+/// it answers. The one thing to do by hand is adding the plugin in DeepSeek Harness, which takes a folder's
+/// location and installs it with its own tools. Cancel goes back to running commands in Spot Chat.
+struct HarnessSetupSheet: View {
+    @ObservedObject var app: AppModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var state = HarnessState()
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Connect DeepSeek Harness")
+                .font(.headline)
+                .padding(.bottom, 8)
+            step(
+                done: state.running, now: !state.running, waits: false, shown: true,
+                title: Text(verbatim: "DeepSeek Harness"), status: state.running ? "Running" : "Not Running"
+            ) {
+                if !state.running, let harness = HarnessState.app {
+                    Button("Open") { open(harness) }
+                        .accessibilityIdentifier("openHarness")
+                }
+            }
+            Divider()
+            step(
+                done: state.listening, now: state.running && !state.listening, waits: !state.running, shown: state.running,
+                title: Text("Spot Chat Plugin"), status: state.listening ? "Added" : "Not Added"
+            ) {
+                if !state.listening {
+                    Button("Copy Plugin Location") { copyPluginLocation() }
+                        .disabled(app.harnessPlugin == nil)
+                        .accessibilityIdentifier("copyHarnessPlugin")
+                }
+            }
+            if state.running && !state.listening {
+                Text("In DeepSeek Harness, choose Plugins › Add Plugin, paste, and install")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .padding(.leading, 32)
+                    .padding(.bottom, 12)
+            }
+            Divider()
+            step(
+                done: state.connected, now: state.listening && !state.connected, waits: !state.listening, shown: state.running,
+                title: Text("Connection"), status: state.connected ? "Connected" : "Waiting"
+            ) {}
+            HStack {
+                Spacer()
+                if state.connected {
+                    Button("Done") { dismiss() }
+                        .keyboardShortcut(.defaultAction)
+                        .accessibilityIdentifier("harnessSetupDone")
+                } else {
+                    Button("Cancel") {
+                        SpotLog.app.info("Cancelled connecting DeepSeek Harness")
+                        app.setRunsCommandsInHarness(false)
+                        dismiss()
+                    }
+                    .keyboardShortcut(.cancelAction)
+                    .accessibilityIdentifier("harnessSetupCancel")
+                }
+            }
+            .padding(.top, 14)
+        }
+        .padding(.horizontal, 22)
+        .padding(.top, 20)
+        .padding(.bottom, 18)
+        .frame(width: 480)
+        .accessibilityIdentifier("harnessSetup")
+        .task {
+            while !Task.isCancelled {
+                let now = await HarnessState.now(app)
+                if now != state {
+                    SpotLog.app.info("Connecting DeepSeek Harness", metadata: [
+                        "running": "\(now.running)", "pluginListening": "\(now.listening)", "connected": "\(now.connected)",
+                    ])
+                    state = now
+                }
+                do {
+                    try await Task.sleep(for: .seconds(2))
+                } catch {
+                    break
+                }
+            }
         }
     }
 
-    /// dsh installs plugins into the desktop app's profile while the app is closed.
-    private func copyInstallCommand() {
+    /// One step: its mark, its name and where it stands, and what to do about it. A step that `waits` for the
+    /// one before is dimmed; its state is `shown` once there is something to say.
+    private func step<Action: View>(
+        done: Bool, now: Bool, waits: Bool, shown: Bool, title: Text, status: LocalizedStringKey,
+        @ViewBuilder action: () -> Action
+    ) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: done ? "checkmark.circle.fill" : now ? "smallcircle.filled.circle" : "circle")
+                .font(.system(size: 17))
+                .foregroundStyle(done || now ? AnyShapeStyle(.tint) : AnyShapeStyle(.tertiary))
+            VStack(alignment: .leading, spacing: 3) {
+                title
+                    .fontWeight(waits ? .regular : .semibold)
+                    .foregroundStyle(waits ? .tertiary : .primary)
+                if shown {
+                    Text(status)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Spacer()
+            action()
+        }
+        .padding(.vertical, 12)
+    }
+
+    private func open(_ harness: URL) {
+        SpotLog.app.info("Opening DeepSeek Harness", metadata: ["app": "\(harness.path)"])
+        NSWorkspace.shared.openApplication(at: harness, configuration: NSWorkspace.OpenConfiguration()) { _, error in
+            if let error {
+                SpotLog.app.error("Couldn't open DeepSeek Harness", metadata: ["error": "\(error)"])
+            }
+        }
+    }
+
+    /// DeepSeek Harness's Add Plugin takes a folder's location.
+    private func copyPluginLocation() {
         guard let plugin = app.harnessPlugin else { return }
-        let command = "dsh plugin --profile desktop add \"file:\(plugin.path)\""
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(command, forType: .string)
-        SpotLog.app.info("Copied the DeepSeek Harness plugin's install command", metadata: ["command": "\(command)"])
+        NSPasteboard.general.setString(plugin.path, forType: .string)
+        SpotLog.app.info("Copied the plugin's location for DeepSeek Harness", metadata: ["location": "\(plugin.path)"])
     }
 }
