@@ -6,7 +6,9 @@ Spot Chat is in alpha. There are no releases yet; every build is an alpha build 
 
 ## Install an alpha build
 
-1. Open the latest successful [CI run](https://github.com/Maimai-l/spot-chat/actions/workflows/ci.yml) and download the `SpotChat-<version>-alpha.<build>` artifact.
+1. Download the newest alpha: the archive named in the [update feed](https://maimai-l.github.io/spot-chat/appcast.xml),
+   or the `SpotChat-<version>-alpha.<build>` artifact of the latest successful
+   [CI run](https://github.com/Maimai-l/spot-chat/actions/workflows/ci.yml).
 2. Unzip it and move `SpotChat.app` to Applications.
 3. The app is not notarized. Before opening it the first time, run:
 
