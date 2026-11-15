@@ -27,7 +27,7 @@ final class Updates: NSObject, ObservableObject {
             SpotLog.app.info("Updates are off in this build", metadata: ["build": "\(build)", "hasKey": "\(!key.isEmpty)"])
             return
         }
-        let controller = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: self, userDriverDelegate: nil)
+        let controller = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: self, userDriverDelegate: self)
         self.controller = controller
         controller.updater.publisher(for: \.canCheckForUpdates).assign(to: &$canCheck)
         SpotLog.app.info("Updates are on", metadata: [
@@ -44,6 +44,28 @@ final class Updates: NSObject, ObservableObject {
     /// The channel this build takes updates from, as the build names it.
     nonisolated static var channel: String {
         Bundle.main.object(forInfoDictionaryKey: "SpotChatReleaseChannel") as? String ?? "alpha"
+    }
+}
+
+/// Sparkle's dialogs name versions as Settings does, "0.1.0 alpha 189": the short version alone is the same
+/// for every alpha, so "Spot Chat 0.1.0 is the newest version" said nothing.
+extension Updates: SPUStandardUserDriverDelegate {
+    nonisolated func standardUserDriverRequestsVersionDisplayer() -> (any SUVersionDisplay)? {
+        VersionNames()
+    }
+}
+
+private final class VersionNames: NSObject, SUVersionDisplay {
+    func formatUpdateDisplayVersion(
+        fromUpdate update: SUAppcastItem, andBundleDisplayVersion inOutBundleDisplayVersion: AutoreleasingUnsafeMutablePointer<NSString>,
+        withBundleVersion bundleVersion: String
+    ) -> String {
+        inOutBundleDisplayVersion.pointee = AppVersion.display(version: inOutBundleDisplayVersion.pointee as String, build: bundleVersion) as NSString
+        return AppVersion.display(version: update.displayVersionString, build: update.versionString)
+    }
+
+    func formatBundleDisplayVersion(_ bundleDisplayVersion: String, withBundleVersion bundleVersion: String, matchingUpdate: SUAppcastItem?) -> String {
+        AppVersion.display(version: bundleDisplayVersion, build: bundleVersion)
     }
 }
 

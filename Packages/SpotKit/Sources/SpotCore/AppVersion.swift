@@ -8,8 +8,11 @@ public enum AppVersion {
     }
 
     public static func display(info: [String: Any]) -> String {
-        let version = info["CFBundleShortVersionString"] as? String ?? ""
-        let build = info["CFBundleVersion"] as? String ?? ""
+        display(version: info["CFBundleShortVersionString"] as? String ?? "", build: info["CFBundleVersion"] as? String ?? "")
+    }
+
+    /// From a version and a build number, as an update's are given too.
+    public static func display(version: String, build: String) -> String {
         guard let number = Int(build), number > 0 else { return version }
         return "\(version) alpha \(number)"
     }
