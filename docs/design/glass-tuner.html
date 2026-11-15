@@ -143,20 +143,22 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 </template>
 
 <script>
-// Each control: its CSS variable, label, range and unit. The outer corner follows the inner 24 plus the padding,
-// so the glass stays concentric with the surfaces.
+// Each control: its CSS variable, label, range and unit. The defaults are measured from the reference the owner
+// sent: a 12 pt frame of neutral gray glass at about a third opaque, 10 pt between the panels, and an outer corner
+// 8 pt larger than the panels' (concentric would be 24 plus the padding).
 const controls = [
-  {id:'pad', label:'边距', min:0, max:24, step:1, value:8, unit:'pt'},
-  {id:'gap', label:'间距', min:0, max:24, step:1, value:8, unit:'pt'},
-  {id:'blur', label:'模糊', min:0, max:60, step:1, value:24, unit:'pt'},
-  {id:'alpha', label:'玻璃不透明度', min:0, max:100, step:1, value:35, unit:'%'},
-  {id:'sat', label:'饱和度', min:100, max:250, step:5, value:160, unit:'%'},
-  {id:'tintL', label:'玻璃亮度', min:0, max:255, step:1, value:245, unit:''},
-  {id:'rim', label:'描边', min:0, max:40, step:1, value:14, unit:'%'},
-  {id:'hi', label:'顶部高光', min:0, max:100, step:1, value:50, unit:'%'},
-  {id:'shadow', label:'阴影', min:0, max:50, step:1, value:24, unit:'%'},
+  {id:'pad', label:'边距', min:0, max:24, step:1, value:12, unit:'pt'},
+  {id:'gap', label:'间距', min:0, max:24, step:1, value:10, unit:'pt'},
+  {id:'outer', label:'外圆角', min:24, max:48, step:1, value:32, unit:'pt'},
+  {id:'blur', label:'模糊', min:0, max:60, step:1, value:30, unit:'pt'},
+  {id:'alpha', label:'玻璃不透明度', min:0, max:100, step:1, value:33, unit:'%'},
+  {id:'sat', label:'饱和度', min:100, max:250, step:5, value:110, unit:'%'},
+  {id:'tintL', label:'玻璃亮度', min:0, max:255, step:1, value:180, unit:''},
+  {id:'rim', label:'描边', min:0, max:40, step:1, value:10, unit:'%'},
+  {id:'hi', label:'顶部高光', min:0, max:100, step:1, value:0, unit:'%'},
+  {id:'shadow', label:'阴影', min:0, max:50, step:1, value:10, unit:'%'},
   {id:'solid', label:'表面不透明度', min:40, max:100, step:1, value:100, unit:'%'},
-  {id:'inner', label:'表面阴影', min:0, max:30, step:1, value:0, unit:'%'},
+  {id:'inner', label:'表面阴影', min:0, max:40, step:1, value:20, unit:'%'},
 ];
 const state = Object.fromEntries(controls.map(c => [c.id, c.value]));
 const box = document.getElementById('controls');
@@ -173,7 +175,7 @@ function apply() {
   const s = group.style;
   s.setProperty('--pad', state.pad + 'px');
   s.setProperty('--gap', state.gap + 'px');
-  s.setProperty('--outer', (24 + state.pad) + 'px');
+  s.setProperty('--outer', state.outer + 'px');
   s.setProperty('--blur', state.blur + 'px');
   s.setProperty('--alpha', state.alpha / 100);
   s.setProperty('--sat', state.sat + '%');
@@ -186,7 +188,7 @@ function apply() {
   s.setProperty('--inner', state.inner / 100);
   for (const c of controls) document.getElementById('o-' + c.id).textContent = state[c.id] + c.unit;
   document.getElementById('values').textContent =
-    `场景 ${names[scene]}，背景 ${names[desk]}\n` + controls.map(c => `${c.label} ${state[c.id]}${c.unit}`).join('\n') + `\n外圆角 ${24 + state.pad}pt`;
+    `场景 ${names[scene]}，背景 ${names[desk]}\n` + controls.map(c => `${c.label} ${state[c.id]}${c.unit}`).join('\n') + `\n同心外圆角 ${24 + state.pad}pt`;
 }
 
 let scene = 'notice', desk = 'doc';
