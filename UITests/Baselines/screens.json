@@ -2,6 +2,7 @@
   "tolerance": 0.05,
   "about": "Screens the UI tests take and the comparison checks, by name. tolerance is the percentage of pixels that may change; the blinking caret alone changes about 0.006%. A screen can set its own tolerance, and ignore, a list of [left, top, right, bottom] rectangles; the two zh Text screens ignore where macOS may show its input source bubble under the caret. Screens in notCompared change from run to run on their own.",
   "compare": {
+    "Accessibility notice": {},
     "Capsule": {},
     "Capsule with text": {},
     "Card": {},
@@ -20,6 +21,8 @@
     "Reopened conversation": {},
     "Reply finished after quitting": {},
     "Selection": {},
+    "Selection opened": {},
+    "Selection sent": {},
     "Thinking": {},
     "Web search": {},
     "Web search on": {},

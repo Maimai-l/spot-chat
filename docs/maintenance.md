@@ -142,6 +142,7 @@ services such as Docker Desktop's socket and ssh-agent (Discussion 4503); open.
 | A conversation in DeepSeek Harness is one conversation on both sides: questions asked in dsh's window show in Spot Chat, rebuilt from the session's history | Request | Prototype, in testing |
 | The user's dsh appends each session's log to requests to DeepSeek's official API (`session-log-deepseek`, on by default) | Privacy | Done: the plugin leaves it out of requests from Spot Chat's sessions and their subagents, as Spot Chat's own dsh does; the user's other sessions are as they set them. dsh Desktop's product analytics, of what is done in its window, is outside the plugin's reach |
 | Quitting Spot Chat while a harness turn runs lets it go on in dsh; the conversation catches up when opened again, and quitting doesn't warn | Request | Prototype, in testing |
+| The selected text and the Accessibility notice as strips inside the input, no macOS prompt on Option-Space, and Accessibility's state in Settings (`docs/design/composer-strips.html`) | Request | Done, in testing |
 | An alpha signed ad hoc is a new app to the Keychain and to Accessibility, so macOS asked again after every update | Bug, P1 | Fixed: alphas are signed with the owner's certificate; to check on the owner's Mac across two updates |
 | The plugin installed in dsh is a copy; a newer one in a later alpha needs the install command again | Follow-up | Open |
 | A command turn stops when a new conversation starts, and reopening it in the full window loses its context | Bug, P1 | Fixed, in testing |
