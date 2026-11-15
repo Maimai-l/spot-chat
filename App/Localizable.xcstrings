@@ -1897,6 +1897,36 @@
           }
         }
       }
+    },
+    "Keychain Access Denied": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "钥匙串访问被拒绝"
+          }
+        }
+      }
+    },
+    "Try Again": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重试"
+          }
+        }
+      }
+    },
+    "Spot Chat wasn’t allowed to read its key for DeepSeek Harness from the Keychain.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spot Chat 没有获得从钥匙串读取 DeepSeek Harness 密钥的许可。"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

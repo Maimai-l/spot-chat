@@ -24,6 +24,8 @@ public struct DshBridge: Sendable, Equatable {
         /// The plugin didn't answer the token in time.
         case noAnswer
         case pairing(String)
+        /// The user didn't let Spot Chat read its token from the Keychain.
+        case keychainRefused
 
         public var errorDescription: String? {
             switch self {
@@ -35,6 +37,8 @@ public struct DshBridge: Sendable, Equatable {
                 return String(localized: "DeepSeek Harness didn’t answer.")
             case let .pairing(detail):
                 return String(localized: "Couldn’t pair with DeepSeek Harness: \(detail)")
+            case .keychainRefused:
+                return String(localized: "Spot Chat wasn’t allowed to read its key for DeepSeek Harness from the Keychain.")
             }
         }
     }
@@ -207,15 +211,39 @@ public enum DshBridgeToken {
     private static let service = "Spot Chat dsh bridge"
     private static let account = "token"
 
-    /// The token, made and saved the first time.
+    // macOS may ask the user each time the Keychain is read, so it is read once per launch; once the user
+    // declines, it isn't asked again until they choose to.
+    private static let lock = NSLock()
+    nonisolated(unsafe) private static var cached: String?
+    nonisolated(unsafe) private static var refused = false
+
+    /// Whether the user declined Spot Chat reading its token, this launch.
+    public static var wasRefused: Bool { lock.withLock { refused } }
+
+    /// The token: read from the Keychain the first time it's needed, and made and saved if there is none.
     public static func current() throws -> String {
-        if let saved = try read() { return saved }
-        var bytes = [UInt8](repeating: 0, count: 32)
-        for index in bytes.indices { bytes[index] = UInt8.random(in: 0...255) }
-        let token = bytes.map { String(format: "%02x", $0) }.joined()
-        try save(token)
-        SpotLog.agent.info("Made a token for DeepSeek Harness")
-        return token
+        try lock.withLock {
+            if let cached { return cached }
+            if refused { throw DshBridge.Failure.keychainRefused }
+            let token: String
+            if let saved = try read() {
+                token = saved
+            } else {
+                var bytes = [UInt8](repeating: 0, count: 32)
+                for index in bytes.indices { bytes[index] = UInt8.random(in: 0...255) }
+                token = bytes.map { String(format: "%02x", $0) }.joined()
+                try save(token)
+                SpotLog.agent.info("Made a token for DeepSeek Harness")
+            }
+            cached = token
+            return token
+        }
+    }
+
+    /// Asks for the Keychain again, when the user chooses to after declining.
+    public static func askAgain() {
+        lock.withLock { refused = false }
+        SpotLog.agent.info("Asking for the bridge token in the Keychain again")
     }
 
     private static func read() throws -> String? {
@@ -229,6 +257,11 @@ public enum DshBridgeToken {
         var item: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &item)
         if status == errSecItemNotFound { return nil }
+        if status == errSecAuthFailed || status == errSecUserCanceled {
+            SpotLog.agent.notice("The user declined reading the bridge token from the Keychain", metadata: ["status": "\(status)"])
+            refused = true
+            throw DshBridge.Failure.keychainRefused
+        }
         guard status == errSecSuccess, let data = item as? Data else {
             SpotLog.agent.error("Couldn't read the bridge token from the Keychain", metadata: ["status": "\(status)"])
             throw DshBridge.Failure.pairing(keychainMessage(status))
