@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="zh-Hans"><head><meta charset="utf-8"><title>Accessibility Guide</title>
+<!-- Asking for Accessibility access from Spot Chat's own windows instead of macOS's prompt, drawn at the app's
+     size in points beside the Settings window and the mini window the CI screenshots show. One accent color;
+     everything else gray. -->
+<style>
+:root{--text:rgba(0,0,0,.86);--sec:rgba(0,0,0,.5);--ter:rgba(0,0,0,.28);--accent:#0a7aff;--rim:0 0 0 .5px rgba(0,0,0,.14);--shadow:0 12px 34px rgba(0,0,0,.28)}
+*{box-sizing:border-box}
+body{margin:0;background:#1e1e1e;font-family:-apple-system,"SF Pro Text","PingFang SC","Inter","WenQuanYi Zen Hei",sans-serif;color:var(--text);padding:32px;display:flex;flex-direction:column;gap:28px;width:1024px}
+.cap{color:#d4d4d4;font-size:14px;margin:0 0 10px 2px}
+.stage{position:relative;width:960px;height:400px;border-radius:12px;background:linear-gradient(165deg,#56677a,#2b3541);overflow:hidden}
+.stage.mini{height:300px}
+/* Settings window, scrolled to Shortcuts */
+.set{position:absolute;left:130px;top:28px;width:700px;height:344px;border-radius:12px;background:#ececee;box-shadow:var(--shadow),var(--rim);overflow:hidden;font-size:13px}
+.head{height:84px;border-bottom:.5px solid rgba(0,0,0,.12);position:relative}
+.lights{position:absolute;left:12px;top:10px;display:flex;gap:7px}.lights i{width:12px;height:12px;border-radius:6px;background:#ff5f57;box-shadow:inset 0 0 0 .5px rgba(0,0,0,.15)}.lights i:nth-child(2){background:#febc2e}.lights i:nth-child(3){background:#28c840}
+.title{position:absolute;left:0;right:0;top:7px;text-align:center;font-weight:600}
+.tabs{position:absolute;left:0;right:0;top:30px;display:flex;justify-content:center;gap:4px}
+.tab{width:58px;height:46px;border-radius:7px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:11px;color:var(--sec)}
+.tab.on{background:rgba(0,0,0,.07);color:var(--accent)}
+.tab b{width:18px;height:14px;border:1.5px solid currentColor;border-radius:3px;display:block}
+.body{padding:12px 50px}
+.h{font-weight:600;margin:14px 0 8px 10px}
+.group{background:rgba(255,255,255,.55);border-radius:9px;box-shadow:var(--rim)}
+.row{display:flex;align-items:center;gap:10px;min-height:38px;padding:0 10px;flex-wrap:wrap}
+.row + .row{border-top:.5px solid rgba(0,0,0,.09)}
+.sp{flex:1}
+.v{color:var(--sec)}
+.rec{width:128px;height:22px;border-radius:6px;background:#fff;box-shadow:var(--rim);display:flex;align-items:center;justify-content:center;position:relative;font-size:12px}
+.rec:after{content:"";position:absolute;right:6px;top:5px;width:12px;height:12px;border-radius:6px;background:rgba(0,0,0,.75) no-repeat center/6px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 6 6'%3E%3Cpath d='M1 1l4 4M5 1L1 5' stroke='white' stroke-width='1.2' stroke-linecap='round'/%3E%3C/svg%3E")}
+.switch{width:26px;height:15px;border-radius:8px;background:var(--accent);position:relative}
+.switch:after{content:"";position:absolute;right:1.5px;top:1.5px;width:12px;height:12px;border-radius:6px;background:#fff;box-shadow:0 .5px 1px rgba(0,0,0,.25)}
+.btn{height:22px;padding:0 10px;border-radius:6px;background:#fff;box-shadow:0 .5px 1.5px rgba(0,0,0,.18),var(--rim);display:inline-flex;align-items:center;font-size:13px;white-space:nowrap}
+.row.with-hint{padding-top:8px}
+.hint{flex-basis:100%;font-size:12px;color:var(--sec);margin:-2px 0 10px;line-height:1.45}
+/* mini window */
+.capsule{position:absolute;left:280px;width:400px;height:54px;border-radius:27px;background:#ececee;box-shadow:0 8px 24px rgba(0,0,0,.25),var(--rim);display:flex;align-items:center;padding:0 13px;gap:10px;font-size:15px}
+.capsule .ph{color:var(--ter);flex:1;display:flex;align-items:center;gap:1px}
+.capsule .ph:before{content:"";width:1.5px;height:18px;background:var(--accent);margin-right:2px}
+.capsule .model{font-weight:600;font-size:14px}
+.icon{width:28px;height:28px;display:flex;align-items:center;justify-content:center;flex:none}
+.notice{position:absolute;left:280px;width:400px;min-height:48px;border-radius:16px;background:#ececee;box-shadow:0 8px 24px rgba(0,0,0,.22),var(--rim);display:flex;align-items:center;gap:10px;padding:8px 10px 8px 16px;font-size:13px;line-height:1.35}
+.notice .t{flex:1}
+.close{width:22px;height:22px;border-radius:11px;display:flex;align-items:center;justify-content:center}
+.en{font-family:-apple-system,"SF Pro Text","Inter",sans-serif}
+</style></head><body>
+
+<!-- SF Symbols, drawn: plus, the arrow-up-right corners for the full window, xmark. -->
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="plus" viewBox="0 0 16 16"><path d="M8 2.5v11M2.5 8h11" stroke="rgba(0,0,0,.6)" stroke-width="1.5" stroke-linecap="round"/></symbol>
+  <symbol id="expand" viewBox="0 0 16 16"><path d="M9.5 2.5h4v4M6.5 13.5h-4v-4" fill="none" stroke="rgba(0,0,0,.75)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="xmark" viewBox="0 0 10 10"><path d="M2 2l6 6M8 2L2 8" stroke="rgba(0,0,0,.5)" stroke-width="1.4" stroke-linecap="round"/></symbol>
+</svg>
+
+<template id="chrome">
+  <div class="head"><div class="lights"><i></i><i></i><i></i></div><div class="title">通用</div>
+    <div class="tabs"><div class="tab"><b></b>服务商</div><div class="tab on"><b></b>通用</div></div></div>
+</template>
+<template id="chrome-en">
+  <div class="head"><div class="lights"><i></i><i></i><i></i></div><div class="title">General</div>
+    <div class="tabs"><div class="tab"><b></b>Providers</div><div class="tab on"><b></b>General</div></div></div>
+</template>
+
+<div>
+  <p class="cap">1  设置 › 通用 › 快捷键：打开“带入所选文本”且未获得权限时，多出一行“辅助功能”。每 2 秒检查一次，允许后自动变为 2，不用重开设置</p>
+  <div class="stage"><div class="set" data-chrome>
+    <div class="body">
+      <div class="h">快捷键</div>
+      <div class="group">
+        <div class="row">打开小窗<span class="sp"></span><span class="rec">⌥空格</span></div>
+        <div class="row">打开完整窗口<span class="sp"></span><span class="rec">⌥⇧空格</span></div>
+        <div class="row">带入所选文本<span class="sp"></span><span class="switch"></span></div>
+        <div class="row">辅助功能<span class="sp"></span><span class="v">未允许</span><span class="btn">打开系统设置</span></div>
+      </div>
+    </div>
+  </div></div>
+</div>
+
+<div>
+  <p class="cap">2  已允许：只留状态。关掉“带入所选文本”时整行隐藏</p>
+  <div class="stage"><div class="set" data-chrome>
+    <div class="body">
+      <div class="h">快捷键</div>
+      <div class="group">
+        <div class="row">打开小窗<span class="sp"></span><span class="rec">⌥空格</span></div>
+        <div class="row">打开完整窗口<span class="sp"></span><span class="rec">⌥⇧空格</span></div>
+        <div class="row">带入所选文本<span class="sp"></span><span class="switch"></span></div>
+        <div class="row">辅助功能<span class="sp"></span><span class="v">已允许</span></div>
+      </div>
+    </div>
+  </div></div>
+</div>
+
+<div>
+  <p class="cap">3  曾经允许、现在失效（换签名后系统设置里仍显示打开）：多一行提示，只在这种情况下出现</p>
+  <div class="stage"><div class="set" data-chrome>
+    <div class="body">
+      <div class="h">快捷键</div>
+      <div class="group">
+        <div class="row">打开小窗<span class="sp"></span><span class="rec">⌥空格</span></div>
+        <div class="row">打开完整窗口<span class="sp"></span><span class="rec">⌥⇧空格</span></div>
+        <div class="row">带入所选文本<span class="sp"></span><span class="switch"></span></div>
+        <div class="row with-hint">辅助功能<span class="sp"></span><span class="v">未允许</span><span class="btn">打开系统设置</span>
+          <div class="hint">如果列表中的 Spot Chat 已打开，选中它，点按“−”移除后再试</div></div>
+      </div>
+    </div>
+  </div></div>
+</div>
+
+<div>
+  <p class="cap">4  未获得权限时按 ⌥空格：不再弹系统对话框，小窗照常打开，上方出现提示。关闭后本次运行不再出现，设置里的那一行一直都在</p>
+  <div class="stage mini">
+    <div class="notice" style="top:92px"><span class="t">带入所选文本需要辅助功能权限</span><span class="btn">打开系统设置</span><span class="close"><svg width="10" height="10"><use href="#xmark"/></svg></span></div>
+    <div class="capsule" style="top:150px">
+      <span class="icon"><svg width="16" height="16"><use href="#plus"/></svg></span>
+      <span class="ph">问问 Spot</span>
+      <span class="model">mock-fast</span>
+      <span class="icon"><svg width="16" height="16"><use href="#expand"/></svg></span>
+    </div>
+  </div>
+</div>
+
+<div class="en">
+  <p class="cap">1 and 4 in English</p>
+  <div class="stage"><div class="set" data-chrome-en>
+    <div class="body">
+      <div class="h">Shortcuts</div>
+      <div class="group">
+        <div class="row">Open Mini Window<span class="sp"></span><span class="rec">⌥Space</span></div>
+        <div class="row">Open Full Window<span class="sp"></span><span class="rec">⌥⇧Space</span></div>
+        <div class="row">Bring Selected Text<span class="sp"></span><span class="switch"></span></div>
+        <div class="row with-hint">Accessibility<span class="sp"></span><span class="v">Not Allowed</span><span class="btn">Open System Settings</span>
+          <div class="hint">If Spot Chat is already on in the list, select it, click the minus button, and try again</div></div>
+      </div>
+    </div>
+  </div></div>
+</div>
+<div class="en">
+  <div class="stage mini">
+    <div class="notice" style="top:92px"><span class="t">Bringing selected text needs Accessibility access</span><span class="btn">Open System Settings</span><span class="close"><svg width="10" height="10"><use href="#xmark"/></svg></span></div>
+    <div class="capsule" style="top:150px">
+      <span class="icon"><svg width="16" height="16"><use href="#plus"/></svg></span>
+      <span class="ph">Ask Spot</span>
+      <span class="model">mock-fast</span>
+      <span class="icon"><svg width="16" height="16"><use href="#expand"/></svg></span>
+    </div>
+  </div>
+</div>
+
+<script>
+  for (const host of document.querySelectorAll('[data-chrome]')) host.prepend(document.getElementById('chrome').content.cloneNode(true))
+  for (const host of document.querySelectorAll('[data-chrome-en]')) host.prepend(document.getElementById('chrome-en').content.cloneNode(true))
+</script>
+</body></html>
