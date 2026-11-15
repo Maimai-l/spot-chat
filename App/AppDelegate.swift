@@ -19,6 +19,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         static let testProviderKey = "SpotChatTestProviderKey"
         /// Opens the mini window as if this text had been selected and asked about.
         static let askAbout = "SpotChatAskAbout"
+        /// Opens the mini window saying Accessibility access is missing, and keeps saying it, for tests.
+        static let asksForAccessibility = "SpotChatAsksForAccessibility"
         /// Points dsh at a stand-in for DeepSeek's API.
         static let agentBaseURL = "SpotChatAgentBaseURL"
         /// Starts the mini window's conversation running commands in this folder.
@@ -85,10 +87,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 miniController.handle(.toggleShortcut)
                 return
             }
-            let askForAccess = !app.askedForSelectionAccess
-            app.noteAskedForSelectionAccess()
+            guard SelectionReader.hasAccess(prompt: false) else {
+                // No macOS prompt, which shows up away from the window: the input says what's missing.
+                SpotLog.window.notice("No Accessibility access to bring the selected text", metadata: [
+                    "noticeClosed": "\(app.accessibilityNoticeDismissed)",
+                ])
+                if !app.accessibilityNoticeDismissed { miniController.composer.asksForAccessibility = true }
+                miniController.handle(.toggleShortcut)
+                return
+            }
             Task { @MainActor in
-                if let text = await SelectionReader.selectedText(askForAccess: askForAccess) {
+                if let text = await SelectionReader.selectedText() {
                     self.miniController.ask(about: text)
                 } else {
                     self.miniController.handle(.toggleShortcut)
@@ -105,6 +114,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let folder = defaults.string(forKey: LaunchOption.commandFolder), !folder.isEmpty {
             try? FileManager.default.createDirectory(atPath: folder, withIntermediateDirectories: true)
             miniController.session.setCommandFolder(URL(fileURLWithPath: folder, isDirectory: true))
+        }
+        if defaults.bool(forKey: LaunchOption.asksForAccessibility) {
+            AccessibilityStrip.goesAwayWithAccess = false
+            miniController.composer.asksForAccessibility = true
         }
         if let selection = defaults.string(forKey: LaunchOption.askAbout) {
             miniController.ask(about: selection)

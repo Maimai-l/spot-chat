@@ -319,8 +319,15 @@ struct UserMessageView: View {
             if editing {
                 editor
             } else if !message.text.isEmpty {
-                bubble
-                    .padding(.leading, 60)
+                let parts = SelectionQuote.split(message.text)
+                if let quote = parts.quote {
+                    SentSelection(text: quote)
+                        .padding(.leading, 60)
+                }
+                if !parts.question.isEmpty {
+                    bubble(parts.question)
+                        .padding(.leading, 60)
+                }
                 HStack(spacing: 2) {
                     if canEdit {
                         SmallIconButton(systemName: "pencil", label: "Edit", identifier: "editMessage") {
@@ -343,8 +350,8 @@ struct UserMessageView: View {
         .onHover { hovering = $0 }
     }
 
-    private var bubble: some View {
-        Text(message.text)
+    private func bubble(_ text: String) -> some View {
+        Text(text)
             .font(.system(size: 16))
             .lineSpacing(3)
             .textSelection(.enabled)
@@ -437,6 +444,44 @@ struct UserMessageView: View {
         editing = false
         messageEditing(false, true)
         onEdit(editText)
+    }
+}
+
+/// The text a question was asked about, above the question: one line, or all of it once clicked, as the input
+/// showed it before sending.
+struct SentSelection: View {
+    let text: String
+    @State private var opened = false
+
+    var body: some View {
+        HStack(alignment: opened ? .top : .center, spacing: 6) {
+            Image(systemName: "arrowshape.turn.up.left")
+                .font(.system(size: 12))
+                .frame(height: opened ? StripMetrics.lineHeight : nil)
+            if opened {
+                Text(StripMetrics.quoted(text))
+                    .lineSpacing(StripMetrics.lineSpacing)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                Text(StripMetrics.quoted(text.replacingOccurrences(of: "\n", with: " ")))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+        }
+        .font(.system(size: 13))
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, opened ? 10 : 0)
+        .padding(.vertical, opened ? 8 : 0)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.primary.opacity(opened ? 0.04 : 0))
+        )
+        .contentShape(Rectangle())
+        .onTapGesture { opened.toggle() }
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityIdentifier("sentSelection")
     }
 }
 

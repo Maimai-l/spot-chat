@@ -1927,6 +1927,46 @@
           }
         }
       }
+    },
+    "Needs Accessibility access": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "带入所选文本需要辅助功能权限"
+          }
+        }
+      }
+    },
+    "Open Settings": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打开系统设置"
+          }
+        }
+      }
+    },
+    "Not Allowed": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未允许"
+          }
+        }
+      }
+    },
+    "If Spot Chat is already on in the list, select it, click the minus button, and try again": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "如果列表中的 Spot Chat 已打开，选中它，点按“−”移除后再试"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

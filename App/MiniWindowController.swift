@@ -62,11 +62,14 @@ final class MiniWindowController: ObservableObject {
             .dropFirst()
             .sink { [weak self] _ in self?.historyDidChange() }
             .store(in: &observers)
-        // The capsule grows a row for attachments, the sharing tag and notices.
-        Publishers.Merge3(
-            composer.$attachments.map { _ in () },
-            composer.$sharedWindow.map { _ in () },
-            composer.$notice.map { _ in () }
+        // The capsule grows a row for attachments, the sharing tag, notices and the strips at its top.
+        Publishers.MergeMany(
+            composer.$attachments.map { _ in () }.eraseToAnyPublisher(),
+            composer.$sharedWindow.map { _ in () }.eraseToAnyPublisher(),
+            composer.$notice.map { _ in () }.eraseToAnyPublisher(),
+            composer.$selection.map { _ in () }.eraseToAnyPublisher(),
+            composer.$selectionOpen.map { _ in () }.eraseToAnyPublisher(),
+            composer.$asksForAccessibility.map { _ in () }.eraseToAnyPublisher()
         )
         .receive(on: RunLoop.main)
         .sink { [weak self] in self?.composerDidResize() }
@@ -110,11 +113,13 @@ final class MiniWindowController: ObservableObject {
         return actions
     }
 
-    /// Opens the mini window with the selected text quoted at the start of the input.
-    /// Without any text it just opens.
+    /// Opens the mini window with the selected text in a strip at the top of the input, replacing one brought
+    /// before. Without any text it just opens.
     func ask(about selection: String?) {
-        if let quote = selection.flatMap(SelectionQuote.draft(quoting:)) {
-            composer.draft = quote + composer.draft
+        if let text = selection?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty {
+            composer.selection = text
+            composer.asksForAccessibility = false
+            SpotLog.window.info("Brought the selected text", metadata: ["characters": "\(text.count)"])
         }
         handle(.openRequested)
         composer.requestFocus()
@@ -132,7 +137,7 @@ final class MiniWindowController: ObservableObject {
     }
 
     func submit() {
-        handle(.send(text: composer.draft, hasAttachments: composer.hasExtras, newConversationID: UUID()))
+        handle(.send(text: composer.messageText, hasAttachments: composer.hasExtras, newConversationID: UUID()))
     }
 
     func panelWasDragged() {
@@ -183,7 +188,7 @@ final class MiniWindowController: ObservableObject {
         case let .appendUserMessage(text, conversationID):
             inputActions.send(text: text, to: session, newTopicID: conversationID)
         case .clearDraft:
-            composer.draft = ""
+            composer.clearSent()
         case let .scheduleRetentionExpiry(token, interval):
             scheduleRetentionExpiry(token: token, after: interval)
         case .cancelRetentionExpiry:

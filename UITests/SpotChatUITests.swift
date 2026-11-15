@@ -918,15 +918,46 @@ final class SpotChatUITests: XCTestCase {
         XCTAssertGreaterThanOrEqual(third[1], second[0] - 16, "Cached \(third[1]) of the earlier \(second[0])")
     }
 
-    func testSelectedTextIsQuotedInTheInput() {
+    func testSelectedTextSitsAboveTheQuestionAndIsSentQuoted() throws {
         // A launch argument ends at a line break, so this one is a single line; quoting several lines is unit tested.
-        let app = launch(resetState: true, arguments: ["-SpotChatAskAbout", "The mitochondria is the powerhouse"])
+        let selection = "The mitochondria is the powerhouse of the cell. Through aerobic respiration it turns the "
+            + "chemical energy in glucose into ATP, which powers the work of the cell, from moving muscles to "
+            + "carrying substances across membranes."
+        let app = launch(resetState: true, arguments: ["-SpotChatAskAbout", selection])
+        let strip = element("selectionStrip", in: app)
+        XCTAssertTrue(strip.waitForExistence(timeout: 10))
         let input = composer(in: app)
-        XCTAssertTrue(input.waitForExistence(timeout: 10))
-        waitForText(of: input, "SELF BEGINSWITH %@", "> The mitochondria is the powerhouse\n\n")
+        XCTAssertTrue(input.waitForExistence(timeout: 5))
         input.typeText("Explain this")
-        XCTAssertTrue(text(of: input).hasSuffix("\n\nExplain this"), text(of: input))
+        XCTAssertEqual(text(of: input), "Explain this", "The selection stays out of the question")
+        RunLoop.current.run(until: Date().addingTimeInterval(0.5))
         attachScreenshot("Selection")
+
+        strip.coordinate(withNormalizedOffset: CGVector(dx: 0.4, dy: 0.5)).click()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.8))
+        attachScreenshot("Selection opened")
+
+        input.click()
+        input.typeKey(.return, modifierFlags: [])
+        XCTAssertTrue(reply(containing: "Explain this", in: app).waitForExistence(timeout: 10))
+        XCTAssertTrue(element("sentSelection", in: app).waitForExistence(timeout: 5))
+        let messages = try lastRequest()["messages"] as? [[String: Any]] ?? []
+        let asked = messages.last?["content"] as? String ?? ""
+        XCTAssertEqual(asked, "> \(selection)\n\nExplain this", "The model reads the selection quoted before the question")
+        RunLoop.current.run(until: Date().addingTimeInterval(0.8))
+        attachScreenshot("Selection sent")
+    }
+
+    func testTheAccessibilityNoticeSitsInTheInput() {
+        let app = launch(resetState: true, arguments: ["-SpotChatAsksForAccessibility", "YES"])
+        let strip = element("accessibilityStrip", in: app)
+        XCTAssertTrue(strip.waitForExistence(timeout: 10))
+        XCTAssertTrue(element("openAccessibilitySettings", in: app).exists)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        attachScreenshot("Accessibility notice")
+        element("dismissAccessibilityNotice", in: app).click()
+        XCTAssertTrue(strip.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(composer(in: app).exists, "The input stays, back to one line")
     }
 
     func testHistoryCanBeSearchedByWhatWasSaid() {

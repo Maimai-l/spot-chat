@@ -1,4 +1,5 @@
 import AppKit
+import Logging
 import SwiftUI
 import SpotCore
 
@@ -26,8 +27,8 @@ struct ComposerActions {
     var addPaths: () -> Void = {}
 }
 
-/// The input shared by the mini window and the full window:
-/// attachments above, the text with + and the model in the middle, the sharing tag below.
+/// The input shared by the mini window and the full window: strips for the selection and notices at the
+/// top, attachments below them, the text with + and the model in the middle, the sharing tag below.
 /// Text that no longer fits on one line moves above the buttons, and the input grows with it.
 struct ComposerView: View {
     @ObservedObject var composer: ComposerModel
@@ -50,6 +51,16 @@ struct ComposerView: View {
         // The folder chip takes the row's space, so the text sits above the buttons.
         let textHeight = session.commandFolder != nil ? max(measured, ComposerTextMetrics.oneLineHeight) : measured
         VStack(alignment: .leading, spacing: ComposerLayout.rowSpacing) {
+            if composer.asksForAccessibility {
+                AccessibilityStrip(composer: composer, app: app)
+            }
+            if let selection = composer.selection {
+                SelectionStrip(text: selection, opened: $composer.selectionOpen) {
+                    composer.selection = nil
+                    SpotLog.window.info("Removed the selection from the input")
+                    composer.requestFocus()
+                }
+            }
             if !composer.attachments.isEmpty || !composer.paths.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {

@@ -243,6 +243,23 @@ struct ConversationExportTests {
         #expect(SelectionQuote.draft(quoting: "  one\n\ntwo \n") == "> one\n>\n> two\n\n")
         #expect(SelectionQuote.draft(quoting: " \n ") == nil)
     }
+
+    @Test func aSelectionIsSentQuotedBeforeTheQuestion() {
+        #expect(SelectionQuote.message(quoting: "one\n\ntwo", question: "Explain") == "> one\n>\n> two\n\nExplain")
+        #expect(SelectionQuote.message(quoting: "one", question: "  ") == "> one")
+        #expect(SelectionQuote.message(quoting: nil, question: "Explain") == "Explain")
+        #expect(SelectionQuote.message(quoting: " ", question: "Explain") == "Explain")
+    }
+
+    @Test func aSentMessageIsTakenApartIntoQuoteAndQuestion() {
+        let sent = SelectionQuote.message(quoting: "one\n\ntwo", question: "Explain\nthis")
+        #expect(SelectionQuote.split(sent) == ("one\n\ntwo", "Explain\nthis"))
+        #expect(SelectionQuote.split("> one") == ("one", ""))
+        #expect(SelectionQuote.split("Explain") == (nil, "Explain"))
+        // A quote the question runs straight on from isn't one the input wrote.
+        #expect(SelectionQuote.split("> one\ntwo") == (nil, "> one\ntwo"))
+        #expect(SelectionQuote.split(">\n\nhi") == (nil, ">\n\nhi"))
+    }
 }
 
 struct PromptVariablesTests {

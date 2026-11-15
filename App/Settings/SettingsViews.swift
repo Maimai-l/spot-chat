@@ -339,6 +339,9 @@ struct GeneralSettingsView: View {
                 KeyboardShortcuts.Recorder("Open Full Window", name: .openFullWindow)
                 Toggle("Bring Selected Text", isOn: Binding(get: { app.bringsSelection }, set: { app.setBringsSelection($0) }))
                     .accessibilityIdentifier("bringSelection")
+                if app.bringsSelection {
+                    AccessibilityAccessRow(app: app)
+                }
             }
 
             Section("Mini Window") {
@@ -515,6 +518,57 @@ struct HarnessState: Equatable {
 }
 
 /// Whether Spot Chat reaches the user's DeepSeek Harness, and the way back to connecting it.
+/// Whether Spot Chat has the Accessibility access that bringing selected text needs, checked every two seconds
+/// while Settings shows it, with a way to System Settings when it hasn't. Access given before but no longer
+/// working, as after Spot Chat's signature changed, can still look on in System Settings; the hint says what
+/// to do then.
+private struct AccessibilityAccessRow: View {
+    @ObservedObject var app: AppModel
+    @State private var granted = SelectionReader.hasAccess(prompt: false)
+    @State private var asked = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            LabeledContent("Accessibility") {
+                HStack(spacing: 8) {
+                    Text(granted ? "Allowed" : "Not Allowed")
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("accessibilityStatus")
+                    if !granted {
+                        Button("Open System Settings") {
+                            app.noteAskedForSelectionAccess()
+                            asked = true
+                            SelectionReader.openAccessibilitySettings()
+                        }
+                        .accessibilityIdentifier("openAccessibilitySettingsFromSettings")
+                    }
+                }
+            }
+            if !granted, asked {
+                Text("If Spot Chat is already on in the list, select it, click the minus button, and try again")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .onAppear { asked = app.askedForSelectionAccess }
+        .task {
+            while !Task.isCancelled {
+                let now = SelectionReader.hasAccess(prompt: false)
+                if now != granted {
+                    SpotLog.app.info("Accessibility access", metadata: ["granted": "\(now)"])
+                    granted = now
+                }
+                do {
+                    try await Task.sleep(for: .seconds(2))
+                } catch {
+                    break
+                }
+            }
+        }
+    }
+}
+
 private struct HarnessStatusRow: View {
     @ObservedObject var app: AppModel
     let setUp: () -> Void

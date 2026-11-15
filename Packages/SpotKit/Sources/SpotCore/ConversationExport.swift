@@ -30,7 +30,8 @@ public enum ConversationExport {
     }
 }
 
-/// Text selected in another app, put into the input as a quote to ask about.
+/// Text selected in another app, asked about. The input holds it apart from the question; the message sent
+/// has it as a Markdown quote before the question, which is how it is saved and how the model reads it.
 public enum SelectionQuote {
     public static func draft(quoting selection: String) -> String? {
         let text = selection.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -40,5 +41,30 @@ public enum SelectionQuote {
             .map { $0.isEmpty ? ">" : "> \($0)" }
             .joined(separator: "\n")
         return quoted + "\n\n"
+    }
+
+    /// The message to send: the selection quoted, then the question. Either may be missing.
+    public static func message(quoting selection: String?, question: String) -> String {
+        guard let quote = selection.flatMap(draft(quoting:)) else { return question }
+        let asked = question.trimmingCharacters(in: .whitespacesAndNewlines)
+        return asked.isEmpty ? quote.trimmingCharacters(in: .newlines) : quote + question
+    }
+
+    /// A sent message taken apart again: the quote it starts with, if any, and the question after it.
+    public static func split(_ message: String) -> (quote: String?, question: String) {
+        var lines = message.components(separatedBy: "\n")
+        var quoted: [String] = []
+        while let line = lines.first, line.hasPrefix(">") {
+            var text = line.dropFirst()
+            if text.hasPrefix(" ") { text = text.dropFirst() }
+            quoted.append(String(text))
+            lines.removeFirst()
+        }
+        let quote = quoted.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+        // A quote counts only when a blank line or the end follows it, as the input writes one.
+        guard !quote.isEmpty, lines.first?.trimmingCharacters(in: .whitespaces).isEmpty ?? true else {
+            return (nil, message)
+        }
+        return (quote, lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines))
     }
 }

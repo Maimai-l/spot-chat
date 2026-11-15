@@ -42,7 +42,10 @@ final class AppModel: ObservableObject {
     /// A conversation's stored messages changed outside the window showing it, as when one catches up from
     /// DeepSeek Harness.
     let conversationChanged = PassthroughSubject<UUID, Never>()
+    /// Whether the user ever opened System Settings for Accessibility from Spot Chat, or was asked before.
     private(set) var askedForSelectionAccess = false
+    /// Whether the user closed the mini window's Accessibility notice; it stays closed until Spot Chat quits.
+    var accessibilityNoticeDismissed = false
     /// Thinking level by model; a model not listed thinks as its service decides.
     @Published private(set) var thinkingLevels: [String: ThinkingLevel] = [:]
     /// Models whose service turned down an effort level.
@@ -392,8 +395,7 @@ final class AppModel: ObservableObject {
     func setBringsSelection(_ on: Bool) {
         bringsSelection = on
         logged { try preferenceService.set(PreferenceKey.bringSelection, to: on) }
-        // Turning it on asks macOS for access again, since the first request may have been dismissed.
-        if on { _ = SelectionReader.hasAccess(prompt: true) }
+        SpotLog.app.info("Bring Selected Text", metadata: ["on": "\(on)", "accessibility": "\(SelectionReader.hasAccess(prompt: false))"])
     }
 
     func noteAskedForSelectionAccess() {

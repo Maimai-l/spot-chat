@@ -78,8 +78,8 @@ final class FullWindowController: NSObject, ObservableObject, NSWindowDelegate {
 
     func submit() {
         guard !session.isGenerating, composer.hasContent else { return }
-        let text = composer.draft
-        composer.draft = ""
+        let text = composer.messageText
+        composer.clearSent()
         inputActions.send(text: text, to: session, newTopicID: UUID())
         composer.requestFocus()
     }

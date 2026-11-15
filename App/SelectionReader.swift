@@ -1,10 +1,12 @@
 import AppKit
 import ApplicationServices
+import Logging
+import SpotCore
 
 /// Reads the text selected in the app in front, so Option-Space brings it into the mini window.
 /// Cherry Studio's selection assistant does the same with a native helper; here it is the
 /// Accessibility API, with a simulated Copy for apps that don't expose their selection.
-/// Both need Accessibility access, which macOS asks the user for once.
+/// Both need Accessibility access, which the user gives in System Settings.
 @MainActor
 enum SelectionReader {
     /// Asks for Accessibility access when it hasn't been granted. Returns whether it is.
@@ -13,11 +15,22 @@ enum SelectionReader {
         AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": prompt] as CFDictionary)
     }
 
-    /// The text selected in the app in front, or nil when there is none or access isn't granted.
-    /// `askForAccess` shows macOS's request for Accessibility access when it hasn't been granted.
-    static func selectedText(askForAccess: Bool) async -> String? {
+    /// Opens System Settings at Accessibility. Asking macOS once puts Spot Chat in the list there, so the user
+    /// only has to turn it on; macOS may show its own request beside it the first time.
+    static func openAccessibilitySettings() {
+        let granted = hasAccess(prompt: true)
+        SpotLog.window.info("Opening System Settings at Accessibility", metadata: ["granted": "\(granted)"])
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") else { return }
+        if !NSWorkspace.shared.open(url) {
+            SpotLog.window.error("Couldn't open System Settings at Accessibility")
+        }
+    }
+
+    /// The text selected in the app in front, or nil when there is none or access isn't granted. It never
+    /// asks for access: the mini window says when it's missing.
+    static func selectedText() async -> String? {
         guard NSWorkspace.shared.frontmostApplication?.processIdentifier != ProcessInfo.processInfo.processIdentifier,
-              hasAccess(prompt: askForAccess)
+              hasAccess(prompt: false)
         else { return nil }
         switch accessibilitySelection() {
         case let .text(text):

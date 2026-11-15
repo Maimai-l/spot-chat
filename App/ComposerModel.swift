@@ -25,6 +25,17 @@ final class ComposerModel: ObservableObject {
     @Published private(set) var focusRequest = 0
     /// A short message about something that could not be attached.
     @Published private(set) var notice: String?
+    /// Text selected in another app, shown as a strip at the top of the input and sent quoted before the
+    /// question.
+    @Published var selection: String? {
+        didSet {
+            if selection != oldValue { selectionOpen = false }
+        }
+    }
+    /// Whether the selection's strip shows all of it rather than one line.
+    @Published var selectionOpen = false
+    /// Whether the input says, in a strip at its top, that bringing selected text needs Accessibility access.
+    @Published var asksForAccessibility = false
 
     private let app: AppModel
     private let draftStorage: DraftStorage
@@ -48,7 +59,18 @@ final class ComposerModel: ObservableObject {
     }
 
     var hasExtras: Bool {
-        !attachments.isEmpty || !paths.isEmpty || sharedWindow != nil
+        !attachments.isEmpty || !paths.isEmpty || sharedWindow != nil || selection != nil
+    }
+
+    /// The text to send: the selection quoted, then the draft.
+    var messageText: String {
+        SelectionQuote.message(quoting: selection, question: draft)
+    }
+
+    /// Empties the draft and the selection once they are sent.
+    func clearSent() {
+        draft = ""
+        selection = nil
     }
 
     func requestFocus() {
@@ -140,6 +162,8 @@ enum ComposerLayout {
     static let tagRowHeight: CGFloat = 26
     static let noticeRowHeight: CGFloat = 16
     static let rowSpacing: CGFloat = 6
+    /// A strip at the top of the input, for the selection or a notice: one line, 36 tall.
+    static let stripHeight: CGFloat = 36
     /// As in Gemini, text above the buttons has its first line's center 27 from the top and its last
     /// line's 41 above the buttons' center, and the buttons sit 26 from the bottom, a little lower than
     /// in a single row: one line makes the bar 94 tall and each further line adds 20.
@@ -157,9 +181,56 @@ enum ComposerLayout {
     static func height(for composer: ComposerModel, textHeight: CGFloat = 0) -> CGFloat {
         var height = baseHeight
         height += expandedExtra(textHeight: textHeight)
+        if composer.asksForAccessibility { height += stripHeight + rowSpacing }
+        if let selection = composer.selection {
+            height += (composer.selectionOpen ? StripMetrics.openHeight(of: selection) : stripHeight) + rowSpacing
+        }
         if !composer.attachments.isEmpty || !composer.paths.isEmpty { height += attachmentsRowHeight + rowSpacing }
         if composer.sharedWindow != nil { height += tagRowHeight + rowSpacing }
         if composer.notice != nil { height += noticeRowHeight + rowSpacing }
         return height
+    }
+}
+
+/// The selection's strip opened: its text 13 points, lines 20 apart, up to five lines before it scrolls.
+enum StripMetrics {
+    static let font = NSFont.systemFont(ofSize: 13)
+    static let lineHeight: CGFloat = 20
+    static let maxLines: CGFloat = 5
+    static let verticalPadding: CGFloat = 8
+    /// The mini window's input is 400 wide; the strip is inset 8 from it, and its text leaves room for the
+    /// mark before it and the close button after it.
+    static let textWidth: CGFloat = 400 - 16 - 12 - 16 - 8 - 8 - 24 - 6
+
+    static func quoted(_ text: String) -> String {
+        "\u{201C}\(text)\u{201D}"
+    }
+
+    static var paragraphStyle: NSParagraphStyle {
+        let style = NSMutableParagraphStyle()
+        style.minimumLineHeight = lineHeight
+        style.maximumLineHeight = lineHeight
+        return style
+    }
+
+    /// What SwiftUI adds between lines to put them 20 apart.
+    @MainActor
+    static var lineSpacing: CGFloat {
+        max(0, lineHeight - NSLayoutManager().defaultLineHeight(for: font))
+    }
+
+    /// The text's own height, all of it.
+    static func textHeight(of text: String, width: CGFloat = textWidth) -> CGFloat {
+        let rect = (quoted(text) as NSString).boundingRect(
+            with: NSSize(width: width, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: [.font: font, .paragraphStyle: paragraphStyle]
+        )
+        return ceil(rect.height)
+    }
+
+    /// The strip's height opened: the text up to five lines, with padding above and below.
+    static func openHeight(of text: String) -> CGFloat {
+        min(textHeight(of: text), lineHeight * maxLines) + verticalPadding * 2
     }
 }
