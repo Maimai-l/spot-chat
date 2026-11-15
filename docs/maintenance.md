@@ -129,6 +129,7 @@ services such as Docker Desktop's socket and ssh-agent (Discussion 4503); open.
 | Item | Kind | Status |
 | --- | --- | --- |
 | Bugs and requests from using alpha 134 | Bugs, requests | Owner is using it |
+| Alphas update themselves with Sparkle deltas from GitHub Pages | Request | Done: checked on the owner's Mac, 189 to 190 with a 15 KB delta and 190 to 192 with 3.8 MB, no prompts; Sparkle's dialogs name versions as "0.1.0 alpha 192" |
 | Run commands in the user's DeepSeek Harness through Spot Chat's plugin (`agent/bridge`) | Request | Prototype: verified on macOS against `dsh web`; the desktop app is the owner's to try |
 | The plugin reaches into dsh-acp: it hands it an `agents` that mounts the agent preset, and puts its approval handler first | Follow-up | Breaks quietly if dsh changes either; the "Forwarding to your dsh" job checks both on every run |
 | A question the model asks with `ask_user_question` in a harness session goes to dsh's own interface, not Spot Chat | Follow-up | Open |
