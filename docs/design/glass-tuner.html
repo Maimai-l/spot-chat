@@ -1,0 +1,219 @@
+<title>Mini Window Glass</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* A stage at the mini window's size in points, over a desktop, with the controls below it. */
+:root{
+  --bg:#f3f3f5; --panel:#ffffff; --fg:rgba(0,0,0,.86); --sec:rgba(0,0,0,.52); --line:rgba(0,0,0,.1);
+  --accent:#0a7aff; --track:rgba(0,0,0,.12);
+  --font:-apple-system,"SF Pro Text","PingFang SC","Inter","Noto Sans SC",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#1c1c1e;--panel:#2a2a2d;--fg:rgba(255,255,255,.88);--sec:rgba(255,255,255,.55);--line:rgba(255,255,255,.12);--accent:#0a84ff;--track:rgba(255,255,255,.18);color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#1c1c1e;--panel:#2a2a2d;--fg:rgba(255,255,255,.88);--sec:rgba(255,255,255,.55);--line:rgba(255,255,255,.12);--accent:#0a84ff;--track:rgba(255,255,255,.18);color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--font);font-size:13px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
+.wrap{max-width:960px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+h1{font-size:17px;font-weight:600;margin:0}
+.seg{display:inline-flex;background:var(--track);border-radius:8px;padding:2px;gap:2px}
+.seg button{border:0;background:transparent;color:var(--fg);font:inherit;padding:4px 12px;border-radius:6px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--panel);box-shadow:0 .5px 1.5px rgba(0,0,0,.2)}
+.seg button:focus-visible,.copy:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.top{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center}
+.top .sp{flex:1}
+
+/* the stage: drawn at 1:1 points, scaled down to fit narrow screens */
+.viewport{border-radius:12px;overflow:hidden;position:relative;width:100%}
+.stage{width:960px;height:440px;position:relative;transform-origin:0 0}
+.desk{position:absolute;inset:0}
+.desk.wall{background:
+  radial-gradient(ellipse 60% 70% at 18% 30%,#f2a65a 0,transparent 60%),
+  radial-gradient(ellipse 55% 65% at 80% 25%,#6c8cff 0,transparent 60%),
+  radial-gradient(ellipse 70% 60% at 60% 90%,#3fb8a3 0,transparent 60%),
+  linear-gradient(160deg,#e9d7c3,#7e8fb8)}
+.desk.doc{background:#dfe3ea}
+.desk.dark{background:linear-gradient(165deg,#3c4756,#151a21)}
+.page{position:absolute;left:200px;top:24px;width:560px;height:420px;background:#fff;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.18);padding:40px 48px;font:15px/1.7 var(--font);color:#222;overflow:hidden}
+.page h2{font-size:22px;margin:0 0 12px}
+.page mark{background:#b4d5ff}
+.desk.wall .page,.desk.dark .page{display:none}
+
+/* the glass plate behind both surfaces */
+.group{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:calc(400px + 2 * var(--pad))}
+.glass{position:absolute;inset:0;border-radius:var(--outer);
+  background:rgba(var(--tint),var(--alpha));
+  -webkit-backdrop-filter:blur(var(--blur)) saturate(var(--sat));backdrop-filter:blur(var(--blur)) saturate(var(--sat));
+  box-shadow:0 0 0 .5px rgba(var(--rimc),var(--rim)),inset 0 .5px 0 rgba(255,255,255,var(--hi)),0 12px 36px rgba(0,0,0,var(--shadow))}
+.stack{position:relative;padding:var(--pad);display:flex;flex-direction:column;gap:var(--gap)}
+
+/* Spot Chat's surfaces, light gray with a rim */
+.surface{background:rgba(236,236,238,var(--solid));box-shadow:0 0 0 .5px rgba(0,0,0,.14),0 2px 8px rgba(0,0,0,var(--inner));border-radius:24px;color:rgba(0,0,0,.86);font-family:var(--font)}
+.notice{height:48px;display:flex;align-items:center;gap:6px;padding:0 10px 0 18px;font-size:13px;white-space:nowrap}
+.notice .t{flex:1}
+.pill{height:28px;padding:0 12px;border-radius:14px;background:rgba(0,0,0,.07);display:inline-flex;align-items:center}
+.circle{width:28px;height:28px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex:none}
+.capsule{height:54px;display:flex;align-items:center;gap:10px;padding:0 13px;font-size:15px}
+.ph{flex:1;color:rgba(0,0,0,.3);display:flex;align-items:center}
+.ph:before{content:"";width:1.5px;height:18px;background:#0a7aff;margin-right:2px}
+.model{font-weight:600;font-size:14px}
+.pop{padding:16px 18px 18px;font-size:13px}
+.pop .t{display:flex;align-items:center;font-weight:600;margin-bottom:10px}
+.pop .t span:first-child{flex:1}
+.pop blockquote{margin:0;border-left:3px solid rgba(0,0,0,.12);padding-left:12px;line-height:1.55;color:rgba(0,0,0,.5)}
+.composer{padding:8px 0 13px;font-size:15px}
+.excerpt{margin:0 8px;height:36px;border-radius:16px;background:rgba(0,0,0,.05);display:flex;align-items:center;gap:8px;padding:0 6px 0 12px;font-size:13px;color:rgba(0,0,0,.5)}
+.excerpt .q{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.composer .text{padding:8px 17px 10px;line-height:20px}
+.caret{display:inline-block;width:1.5px;height:18px;background:#0a7aff;vertical-align:-3px}
+.bar{display:flex;align-items:center;gap:6px;padding:0 13px}
+.bar .sp{flex:1}
+.icon{width:28px;height:28px;display:flex;align-items:center;justify-content:center;flex:none}
+
+/* controls */
+.controls{background:var(--panel);border-radius:12px;box-shadow:0 0 0 .5px var(--line);padding:6px 16px}
+.row{display:grid;grid-template-columns:7em minmax(0,1fr) 4.5em;align-items:center;gap:12px;min-height:40px}
+.row + .row{border-top:.5px solid var(--line)}
+.row label{color:var(--fg)}
+.row output{color:var(--sec);text-align:right;font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.out{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start}
+.out pre{flex:1;min-width:0;margin:0;background:var(--panel);border-radius:10px;box-shadow:0 0 0 .5px var(--line);padding:10px 12px;font:12px/1.5 ui-monospace,"SF Mono",Menlo,monospace;color:var(--sec);white-space:pre-wrap;overflow-wrap:anywhere}
+.copy{border:0;background:var(--accent);color:#fff;font:inherit;padding:6px 14px;border-radius:7px;cursor:pointer}
+@media (prefers-reduced-motion:no-preference){.glass,.stack{transition:none}}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="xmark" viewBox="0 0 10 10"><path d="M2 2l6 6M8 2L2 8" stroke="rgba(0,0,0,.5)" stroke-width="1.4" stroke-linecap="round"/></symbol>
+  <symbol id="plus" viewBox="0 0 16 16"><path d="M8 2.5v11M2.5 8h11" stroke="rgba(0,0,0,.6)" stroke-width="1.5" stroke-linecap="round"/></symbol>
+  <symbol id="expand" viewBox="0 0 16 16"><path d="M9.5 2.5h4v4M6.5 13.5h-4v-4" fill="none" stroke="rgba(0,0,0,.75)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="send" viewBox="0 0 18 18"><path d="M2 2.5l14 6.5-14 6.5 2.2-6.5z" fill="rgba(0,0,0,.8)"/></symbol>
+  <symbol id="ref" viewBox="0 0 16 16"><path d="M6.2 3.2L2.4 7l3.8 3.8M2.6 7h6.6c2.6 0 4.4 1.8 4.4 4.4v1.4" fill="none" stroke="rgba(0,0,0,.5)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+</svg>
+
+<div class="wrap">
+  <div class="top">
+    <h1>小窗磨砂玻璃</h1>
+    <span class="sp"></span>
+    <div class="seg" role="group" aria-label="场景" id="scene">
+      <button type="button" data-v="notice" aria-pressed="true">提示条</button>
+      <button type="button" data-v="excerpt" aria-pressed="false">摘录</button>
+    </div>
+    <div class="seg" role="group" aria-label="背景" id="desk">
+      <button type="button" data-v="doc" aria-pressed="true">文档</button>
+      <button type="button" data-v="wall" aria-pressed="false">壁纸</button>
+      <button type="button" data-v="dark" aria-pressed="false">深色</button>
+    </div>
+  </div>
+
+  <div class="viewport" id="viewport">
+    <div class="stage" id="stage">
+      <div class="desk doc" id="deskLayer">
+        <div class="page">
+          <h2>线粒体</h2>
+          <p><mark>线粒体是细胞的动力工厂，通过有氧呼吸把葡萄糖中的化学能转化为 ATP，供细胞的各项活动使用。</mark>线粒体有自己的 DNA，可以独立复制，这也是内共生学说的重要证据之一：它很可能起源于被古代真核细胞吞入的需氧细菌。</p>
+          <p>线粒体的数量因细胞类型而异，心肌细胞和肝细胞中可以多达数千个，而成熟的红细胞中则没有线粒体。线粒体内膜向内折叠形成嵴，大大增加了进行氧化磷酸化的表面积。</p>
+          <p>线粒体还参与细胞凋亡、钙离子储存和热量产生等过程。</p>
+        </div>
+      </div>
+      <div class="group" id="group">
+        <div class="glass"></div>
+        <div class="stack" id="stack"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls" id="controls"></div>
+
+  <div class="out">
+    <pre id="values"></pre>
+    <button type="button" class="copy" id="copy">拷贝数值</button>
+  </div>
+</div>
+
+<template id="t-notice">
+  <div class="surface notice"><span class="t">带入所选文本需要辅助功能权限</span><span class="pill">打开系统设置</span><span class="circle"><svg width="10" height="10"><use href="#xmark"/></svg></span></div>
+  <div class="surface capsule"><span class="icon"><svg width="16" height="16"><use href="#plus"/></svg></span><span class="ph">问问 Spot</span><span class="model">mock-fast</span><span class="icon"><svg width="16" height="16"><use href="#expand"/></svg></span></div>
+</template>
+<template id="t-excerpt">
+  <div class="surface pop"><div class="t"><span>所选文本</span><span class="circle" style="background:rgba(0,0,0,.05);margin:-6px -6px -6px 0"><svg width="10" height="10"><use href="#xmark"/></svg></span></div>
+    <blockquote>线粒体是细胞的动力工厂，通过有氧呼吸把葡萄糖中的化学能转化为 ATP，供细胞的各项活动使用。线粒体有自己的 DNA，可以独立复制，这也是内共生学说的重要证据之一。</blockquote></div>
+  <div class="surface composer">
+    <div class="excerpt"><svg width="16" height="16" style="flex:none"><use href="#ref"/></svg><span class="q">“线粒体是细胞的动力工厂，通过有氧呼吸把葡萄糖中的化学能转化为 ATP”</span><span class="circle" style="width:24px;height:24px"><svg width="10" height="10"><use href="#xmark"/></svg></span></div>
+    <div class="text">解释一下<span class="caret"></span></div>
+    <div class="bar"><span class="icon"><svg width="16" height="16"><use href="#plus"/></svg></span><span class="sp"></span><span class="model">mock-fast</span><span class="icon"><svg width="18" height="18"><use href="#send"/></svg></span><span class="icon"><svg width="16" height="16"><use href="#expand"/></svg></span></div>
+  </div>
+</template>
+
+<script>
+// Each control: its CSS variable, label, range and unit. The outer corner follows the inner 24 plus the padding,
+// so the glass stays concentric with the surfaces.
+const controls = [
+  {id:'pad', label:'边距', min:0, max:24, step:1, value:8, unit:'pt'},
+  {id:'gap', label:'间距', min:0, max:24, step:1, value:8, unit:'pt'},
+  {id:'blur', label:'模糊', min:0, max:60, step:1, value:24, unit:'pt'},
+  {id:'alpha', label:'玻璃不透明度', min:0, max:100, step:1, value:35, unit:'%'},
+  {id:'sat', label:'饱和度', min:100, max:250, step:5, value:160, unit:'%'},
+  {id:'tintL', label:'玻璃亮度', min:0, max:255, step:1, value:245, unit:''},
+  {id:'rim', label:'描边', min:0, max:40, step:1, value:14, unit:'%'},
+  {id:'hi', label:'顶部高光', min:0, max:100, step:1, value:50, unit:'%'},
+  {id:'shadow', label:'阴影', min:0, max:50, step:1, value:24, unit:'%'},
+  {id:'solid', label:'表面不透明度', min:40, max:100, step:1, value:100, unit:'%'},
+  {id:'inner', label:'表面阴影', min:0, max:30, step:1, value:0, unit:'%'},
+];
+const state = Object.fromEntries(controls.map(c => [c.id, c.value]));
+const box = document.getElementById('controls');
+for (const c of controls) {
+  const row = document.createElement('div');
+  row.className = 'row';
+  row.innerHTML = `<label for="c-${c.id}">${c.label}</label><input type="range" id="c-${c.id}" min="${c.min}" max="${c.max}" step="${c.step}" value="${c.value}"><output for="c-${c.id}" id="o-${c.id}"></output>`;
+  box.append(row);
+  row.querySelector('input').addEventListener('input', e => { state[c.id] = +e.target.value; apply(); });
+}
+
+const group = document.getElementById('group');
+function apply() {
+  const s = group.style;
+  s.setProperty('--pad', state.pad + 'px');
+  s.setProperty('--gap', state.gap + 'px');
+  s.setProperty('--outer', (24 + state.pad) + 'px');
+  s.setProperty('--blur', state.blur + 'px');
+  s.setProperty('--alpha', state.alpha / 100);
+  s.setProperty('--sat', state.sat + '%');
+  s.setProperty('--tint', `${state.tintL},${state.tintL},${Math.min(255, state.tintL + 3)}`);
+  s.setProperty('--rimc', state.tintL > 128 ? '0,0,0' : '255,255,255');
+  s.setProperty('--rim', state.rim / 100);
+  s.setProperty('--hi', state.hi / 100);
+  s.setProperty('--shadow', state.shadow / 100);
+  s.setProperty('--solid', state.solid / 100);
+  s.setProperty('--inner', state.inner / 100);
+  for (const c of controls) document.getElementById('o-' + c.id).textContent = state[c.id] + c.unit;
+  document.getElementById('values').textContent =
+    `场景 ${names[scene]}，背景 ${names[desk]}\n` + controls.map(c => `${c.label} ${state[c.id]}${c.unit}`).join('\n') + `\n外圆角 ${24 + state.pad}pt`;
+}
+
+let scene = 'notice', desk = 'doc';
+const names = {notice:'提示条', excerpt:'摘录', doc:'文档', wall:'壁纸', dark:'深色'};
+const stack = document.getElementById('stack');
+function showScene() { stack.replaceChildren(document.getElementById('t-' + scene).content.cloneNode(true)); }
+function seg(id, set) {
+  const el = document.getElementById(id);
+  el.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    for (const x of el.querySelectorAll('button')) x.setAttribute('aria-pressed', x === b);
+    set(b.dataset.v); apply();
+  });
+}
+seg('scene', v => { scene = v; showScene(); });
+seg('desk', v => { desk = v; document.getElementById('deskLayer').className = 'desk ' + v; });
+
+// Scale the 960-point stage to the width there is.
+const viewport = document.getElementById('viewport'), stage = document.getElementById('stage');
+function fit() { const k = Math.min(1, viewport.clientWidth / 960); stage.style.transform = `scale(${k})`; viewport.style.height = 440 * k + 'px'; }
+new ResizeObserver(fit).observe(viewport);
+
+document.getElementById('copy').addEventListener('click', async e => {
+  const text = document.getElementById('values').textContent;
+  try { await navigator.clipboard.writeText(text); e.target.textContent = '已拷贝'; setTimeout(() => e.target.textContent = '拷贝数值', 1500); }
+  catch { const r = document.createRange(); r.selectNodeContents(document.getElementById('values')); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); }
+});
+
+showScene(); apply(); fit();
+</script>
