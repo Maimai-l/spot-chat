@@ -44,6 +44,12 @@ body{margin:0;background:#1e1e1e;font-family:-apple-system,"SF Pro Text","PingFa
 .mark:after{content:"";position:absolute;right:2.5px;top:2.5px;width:3.5px;height:3.5px;border-radius:2px;background:#fff}
 .card .composer{position:absolute;left:8px;right:8px;bottom:8px;width:auto;box-shadow:var(--rim);padding:0}
 .card .composer .bar{height:54px}
+.excerpt.open{height:auto;align-items:flex-start;padding:9px 6px 10px 12px}
+.excerpt.open svg{margin-top:2px}
+.excerpt.open .full{flex:1;min-width:0;line-height:1.55;max-height:122px;overflow:hidden;-webkit-mask-image:linear-gradient(#000 80%,transparent)}
+.excerpt.open .x{margin-top:-3px}
+.sent .ref.open{max-width:300px;align-items:flex-start;background:rgba(0,0,0,.04);border-radius:12px;padding:8px 10px;line-height:1.5}
+.sent .ref.open svg{margin-top:2px}
 .en{font-family:-apple-system,"SF Pro Text","Inter",sans-serif}
 </style></head><body>
 
@@ -79,22 +85,23 @@ body{margin:0;background:#1e1e1e;font-family:-apple-system,"SF Pro Text","PingFa
 </div>
 
 <div>
-  <p class="cap">2  点按摘录：在上方弹出完整文本，可以滚动和拷贝。点按 ×、按 Esc 或点按别处关闭</p>
-  <div class="stage"><div class="pair" style="flex-direction:column;align-items:center;gap:10px">
-    <div class="pop">
-      <div class="t"><span>所选文本</span><span class="x" style="flex:none;width:28px;height:28px;border-radius:14px;background:rgba(0,0,0,.05);margin:-6px -6px -6px 0"><svg width="10" height="10"><use href="#xmark"/></svg></span></div>
-      <blockquote>线粒体是细胞的动力工厂，通过有氧呼吸把葡萄糖中的化学能转化为 ATP，供细胞的各项活动使用。线粒体有自己的 DNA，可以独立复制，这也是内共生学说的重要证据之一：它很可能起源于被古代真核细胞吞入的需氧细菌。</blockquote>
-    </div>
-    <div class="composer">
-      <div class="excerpt hover"><svg width="16" height="16" style="flex:none"><use href="#ref"/></svg><span class="q">“线粒体是细胞的动力工厂，通过有氧呼吸把葡萄糖中的化学能转化为 ATP，供细胞的各项活动使用”</span><span class="x"><svg width="10" height="10"><use href="#xmark"/></svg></span></div>
+  <p class="cap">2  点按摘录：在原处展开，最多显示约 5 行，更长可以滚动，可以选中拷贝；再点按收起</p>
+  <div class="stage"><div class="pair">
+    <div><div class="composer">
+      <div class="excerpt"><svg width="16" height="16" style="flex:none"><use href="#ref"/></svg><span class="q">“线粒体是细胞的动力工厂，通过有氧呼吸把葡萄糖中的化学能转化为 ATP，供细胞的各项活动使用”</span><span class="x"><svg width="10" height="10"><use href="#xmark"/></svg></span></div>
       <div class="text">解释一下<span class="caret"></span></div>
       <div class="bar"><span class="icon"><svg width="16" height="16"><use href="#plus"/></svg></span><span class="sp"></span><span class="model">mock-fast</span><span class="icon"><svg width="18" height="18"><use href="#send"/></svg></span><span class="icon"><svg width="16" height="16"><use href="#expand"/></svg></span></div>
-    </div>
+    </div><div class="label">收起</div></div>
+    <div><div class="composer">
+      <div class="excerpt open"><svg width="16" height="16" style="flex:none"><use href="#ref"/></svg><span class="full">“线粒体是细胞的动力工厂，通过有氧呼吸把葡萄糖中的化学能转化为 ATP，供细胞的各项活动使用。线粒体有自己的 DNA，可以独立复制，这也是内共生学说的重要证据之一：它很可能起源于被古代真核细胞吞入的需氧细菌。线粒体的数量因细胞类型而异”</span><span class="x"><svg width="10" height="10"><use href="#xmark"/></svg></span></div>
+      <div class="text">解释一下<span class="caret"></span></div>
+      <div class="bar"><span class="icon"><svg width="16" height="16"><use href="#plus"/></svg></span><span class="sp"></span><span class="model">mock-fast</span><span class="icon"><svg width="18" height="18"><use href="#send"/></svg></span><span class="icon"><svg width="16" height="16"><use href="#expand"/></svg></span></div>
+    </div><div class="label">展开</div></div>
   </div></div>
 </div>
 
 <div>
-  <p class="cap">3  发送后：问题上方留一行摘录，点按同样弹出完整文本。模型收到的仍是引用加问题，和现在一样；完整窗口和历史记录里也这样显示</p>
+  <p class="cap">3  发送后：问题上方留一行摘录，点按同样在原处展开。模型收到的仍是引用加问题，和现在一样；完整窗口和历史记录里也这样显示</p>
   <div class="stage"><div class="pair">
     <div class="card">
       <span class="circle" style="left:12px"><svg width="10" height="10"><use href="#xmark"/></svg></span>
@@ -114,16 +121,17 @@ body{margin:0;background:#1e1e1e;font-family:-apple-system,"SF Pro Text","PingFa
 
 <div class="en">
   <p class="cap">1 and 2 in English</p>
-  <div class="stage"><div class="pair" style="flex-direction:column;align-items:center;gap:10px">
-    <div class="pop">
-      <div class="t"><span>Selected Text</span><span class="x" style="flex:none;width:28px;height:28px;border-radius:14px;background:rgba(0,0,0,.05);margin:-6px -6px -6px 0"><svg width="10" height="10"><use href="#xmark"/></svg></span></div>
-      <blockquote>The mitochondria is the powerhouse of the cell. Through aerobic respiration it turns the chemical energy in glucose into ATP, which powers the cell's work. Mitochondria carry their own DNA and divide on their own, one of the main pieces of evidence for endosymbiosis.</blockquote>
-    </div>
-    <div class="composer">
-      <div class="excerpt hover"><svg width="16" height="16" style="flex:none"><use href="#ref"/></svg><span class="q">“The mitochondria is the powerhouse of the cell. Through aerobic respiration it turns the chemical energy”</span><span class="x"><svg width="10" height="10"><use href="#xmark"/></svg></span></div>
+  <div class="stage"><div class="pair">
+    <div><div class="composer">
+      <div class="excerpt"><svg width="16" height="16" style="flex:none"><use href="#ref"/></svg><span class="q">“The mitochondria is the powerhouse of the cell. Through aerobic respiration it turns the chemical energy”</span><span class="x"><svg width="10" height="10"><use href="#xmark"/></svg></span></div>
       <div class="text">Explain this<span class="caret"></span></div>
       <div class="bar"><span class="icon"><svg width="16" height="16"><use href="#plus"/></svg></span><span class="sp"></span><span class="model">mock-fast</span><span class="icon"><svg width="18" height="18"><use href="#send"/></svg></span><span class="icon"><svg width="16" height="16"><use href="#expand"/></svg></span></div>
-    </div>
+    </div><div class="label"></div></div>
+    <div><div class="composer">
+      <div class="excerpt open"><svg width="16" height="16" style="flex:none"><use href="#ref"/></svg><span class="full">“The mitochondria is the powerhouse of the cell. Through aerobic respiration it turns the chemical energy in glucose into ATP, which powers the cell's work. Mitochondria carry their own DNA and divide on their own, one of the main pieces of evidence for endosymbiosis.”</span><span class="x"><svg width="10" height="10"><use href="#xmark"/></svg></span></div>
+      <div class="text">Explain this<span class="caret"></span></div>
+      <div class="bar"><span class="icon"><svg width="16" height="16"><use href="#plus"/></svg></span><span class="sp"></span><span class="model">mock-fast</span><span class="icon"><svg width="18" height="18"><use href="#send"/></svg></span><span class="icon"><svg width="16" height="16"><use href="#expand"/></svg></span></div>
+    </div><div class="label"></div></div>
   </div></div>
 </div>
 </body></html>
