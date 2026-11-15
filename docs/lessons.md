@@ -91,3 +91,7 @@ Problems this project hit and what fixed them, so they aren't solved twice.
 - **A UI test couldn't find the Done button on a sheet it could see.** The sheet's stack had an
   accessibility identifier, which SwiftUI gives every element inside it, so the button's own was lost. A
   container that carries an identifier also gets `.accessibilityElement(children: .contain)`.
+- **A Sparkle protocol method didn't build under the name its Objective-C header gives.** Swift imported
+  `formatUpdateDisplayVersionFromUpdate:` as `formatUpdateVersion(fromUpdate:)`. An optional method with a
+  wrong Swift name builds and is never called, so methods an Objective-C library calls carry their selector
+  in `@objc(...)`.

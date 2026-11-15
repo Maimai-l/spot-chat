@@ -55,8 +55,10 @@ extension Updates: SPUStandardUserDriverDelegate {
     }
 }
 
+/// Sparkle calls these by their Objective-C selectors, named here, since Swift shortens their names.
 private final class VersionNames: NSObject, SUVersionDisplay {
-    func formatUpdateDisplayVersion(
+    @objc(formatUpdateDisplayVersionFromUpdate:andBundleDisplayVersion:withBundleVersion:)
+    func formatUpdateVersion(
         fromUpdate update: SUAppcastItem, andBundleDisplayVersion inOutBundleDisplayVersion: AutoreleasingUnsafeMutablePointer<NSString>,
         withBundleVersion bundleVersion: String
     ) -> String {
@@ -64,6 +66,7 @@ private final class VersionNames: NSObject, SUVersionDisplay {
         return AppVersion.display(version: update.displayVersionString, build: update.versionString)
     }
 
+    @objc(formatBundleDisplayVersion:withBundleVersion:matchingUpdate:)
     func formatBundleDisplayVersion(_ bundleDisplayVersion: String, withBundleVersion bundleVersion: String, matchingUpdate: SUAppcastItem?) -> String {
         AppVersion.display(version: bundleDisplayVersion, build: bundleVersion)
     }
