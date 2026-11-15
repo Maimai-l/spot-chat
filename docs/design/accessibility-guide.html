@@ -34,14 +34,15 @@ body{margin:0;background:#1e1e1e;font-family:-apple-system,"SF Pro Text","PingFa
 .row.with-hint{padding-top:8px}
 .hint{flex-basis:100%;font-size:12px;color:var(--sec);margin:-2px 0 10px;line-height:1.45}
 /* mini window */
-.capsule{position:absolute;left:280px;width:400px;height:54px;border-radius:27px;background:#ececee;box-shadow:0 8px 24px rgba(0,0,0,.25),var(--rim);display:flex;align-items:center;padding:0 13px;gap:10px;font-size:15px}
+.capsule{position:absolute;left:280px;width:400px;height:54px;border-radius:24px;background:#ececee;box-shadow:0 8px 24px rgba(0,0,0,.25),var(--rim);display:flex;align-items:center;padding:0 13px;gap:10px;font-size:15px}
 .capsule .ph{color:var(--ter);flex:1;display:flex;align-items:center;gap:1px}
 .capsule .ph:before{content:"";width:1.5px;height:18px;background:var(--accent);margin-right:2px}
 .capsule .model{font-weight:600;font-size:14px}
 .icon{width:28px;height:28px;display:flex;align-items:center;justify-content:center;flex:none}
-.notice{position:absolute;left:280px;width:400px;min-height:48px;border-radius:16px;background:#ececee;box-shadow:0 8px 24px rgba(0,0,0,.22),var(--rim);display:flex;align-items:center;gap:10px;padding:8px 10px 8px 16px;font-size:13px;line-height:1.35}
+.notice{position:absolute;left:280px;width:400px;height:48px;border-radius:24px;background:#ececee;box-shadow:0 8px 24px rgba(0,0,0,.22),var(--rim);display:flex;align-items:center;gap:6px;padding:0 10px 0 18px;font-size:13px;white-space:nowrap}
+.notice .pill{height:28px;padding:0 12px;border-radius:14px;background:rgba(0,0,0,.07);display:inline-flex;align-items:center;font-size:13px}
 .notice .t{flex:1}
-.close{width:22px;height:22px;border-radius:11px;display:flex;align-items:center;justify-content:center}
+.close{width:28px;height:28px;border-radius:14px;display:flex;align-items:center;justify-content:center}
 .en{font-family:-apple-system,"SF Pro Text","Inter",sans-serif}
 </style></head><body>
 
@@ -110,7 +111,7 @@ body{margin:0;background:#1e1e1e;font-family:-apple-system,"SF Pro Text","PingFa
 <div>
   <p class="cap">4  未获得权限时按 ⌥空格：不再弹系统对话框，小窗照常打开，上方出现提示。关闭后本次运行不再出现，设置里的那一行一直都在</p>
   <div class="stage mini">
-    <div class="notice" style="top:92px"><span class="t">带入所选文本需要辅助功能权限</span><span class="btn">打开系统设置</span><span class="close"><svg width="10" height="10"><use href="#xmark"/></svg></span></div>
+    <div class="notice" style="top:88px"><span class="t">带入所选文本需要辅助功能权限</span><span class="pill">打开系统设置</span><span class="close"><svg width="10" height="10"><use href="#xmark"/></svg></span></div>
     <div class="capsule" style="top:150px">
       <span class="icon"><svg width="16" height="16"><use href="#plus"/></svg></span>
       <span class="ph">问问 Spot</span>
@@ -137,7 +138,7 @@ body{margin:0;background:#1e1e1e;font-family:-apple-system,"SF Pro Text","PingFa
 </div>
 <div class="en">
   <div class="stage mini">
-    <div class="notice" style="top:92px"><span class="t">Bringing selected text needs Accessibility access</span><span class="btn">Open System Settings</span><span class="close"><svg width="10" height="10"><use href="#xmark"/></svg></span></div>
+    <div class="notice" style="top:88px"><span class="t">Selected text needs Accessibility</span><span class="pill">Open Settings</span><span class="close"><svg width="10" height="10"><use href="#xmark"/></svg></span></div>
     <div class="capsule" style="top:150px">
       <span class="icon"><svg width="16" height="16"><use href="#plus"/></svg></span>
       <span class="ph">Ask Spot</span>

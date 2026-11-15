@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="zh-Hans"><head><meta charset="utf-8"><title>Selection Excerpt</title>
+<!-- The selected text brought in with Option-Space, shown as Claude shows an excerpt: a strip above the input
+     that can be removed and opened, instead of "> " lines in the text. Drawn at the mini window's size in points:
+     400 wide, input corners of radius 24, 28-point buttons. One accent color; everything else gray. -->
+<style>
+:root{--text:rgba(0,0,0,.86);--sec:rgba(0,0,0,.5);--ter:rgba(0,0,0,.3);--accent:#0a7aff;--rim:0 0 0 .5px rgba(0,0,0,.14);--fill:rgba(0,0,0,.05)}
+*{box-sizing:border-box}
+body{margin:0;background:#1e1e1e;font-family:-apple-system,"SF Pro Text","PingFang SC","Inter","WenQuanYi Zen Hei",sans-serif;color:var(--text);padding:32px;display:flex;flex-direction:column;gap:28px;width:1024px}
+.cap{color:#d4d4d4;font-size:14px;margin:0 0 10px 2px;line-height:1.5}
+.stage{position:relative;width:960px;border-radius:12px;background:linear-gradient(165deg,#56677a,#2b3541);overflow:hidden}
+.pair{display:flex;gap:28px;justify-content:center;align-items:flex-end;padding:40px 0}
+.label{color:#d4d4d4;font-size:12px;text-align:center;margin-top:10px}
+/* the input, expanded as it is with text in it */
+.composer{width:400px;border-radius:24px;background:#ececee;box-shadow:0 8px 24px rgba(0,0,0,.25),var(--rim);padding:8px 0 13px;font-size:15px;position:relative}
+.composer .text{padding:8px 17px 10px;line-height:20px;min-height:40px}
+.composer .text .old{color:var(--text)}
+.caret{display:inline-block;width:1.5px;height:18px;background:var(--accent);vertical-align:-3px}
+.ph{color:var(--ter)}
+.bar{display:flex;align-items:center;gap:6px;padding:0 13px}
+.bar .sp{flex:1}
+.model{font-weight:600;font-size:14px;margin-right:6px}
+.icon{width:28px;height:28px;display:flex;align-items:center;justify-content:center;flex:none}
+/* the excerpt strip: inside the input, concentric with its corners */
+.excerpt{margin:0 8px;height:36px;border-radius:16px;background:var(--fill);display:flex;align-items:center;gap:8px;padding:0 6px 0 12px;font-size:13px;color:var(--sec);cursor:default}
+.excerpt .q{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.x{width:24px;height:24px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex:none}
+.excerpt.hover{background:rgba(0,0,0,.08)}
+/* the popover with the whole text */
+.pop{width:400px;border-radius:24px;background:#f2f2f4;box-shadow:0 10px 30px rgba(0,0,0,.28),var(--rim);padding:16px 18px 18px 18px;position:relative}
+.pop .t{display:flex;align-items:center;font-weight:600;font-size:13px;margin-bottom:10px}
+.pop .t span{flex:1}
+.pop blockquote{margin:0;border-left:3px solid rgba(0,0,0,.12);padding:0 0 0 12px;font-size:13px;line-height:1.55;color:var(--sec);max-height:160px;overflow:hidden}
+/* the card, after sending */
+.card{width:400px;height:420px;border-radius:24px;background:#ececee;box-shadow:0 8px 24px rgba(0,0,0,.25),var(--rim);position:relative;font-size:15px}
+.circle{position:absolute;top:12px;width:32px;height:32px;border-radius:16px;background:rgba(255,255,255,.6);box-shadow:var(--rim);display:flex;align-items:center;justify-content:center}
+.msgs{position:absolute;left:22px;right:22px;top:66px}
+.sent{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.sent .ref{max-width:280px;display:flex;align-items:center;gap:6px;font-size:13px;color:var(--sec)}
+.sent .ref .q{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bubble{background:rgba(0,0,0,.06);border-radius:18px;padding:8px 16px}
+.reply{margin-top:26px;line-height:1.55}
+.mark{width:14px;height:14px;border-radius:7px;background:#2a3fbf;margin-bottom:10px;position:relative}
+.mark:after{content:"";position:absolute;right:2.5px;top:2.5px;width:3.5px;height:3.5px;border-radius:2px;background:#fff}
+.card .composer{position:absolute;left:8px;right:8px;bottom:8px;width:auto;box-shadow:var(--rim);padding:0}
+.card .composer .bar{height:54px}
+.en{font-family:-apple-system,"SF Pro Text","Inter",sans-serif}
+</style></head><body>
+
+<!-- SF Symbols, drawn: arrowshape.turn.up.left for the excerpt, xmark, plus, paperplane.fill, the full-window corners. -->
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="ref" viewBox="0 0 16 16"><path d="M6.2 3.2L2.4 7l3.8 3.8M2.6 7h6.6c2.6 0 4.4 1.8 4.4 4.4v1.4" fill="none" stroke="rgba(0,0,0,.5)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="xmark" viewBox="0 0 10 10"><path d="M2 2l6 6M8 2L2 8" stroke="rgba(0,0,0,.5)" stroke-width="1.4" stroke-linecap="round"/></symbol>
+  <symbol id="plus" viewBox="0 0 16 16"><path d="M8 2.5v11M2.5 8h11" stroke="rgba(0,0,0,.6)" stroke-width="1.5" stroke-linecap="round"/></symbol>
+  <symbol id="send" viewBox="0 0 18 18"><path d="M2 2.5l14 6.5-14 6.5 2.2-6.5z" fill="rgba(0,0,0,.8)"/></symbol>
+  <symbol id="expand" viewBox="0 0 16 16"><path d="M9.5 2.5h4v4M6.5 13.5h-4v-4" fill="none" stroke="rgba(0,0,0,.75)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="compose" viewBox="0 0 16 16"><path d="M7 3H3.5v9.5H13V9M12 2.5l1.5 1.5L8 9.5H6.5V8z" fill="none" stroke="rgba(0,0,0,.75)" stroke-width="1.3" stroke-linejoin="round"/></symbol>
+</svg>
+
+<div>
+  <p class="cap">1  按 ⌥空格 带入所选文本：现在是输入框里的“&gt;”引用行（左），改为输入框顶部的一条摘录（右）。摘录只占一行，过长用省略号；光标在下面，直接输入问题。点按 × 移除</p>
+  <div class="stage"><div class="pair">
+    <div>
+      <div class="composer">
+        <div class="text"><span class="old">&gt; 线粒体是细胞的动力工厂，通过有氧呼吸</span><br><br>解释一下<span class="caret"></span></div>
+        <div class="bar"><span class="icon"><svg width="16" height="16"><use href="#plus"/></svg></span><span class="sp"></span><span class="model">mock-fast</span><span class="icon"><svg width="18" height="18"><use href="#send"/></svg></span><span class="icon"><svg width="16" height="16"><use href="#expand"/></svg></span></div>
+      </div>
+      <div class="label">现在</div>
+    </div>
+    <div>
+      <div class="composer">
+        <div class="excerpt"><svg width="16" height="16" style="flex:none"><use href="#ref"/></svg><span class="q">“线粒体是细胞的动力工厂，通过有氧呼吸把葡萄糖中的化学能转化为 ATP，供细胞的各项活动使用”</span><span class="x"><svg width="10" height="10"><use href="#xmark"/></svg></span></div>
+        <div class="text">解释一下<span class="caret"></span></div>
+        <div class="bar"><span class="icon"><svg width="16" height="16"><use href="#plus"/></svg></span><span class="sp"></span><span class="model">mock-fast</span><span class="icon"><svg width="18" height="18"><use href="#send"/></svg></span><span class="icon"><svg width="16" height="16"><use href="#expand"/></svg></span></div>
+      </div>
+      <div class="label">改为</div>
+    </div>
+  </div></div>
+</div>
+
+<div>
+  <p class="cap">2  点按摘录：在上方弹出完整文本，可以滚动和拷贝。点按 ×、按 Esc 或点按别处关闭</p>
+  <div class="stage"><div class="pair" style="flex-direction:column;align-items:center;gap:10px">
+    <div class="pop">
+      <div class="t"><span>所选文本</span><span class="x" style="flex:none;width:28px;height:28px;border-radius:14px;background:rgba(0,0,0,.05);margin:-6px -6px -6px 0"><svg width="10" height="10"><use href="#xmark"/></svg></span></div>
+      <blockquote>线粒体是细胞的动力工厂，通过有氧呼吸把葡萄糖中的化学能转化为 ATP，供细胞的各项活动使用。线粒体有自己的 DNA，可以独立复制，这也是内共生学说的重要证据之一：它很可能起源于被古代真核细胞吞入的需氧细菌。</blockquote>
+    </div>
+    <div class="composer">
+      <div class="excerpt hover"><svg width="16" height="16" style="flex:none"><use href="#ref"/></svg><span class="q">“线粒体是细胞的动力工厂，通过有氧呼吸把葡萄糖中的化学能转化为 ATP，供细胞的各项活动使用”</span><span class="x"><svg width="10" height="10"><use href="#xmark"/></svg></span></div>
+      <div class="text">解释一下<span class="caret"></span></div>
+      <div class="bar"><span class="icon"><svg width="16" height="16"><use href="#plus"/></svg></span><span class="sp"></span><span class="model">mock-fast</span><span class="icon"><svg width="18" height="18"><use href="#send"/></svg></span><span class="icon"><svg width="16" height="16"><use href="#expand"/></svg></span></div>
+    </div>
+  </div></div>
+</div>
+
+<div>
+  <p class="cap">3  发送后：问题上方留一行摘录，点按同样弹出完整文本。模型收到的仍是引用加问题，和现在一样；完整窗口和历史记录里也这样显示</p>
+  <div class="stage"><div class="pair">
+    <div class="card">
+      <span class="circle" style="left:12px"><svg width="10" height="10"><use href="#xmark"/></svg></span>
+      <span class="circle" style="right:56px"><svg width="16" height="16"><use href="#compose"/></svg></span>
+      <span class="circle" style="right:12px"><svg width="16" height="16"><use href="#expand"/></svg></span>
+      <div class="msgs">
+        <div class="sent">
+          <div class="ref"><svg width="14" height="14" style="flex:none"><use href="#ref"/></svg><span class="q">“线粒体是细胞的动力工厂，通过有氧呼吸把葡萄糖中的化学能转化为 ATP”</span></div>
+          <div class="bubble">解释一下</div>
+        </div>
+        <div class="reply"><div class="mark"></div>这段话说的是线粒体的主要功能：细胞通过有氧呼吸分解葡萄糖，把其中储存的化学能转化成 ATP，ATP 再为肌肉收缩、物质运输等各种活动供能。</div>
+      </div>
+      <div class="composer"><div class="bar"><span class="icon"><svg width="16" height="16"><use href="#plus"/></svg></span><span class="ph" style="flex:1;margin-left:6px">问问 Spot</span><span class="model">mock-fast</span></div></div>
+    </div>
+  </div></div>
+</div>
+
+<div class="en">
+  <p class="cap">1 and 2 in English</p>
+  <div class="stage"><div class="pair" style="flex-direction:column;align-items:center;gap:10px">
+    <div class="pop">
+      <div class="t"><span>Selected Text</span><span class="x" style="flex:none;width:28px;height:28px;border-radius:14px;background:rgba(0,0,0,.05);margin:-6px -6px -6px 0"><svg width="10" height="10"><use href="#xmark"/></svg></span></div>
+      <blockquote>The mitochondria is the powerhouse of the cell. Through aerobic respiration it turns the chemical energy in glucose into ATP, which powers the cell's work. Mitochondria carry their own DNA and divide on their own, one of the main pieces of evidence for endosymbiosis.</blockquote>
+    </div>
+    <div class="composer">
+      <div class="excerpt hover"><svg width="16" height="16" style="flex:none"><use href="#ref"/></svg><span class="q">“The mitochondria is the powerhouse of the cell. Through aerobic respiration it turns the chemical energy”</span><span class="x"><svg width="10" height="10"><use href="#xmark"/></svg></span></div>
+      <div class="text">Explain this<span class="caret"></span></div>
+      <div class="bar"><span class="icon"><svg width="16" height="16"><use href="#plus"/></svg></span><span class="sp"></span><span class="model">mock-fast</span><span class="icon"><svg width="18" height="18"><use href="#send"/></svg></span><span class="icon"><svg width="16" height="16"><use href="#expand"/></svg></span></div>
+    </div>
+  </div></div>
+</div>
+</body></html>
