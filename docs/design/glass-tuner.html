@@ -144,16 +144,17 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 
 <script>
 // Each control: its CSS variable, label, range and unit. The defaults are measured from the reference the owner
-// sent: a 12 pt frame of neutral gray glass at about a third opaque, 10 pt between the panels, and an outer corner
+// sent: a 12 pt frame of neutral gray glass, about a third opaque and not blurred (text behind it stays sharp),
+// 10 pt between the panels, and an outer corner
 // 8 pt larger than the panels' (concentric would be 24 plus the padding).
 const controls = [
   {id:'pad', label:'边距', min:0, max:24, step:1, value:12, unit:'pt'},
   {id:'gap', label:'间距', min:0, max:24, step:1, value:10, unit:'pt'},
   {id:'outer', label:'外圆角', min:24, max:48, step:1, value:32, unit:'pt'},
-  {id:'blur', label:'模糊', min:0, max:60, step:1, value:30, unit:'pt'},
-  {id:'alpha', label:'玻璃不透明度', min:0, max:100, step:1, value:33, unit:'%'},
-  {id:'sat', label:'饱和度', min:100, max:250, step:5, value:110, unit:'%'},
-  {id:'tintL', label:'玻璃亮度', min:0, max:255, step:1, value:180, unit:''},
+  {id:'blur', label:'模糊', min:0, max:60, step:1, value:0, unit:'pt'},
+  {id:'alpha', label:'玻璃不透明度', min:0, max:100, step:1, value:36, unit:'%'},
+  {id:'sat', label:'饱和度', min:100, max:250, step:5, value:100, unit:'%'},
+  {id:'tintL', label:'玻璃亮度', min:0, max:255, step:1, value:190, unit:''},
   {id:'rim', label:'描边', min:0, max:40, step:1, value:10, unit:'%'},
   {id:'hi', label:'顶部高光', min:0, max:100, step:1, value:0, unit:'%'},
   {id:'shadow', label:'阴影', min:0, max:50, step:1, value:10, unit:'%'},
