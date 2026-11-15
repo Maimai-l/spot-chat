@@ -250,7 +250,12 @@ jobs:
             -derivedDataPath build/DerivedData \
             -clonedSourcePackagesDirPath build/SourcePackages \
             CURRENT_PROJECT_VERSION=${{ github.run_number }}
-      # Updates need Sparkle inside the app and a signature that holds, ad hoc as it is.
+      - name: Sign with the Spot Chat certificate
+        env:
+          MACOS_SIGNING_P12: ${{ secrets.MACOS_SIGNING_P12 }}
+          MACOS_SIGNING_PASSWORD: ${{ secrets.MACOS_SIGNING_PASSWORD }}
+        run: bash scripts/sign_app.sh build/DerivedData/Build/Products/Release/SpotChat.app
+      # Updates need Sparkle inside the app and a signature that holds.
       - name: Check the app updates itself
         run: |
           app=build/DerivedData/Build/Products/Release/SpotChat.app

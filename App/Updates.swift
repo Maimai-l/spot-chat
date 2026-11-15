@@ -6,8 +6,9 @@ import SpotCore
 
 /// Alpha builds update themselves with Sparkle, from the feed CI publishes to GitHub Pages: a new build
 /// comes as a delta from the one installed when CI made one, so the dsh runtime isn't downloaded again
-/// when it didn't change. Updates are signed with an EdDSA key, which is what Sparkle trusts here, since
-/// each build is signed ad hoc. A build without a build number or a key, as in tests, doesn't check.
+/// when it didn't change. Updates are signed with an EdDSA key, which is what Sparkle trusts here: the app's
+/// own certificate is self-signed, or ad hoc without it. A build without a build number or a key, as in tests,
+/// doesn't check.
 @MainActor
 final class Updates: NSObject, ObservableObject {
     static let shared = Updates()
