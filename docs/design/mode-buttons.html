@@ -75,7 +75,7 @@ body{margin:0;background:#1e1e1e;font-family:-apple-system,"SF Pro Text","PingFa
           <span class="b"><svg width="16" height="16"><use href="#expand"/></svg></span>
         </div>
       </div>
-      <div class="menu" style="left:78px;top:112px;min-width:160px">
+      <div class="menu" style="left:80px;top:78px;min-width:160px">
         <div class="mi">选择其他文件夹…</div><div class="mi sel">在访达中显示</div><div class="sep"></div><div class="mi">关闭运行命令</div>
       </div>
     </div><div class="label">现在</div></div>
@@ -98,9 +98,9 @@ body{margin:0;background:#1e1e1e;font-family:-apple-system,"SF Pro Text","PingFa
 </div>
 
 <div>
-  <p class="cap">4  文件夹的设置移到“+”菜单：运行命令打开时，菜单里多一行显示当前文件夹，移上去展开“在访达中显示”和“选择其他文件夹…”。模式在菜单里开关，在输入框里关</p>
+  <p class="cap">4  文件夹的设置移到“+”菜单。菜单在整个输入框下方 6 点处弹出，左边和“+”对齐，不再压住输入框的下沿；子菜单在所在行右侧、和它对齐：运行命令打开时，菜单里多一行显示当前文件夹，移上去展开“在访达中显示”和“选择其他文件夹…”。模式在菜单里开关，在输入框里关</p>
   <div class="stage">
-    <div class="cell"><div class="slot" data-bar="menu" style="height:240px"></div><div class="label">运行命令打开时的“+”菜单</div></div>
+    <div class="cell"><div class="slot" data-bar="menu"></div><div class="label">运行命令打开时的“+”菜单</div></div>
   </div>
 </div>
 
@@ -113,7 +113,7 @@ body{margin:0;background:#1e1e1e;font-family:-apple-system,"SF Pro Text","PingFa
   <p class="cap">3 and 4 in English</p>
   <div class="stage">
     <div class="cell"><div class="slot" data-bar="cmd-hover-en" style="height:110px"></div></div>
-    <div class="cell"><div class="slot" data-bar="menu-en" style="height:240px"></div></div>
+    <div class="cell"><div class="slot" data-bar="menu-en"></div></div>
   </div>
 </div>
 
@@ -124,18 +124,26 @@ body{margin:0;background:#1e1e1e;font-family:-apple-system,"SF Pro Text","PingFa
     const b = n.querySelector('.bar'); b.style.position = 'absolute'; b.style.top = top + 'px'
     slot.append(n); return slot.querySelector('.bar')
   }
+  // Where macOS puts things: a tooltip just below and right of the pointer's tip; a submenu beside its item,
+  // its first item level with that item. The + menu opens 6 below the whole input, lined up with the +,
+  // rather than 4 below the + button, which put it over the input's lower edge.
   function hover(b, which, tip, slot, en) {
+    if (en) b.querySelector('.ph').textContent = 'Ask Spot'
     const btn = b.querySelector(which); btn.classList.add('hover')
     btn.innerHTML = '<svg width="10" height="10"><use href="#x"/></svg>'
-    const t = document.createElement('div'); t.className = 'tip'; t.textContent = tip
-    const left = btn.offsetLeft; t.style.left = (left - 10) + 'px'; t.style.top = (b.offsetTop + 58) + 'px'
-    slot.append(t)
+    const x = b.offsetLeft + btn.offsetLeft + 15, y = b.offsetTop + btn.offsetTop + 15
     const p = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); p.setAttribute('class', 'pointer')
-    p.innerHTML = '<use href="#arrow"/>'; p.style.left = (left + 16) + 'px'; p.style.top = (b.offsetTop + 30) + 'px'; slot.append(p)
-    if (en) b.querySelector('.ph').textContent = 'Ask Spot'
+    p.innerHTML = '<use href="#arrow"/>'; p.style.left = x + 'px'; p.style.top = y + 'px'; slot.append(p)
+    const t = document.createElement('div'); t.className = 'tip'; t.textContent = tip
+    t.style.left = (x + 4) + 'px'; t.style.top = (y + 22) + 'px'
+    slot.append(t)
   }
   function menu(slot, b, en) {
-    const m = document.createElement('div'); m.className = 'menu'; m.style.left = '6px'; m.style.top = '0px'; m.style.minWidth = '230px'
+    if (en) b.querySelector('.ph').textContent = 'Ask Spot'
+    const plus = b.querySelector('.b')
+    const m = document.createElement('div'); m.className = 'menu'; m.style.minWidth = '230px'
+    m.style.left = (b.offsetLeft + plus.offsetLeft) + 'px'
+    m.style.top = (b.offsetTop + b.offsetHeight + 6) + 'px'
     const z = en
       ? ['Add File Path…', 'Search the Web', 'Run Commands', 'Spot Chat', 'Show in Finder', 'Choose Another Folder…']
       : ['添加文件路径…', '联网搜索', '运行命令', 'Spot Chat', '在访达中显示', '选择其他文件夹…']
@@ -145,18 +153,20 @@ body{margin:0;background:#1e1e1e;font-family:-apple-system,"SF Pro Text","PingFa
       <div class="sep"></div>
       <div class="mi sel"><svg width="15" height="15"><use href="#folder"/></svg>${z[3]}<span class="r"><svg width="10" height="10"><use href="#chev"/></svg></span></div>`
     slot.append(m)
-    const s = document.createElement('div'); s.className = 'menu'; s.style.left = '240px'; s.style.top = '108px'; s.style.minWidth = '160px'
+    const item = m.querySelector('.mi.sel')
+    const s = document.createElement('div'); s.className = 'menu'; s.style.minWidth = '160px'
+    s.style.left = (m.offsetLeft + m.offsetWidth - 3) + 'px'
+    s.style.top = (m.offsetTop + item.offsetTop - 5) + 'px'
     s.innerHTML = `<div class="mi">${z[4]}</div><div class="mi">${z[5]}</div>`
     slot.append(s)
-    if (en) b.querySelector('.ph').textContent = 'Ask Spot'
   }
   for (const slot of document.querySelectorAll('[data-bar]')) {
     const kind = slot.dataset.bar
     if (kind === 'menu' || kind === 'menu-en') {
-      slot.style.height = '250px'
-      const b = bar(slot, 190); menu(slot, b, kind === 'menu-en')
+      slot.style.height = '210px'
+      const b = bar(slot, 0); menu(slot, b, kind === 'menu-en')
     } else if (kind) {
-      slot.style.height = '120px'
+      slot.style.height = '100px'
       const b = bar(slot, 0)
       if (kind === 'search-hover') hover(b, '[data-search]', '关闭联网搜索', slot)
       if (kind === 'cmd-hover') hover(b, '[data-cmd]', '关闭运行命令', slot)
