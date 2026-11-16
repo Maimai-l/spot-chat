@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="zh-Hans"><head><meta charset="utf-8"><title>Reply Steps</title>
+<!-- A reply's steps, searches and commands, in the mini window's card (400 wide, text inset 22), now and
+     as proposed. Click any line in the proposed card to open or close it: the line you click stays where it
+     is and what opens grows below it. One accent color; everything else gray. -->
+<style>
+:root{--text:rgba(0,0,0,.86);--sec:rgba(0,0,0,.5);--ter:rgba(0,0,0,.3);--line:rgba(0,0,0,.1);--fill:rgba(0,0,0,.05);--hover:rgba(0,0,0,.06);--rim:0 0 0 .5px rgba(0,0,0,.14)}
+*{box-sizing:border-box}
+body{margin:0;background:#1e1e1e;font-family:-apple-system,"SF Pro Text","PingFang SC","Inter","WenQuanYi Zen Hei",sans-serif;color:var(--text);padding:32px;display:flex;flex-direction:column;gap:28px;width:1024px}
+.cap{color:#d4d4d4;font-size:14px;margin:0 0 10px 2px;line-height:1.5}
+.stage{border-radius:12px;background:linear-gradient(165deg,#56677a,#2b3541);display:flex;gap:40px;justify-content:center;align-items:flex-start;padding:36px 0}
+.label{color:#d4d4d4;font-size:12px;text-align:center;margin-top:10px}
+.card{width:400px;border-radius:28px;background:#ececee;box-shadow:0 12px 34px rgba(0,0,0,.3),var(--rim);padding:20px 22px 22px;font-size:15px;line-height:1.5}
+.user{display:flex;justify-content:flex-end;margin-bottom:22px}
+.user span{background:rgba(0,0,0,.07);border-radius:20px 6px 20px 20px;padding:8px 16px}
+.mark{width:14px;height:14px;border-radius:7px;background:#2a3fbf;margin-bottom:12px;position:relative}
+.mark:after{content:"";position:absolute;right:2.5px;top:2.5px;width:3.5px;height:3.5px;border-radius:2px;background:#fff}
+.reply{margin-top:10px}
+svg.i{flex:none}
+
+/* ---- now: as the app draws it today ---- */
+.now .sum{font-size:14px;color:var(--sec);display:flex;align-items:center;gap:6px;margin-bottom:8px}
+.tri{width:0;height:0;border-left:5px solid rgba(0,0,0,.45);border-top:3.5px solid transparent;border-bottom:3.5px solid transparent;display:inline-block}
+.tri.down{transform:rotate(90deg)}
+.now .box{border-radius:10px;box-shadow:inset 0 0 0 .5px rgba(0,0,0,.12)}
+.now .row{padding:9px 12px;font-size:13px}
+.now .row + .row{border-top:.5px solid var(--line)}
+.now .row .h{display:flex;align-items:center;gap:6px}
+.now .v{color:var(--sec)}
+.now .res{margin-top:8px;background:var(--fill);border-radius:10px;padding:10px 12px}
+.now .res .t{font-size:12px;color:var(--sec);margin-bottom:6px}
+.now .res .r{display:flex;align-items:center;gap:8px;padding:4px 0}
+.now .r .n{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.now .r .s{color:var(--sec);font-size:12px}
+.now .bash{font-size:12px;color:var(--sec);margin:8px 0 6px}
+.now .cmd{font:12px ui-monospace,"SF Mono",Menlo,monospace;border-radius:8px;box-shadow:inset 0 0 0 .5px rgba(0,0,0,.12);padding:8px 10px}
+.now .out{font:11px/1.35 ui-monospace,"SF Mono",Menlo,monospace;color:var(--sec);margin-top:8px}
+
+/* ---- proposed ---- */
+.new .sum{display:inline-flex;align-items:center;gap:6px;font-size:14px;color:var(--sec);height:28px;padding:0 8px;margin:0 -8px 4px;border-radius:8px;cursor:default;user-select:none}
+.new .sum:hover,.new .sum.hover{background:var(--hover);color:var(--text)}
+.chev{transition:transform .2s ease-out}
+.open > .sum .chev,.open > .h .chev{transform:rotate(90deg)}
+/* what opens grows from its line down; the line itself never moves */
+.fold{display:grid;grid-template-rows:0fr;transition:grid-template-rows .2s ease-out}
+.open > .fold{grid-template-rows:1fr}
+.fold > div{overflow:hidden;min-height:0}
+.fold > div > *{opacity:0;transition:opacity .12s ease-out}
+.open > .fold > div > *{opacity:1;transition:opacity .15s ease-out .05s}
+.steps{position:relative;padding:2px 0 4px}
+/* the thread down the icons ties the steps together, instead of a box around them */
+.steps:before{content:"";position:absolute;left:7.5px;top:16px;bottom:16px;width:1px;background:var(--line)}
+.step{position:relative}
+.step > .h{display:flex;align-items:center;gap:8px;height:32px;padding:0 8px;margin:0 -8px;border-radius:8px;font-size:13px;cursor:default;user-select:none}
+.step > .h:hover,.step > .h.hover{background:var(--hover)}
+.step > .h .ic{width:16px;height:16px;display:flex;align-items:center;justify-content:center;background:#ececee;position:relative}
+.step > .h .v{color:var(--sec)}
+.step > .h .o{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.step > .h .m{color:var(--ter);font-size:11px;font-variant-numeric:tabular-nums}
+.detail{padding:2px 0 8px 24px}
+.results{background:var(--fill);border-radius:10px;padding:4px}
+.results a{display:flex;align-items:center;gap:8px;height:30px;padding:0 8px;border-radius:7px;font-size:13px;color:var(--text);text-decoration:none}
+.results a:hover{background:var(--hover)}
+.results .n{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.results .s{color:var(--sec);font-size:12px}
+.term{background:var(--fill);border-radius:10px;font:12px/1.45 ui-monospace,"SF Mono",Menlo,monospace;overflow:hidden}
+.term .c{padding:8px 10px;color:var(--text)}
+.term .c b{font-weight:400;color:var(--ter)}
+.term .p{padding:8px 10px;border-top:.5px solid var(--line);color:var(--sec);font-size:11px}
+.en{font-family:-apple-system,"SF Pro Text","Inter",sans-serif}
+</style></head><body>
+
+<!-- SF Symbols, drawn: chevron.right, magnifyingglass, globe, apple.terminal. -->
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="chev" viewBox="0 0 10 10"><path d="M3.5 1.8L6.7 5 3.5 8.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="mag" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.3" fill="none" stroke="rgba(0,0,0,.5)" stroke-width="1.4"/><path d="M10.2 10.2l3.3 3.3" stroke="rgba(0,0,0,.5)" stroke-width="1.4" stroke-linecap="round"/></symbol>
+  <symbol id="globe" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.6" fill="none" stroke="rgba(0,0,0,.5)" stroke-width="1.2"/><ellipse cx="8" cy="8" rx="2.4" ry="5.6" fill="none" stroke="rgba(0,0,0,.5)" stroke-width="1.1"/><path d="M2.6 8h10.8" stroke="rgba(0,0,0,.5)" stroke-width="1.1"/></symbol>
+  <symbol id="term" viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="10" rx="2" fill="none" stroke="rgba(0,0,0,.5)" stroke-width="1.2"/><path d="M4.8 6.4l1.8 1.6-1.8 1.6M8 10h3" fill="none" stroke="rgba(0,0,0,.5)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+</svg>
+
+<template id="t-search-new">
+  <div class="block open">
+    <div class="sum" data-toggle>搜索了网页，读取了 1 个网页<svg class="chev" width="10" height="10"><use href="#chev"/></svg></div>
+    <div class="fold"><div><div class="steps">
+      <div class="step open">
+        <div class="h" data-toggle><span class="ic"><svg class="i" width="14" height="14"><use href="#mag"/></svg></span><span class="o"><span class="v">搜索了网页</span> DaVinci Resolve MCP server</span><span class="m">2 个结果</span><svg class="chev" width="10" height="10" style="color:var(--sec)"><use href="#chev"/></svg></div>
+        <div class="fold"><div><div class="detail"><div class="results">
+          <a><svg class="i" width="13" height="13"><use href="#globe"/></svg><span class="n">samuelgursky/davinci-resolve-mcp</span><span class="s">github.com</span></a>
+          <a><svg class="i" width="13" height="13"><use href="#globe"/></svg><span class="n">DaVinci Resolve MCP Server</span><span class="s">flowhunt.io</span></a>
+        </div></div></div></div>
+      </div>
+      <div class="step">
+        <div class="h" data-toggle><span class="ic"><svg class="i" width="14" height="14"><use href="#globe"/></svg></span><span class="o"><span class="v">读取了</span> Resolve MCP</span><svg class="chev" width="10" height="10" style="color:var(--sec)"><use href="#chev"/></svg></div>
+        <div class="fold"><div><div class="detail"><div class="results"><a><span class="n" style="color:var(--sec)">https://github.com/samuelgursky/davinci-resolve-mcp</span></a></div></div></div></div>
+      </div>
+    </div></div></div>
+  </div>
+</template>
+
+<template id="t-cmd-new">
+  <div class="block open">
+    <div class="sum" data-toggle>运行了 1 条命令<svg class="chev" width="10" height="10"><use href="#chev"/></svg></div>
+    <div class="fold"><div><div class="steps">
+      <div class="step open">
+        <div class="h" data-toggle><span class="ic"><svg class="i" width="14" height="14"><use href="#term"/></svg></span><span class="o"><span class="v">列出文件夹</span></span><span class="m">0.0 s</span><svg class="chev" width="10" height="10" style="color:var(--sec)"><use href="#chev"/></svg></div>
+        <div class="fold"><div><div class="detail"><div class="term">
+          <div class="c"><b>$ </b>ls -a</div>
+          <div class="p">.<br>..<br>notes.md<br>report.pdf</div>
+        </div></div></div></div>
+      </div>
+    </div></div></div>
+  </div>
+</template>
+
+<div>
+  <p class="cap">1  搜索：左为现在，右为改后。去掉套在步骤外的框，改用左侧一条细线串起各步的图标；每一行整行可点，指针移上去就有底色；三角改为 chevron，打开时转向下。搜索行末尾显示结果数，结果不再加“结果”标题</p>
+  <div class="stage">
+    <div><div class="card now">
+      <div class="user"><span>Please search the web</span></div>
+      <div class="mark"></div>
+      <div class="sum">Searched the web, read 1 page <span class="tri down"></span></div>
+      <div class="box">
+        <div class="row"><div class="h"><span class="v">Searched the web</span> DaVinci Resolve MCP server <span class="tri down"></span></div>
+          <div class="res"><div class="t">Results</div>
+            <div class="r"><svg class="i" width="12" height="12"><use href="#globe"/></svg><span class="n">samuelgursky/davinci-resolve…</span><span class="s">github.com</span></div>
+            <div class="r"><svg class="i" width="12" height="12"><use href="#globe"/></svg><span class="n">DaVinci Resolve MCP Server</span><span class="s">flowhunt.io</span></div></div></div>
+        <div class="row"><div class="h"><span class="v">Read</span> Resolve MCP <span class="tri"></span></div></div>
+      </div>
+      <div class="reply">Here is what I found.</div>
+    </div><div class="label">现在</div></div>
+    <div><div class="card new" data-fill="t-search-new" data-reply="以下是我找到的内容。"></div><div class="label">改为</div></div>
+  </div>
+</div>
+
+<div>
+  <p class="cap">2  命令：命令和它的输出合成一个灰色块，命令在上，输出在细线下；去掉“Bash”标签，图标已经说明是终端</p>
+  <div class="stage">
+    <div><div class="card now">
+      <div class="user"><span>Please list the files</span></div>
+      <div class="mark"></div>
+      <div class="sum">Ran 1 command <span class="tri down"></span></div>
+      <div class="box"><div class="row"><div class="h"><span>List the folder</span> <span class="tri down"></span><span style="flex:1"></span><span class="v" style="font-size:11px">0.0 s</span></div>
+        <div class="bash">Bash</div><div class="cmd"><span style="color:var(--ter)">$ </span>ls -a</div><div class="out">.<br>..</div></div></div>
+      <div class="reply">Listed the folder.</div>
+    </div><div class="label">现在</div></div>
+    <div><div class="card new" data-fill="t-cmd-new" data-reply="列出了文件夹。"></div><div class="label">改为</div></div>
+  </div>
+</div>
+
+<div>
+  <p class="cap">3  打开的过程，0.2 秒：点的那一行不动，下面的内容随高度一起往下推，新内容在后半段淡入。现在的问题是窗口跟着底部滚动，点在对话末尾时，点的那一行会往上跳；改后点开不再滚动，看不全时自己往下滚</p>
+  <div class="stage" id="motion"></div>
+</div>
+
+<div>
+  <p class="cap">4  指针移到行上：整行出现浅灰底色，马上告诉你这一行能点</p>
+  <div class="stage" id="hover"></div>
+</div>
+
+<script>
+  for (const card of document.querySelectorAll('[data-fill]')) {
+    card.innerHTML = '<div class="user"><span>' + (card.dataset.fill === 't-search-new' ? '搜索一下 DaVinci Resolve MCP' : '列出这个文件夹里的文件') + '</span></div><div class="mark"></div>'
+    card.append(document.getElementById(card.dataset.fill).content.cloneNode(true))
+    const reply = document.createElement('div'); reply.className = 'reply'; reply.textContent = card.dataset.reply; card.append(reply)
+  }
+  // Clicking a line opens or closes what is under it, as the app will.
+  document.addEventListener('click', e => {
+    const t = e.target.closest('[data-toggle]'); if (!t) return
+    t.parentElement.classList.toggle('open')
+  })
+  // Frames of opening the search, for the picture: closed, halfway, open.
+  const motion = document.getElementById('motion')
+  for (const [label, rows, opacity] of [['0 秒', '0fr', 0], ['0.1 秒', '.5fr', .3], ['0.2 秒', '1fr', 1]]) {
+    const wrap = document.createElement('div')
+    const card = document.createElement('div'); card.className = 'card new'; card.dataset.fill = 't-search-new'
+    card.style.width = '290px'; card.style.padding = '18px 16px'
+    card.innerHTML = '<div class="mark"></div>'
+    card.append(document.getElementById('t-search-new').content.cloneNode(true))
+    const r = document.createElement('div'); r.className = 'reply'; r.textContent = '以下是我找到的内容。'; card.append(r)
+    const step = card.querySelector('.step')
+    const fold = step.querySelector(':scope > .fold'); fold.style.transition = 'none'; fold.style.gridTemplateRows = rows
+    fold.querySelector('.detail').style.opacity = opacity; fold.querySelector('.detail').style.transition = 'none'
+    if (rows === '0fr') step.classList.remove('open')
+    if (rows !== '1fr') step.querySelector('.h').classList.add('hover')
+    step.querySelector('.chev').style.transition = 'none'
+    step.querySelector('.chev').style.transform = 'rotate(' + (rows === '0fr' ? 0 : rows === '.5fr' ? 45 : 90) + 'deg)'
+    wrap.append(card)
+    const l = document.createElement('div'); l.className = 'label'; l.textContent = label; wrap.append(l)
+    motion.append(wrap)
+  }
+  const hover = document.getElementById('hover')
+  const hc = document.createElement('div'); hc.className = 'card new'
+  hc.innerHTML = '<div class="mark"></div>'
+  hc.append(document.getElementById('t-search-new').content.cloneNode(true))
+  hc.querySelector('.step').classList.remove('open')
+  hc.querySelectorAll('.step')[1].querySelector('.h').classList.add('hover')
+  hover.append(hc)
+</script>
+</body></html>
