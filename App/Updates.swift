@@ -15,6 +15,11 @@ final class Updates: NSObject, ObservableObject {
 
     @Published private(set) var canCheck = false
     private var controller: SPUStandardUpdaterController?
+    /// Whether Spot Chat can restart now without interrupting anything: set by the app delegate.
+    var isIdle: () -> Bool = { false }
+    /// Installs a downloaded update and restarts Spot Chat, once it is idle.
+    private var pendingInstall: (() -> Void)?
+    private var idleCheck: Timer?
 
     /// Whether this build updates itself.
     var isOn: Bool { controller != nil }
@@ -33,8 +38,33 @@ final class Updates: NSObject, ObservableObject {
         controller.updater.publisher(for: \.canCheckForUpdates).assign(to: &$canCheck)
         SpotLog.app.info("Updates are on", metadata: [
             "feed": "\(info["SUFeedURL"] as? String ?? "")", "channel": "\(Self.channel)",
-            "automatic": "\(controller.updater.automaticallyChecksForUpdates)",
+            "checks": "\(controller.updater.automaticallyChecksForUpdates)",
+            "installs": "\(controller.updater.automaticallyDownloadsUpdates)",
+            "every": "\(Int(controller.updater.updateCheckInterval)) s",
         ])
+    }
+
+    /// Sparkle installs an update it downloaded by itself when the app quits. Spot Chat lives in the menu bar
+    /// and is rarely quit, so "Automatically download and install updates" seemed to do nothing: the update
+    /// waited for a quit that didn't come. It is installed instead the first time Spot Chat is idle, with no
+    /// window open and nothing under way, checked every half minute, and Spot Chat restarts on the new build.
+    fileprivate func installWhenIdle(_ install: @escaping () -> Void, version: String) {
+        pendingInstall = install
+        SpotLog.app.info("The update installs once Spot Chat is idle", metadata: ["version": "\(version)"])
+        idleCheck?.invalidate()
+        idleCheck = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.installIfIdle() }
+        }
+        installIfIdle()
+    }
+
+    private func installIfIdle() {
+        guard let install = pendingInstall, isIdle() else { return }
+        pendingInstall = nil
+        idleCheck?.invalidate()
+        idleCheck = nil
+        SpotLog.app.info("Spot Chat is idle: installing the update and restarting")
+        install()
     }
 
     func checkNow() {
@@ -95,6 +125,17 @@ extension Updates: SPUUpdaterDelegate {
 
     nonisolated func updater(_ updater: SPUUpdater, failedToDownloadUpdate item: SUAppcastItem, error: Error) {
         SpotLog.app.error("Couldn't download the update", metadata: ["version": "\(item.versionString)", "error": "\(error)"])
+    }
+
+    /// An update downloaded by itself, waiting to install when Spot Chat quits. Returning true takes over when
+    /// it installs.
+    @objc(updater:willInstallUpdateOnQuit:immediateInstallationBlock:)
+    nonisolated func updater(
+        _ updater: SPUUpdater, willInstallUpdateOnQuit item: SUAppcastItem, immediateInstallationBlock: @escaping () -> Void
+    ) -> Bool {
+        let version = item.versionString
+        Task { @MainActor in Updates.shared.installWhenIdle(immediateInstallationBlock, version: version) }
+        return true
     }
 
     nonisolated func updater(_ updater: SPUUpdater, willInstallUpdate item: SUAppcastItem) {

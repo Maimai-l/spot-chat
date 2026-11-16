@@ -105,8 +105,8 @@ targets:
         SUFeedURL: https://maimai-l.github.io/spot-chat/appcast.xml
         SUPublicEDKey: $(SPARKLE_PUBLIC_KEY)
         SUEnableAutomaticChecks: true
-        # Every six hours, as alphas come often.
-        SUScheduledCheckInterval: 21600
+        # Every hour, as alphas come often; the feed is a few kilobytes.
+        SUScheduledCheckInterval: 3600
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
     settings:

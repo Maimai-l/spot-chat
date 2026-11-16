@@ -48,8 +48,10 @@ Settings or the menu bar.
 - The app isn't notarized; the README gives the command that lets it open.
 - There are no releases or tags. A full run also publishes the alpha as an update on GitHub Pages
   (`scripts/publish_update.sh`): Sparkle's feed at `maimai-l.github.io/spot-chat/appcast.xml` on the `alpha`
-  channel, the archive, and deltas to it from the three builds before. An installed alpha checks every six
-  hours and downloads the delta; Settings › General › Version and the menu bar menu check by hand.
+  channel, the archive, and deltas to it from the three builds before. An installed alpha checks every
+  hour and downloads the delta; Settings › General › Version and the menu bar menu check by hand. With
+  "Automatically download and install updates" on, the update installs and Spot Chat restarts the first time
+  it is idle, with no window open and nothing under way, rather than waiting for a quit.
 - Updates are signed with an EdDSA key: the private key is the `SPARKLE_PRIVATE_KEY` secret and the owner's
   Keychain, the public key is `SPARKLE_PUBLIC_KEY` in `project.yml`. Sparkle accepts an update whose EdDSA
   signature holds even though each build's ad hoc signature differs (`SUUpdateValidator.m`: "Either DSA must

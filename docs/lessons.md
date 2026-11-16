@@ -60,6 +60,10 @@ Problems this project hit and what fixed them, so they aren't solved twice.
   partition list, and for an app without an Apple team ID that names the build's own hash (`cdhash:`). The
   bridge's token is now made at each launch and kept in memory; the plugin reads its hash for every connection.
 
+- **"Automatically download and install updates" seemed to do nothing.** Sparkle installs an update it
+  downloaded by itself when the app quits, and a menu bar app is rarely quit. Spot Chat takes the install over
+  (`willInstallUpdateOnQuit`) and runs it once it is idle.
+
 ## Build and CI
 
 - **The core tests couldn't start.** Resolving packages with a newer local Swift pinned swift-collections 1.7.5,

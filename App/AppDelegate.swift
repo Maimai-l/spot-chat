@@ -63,8 +63,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Starts checking for updates in a packaged alpha.
-        _ = Updates.shared
+        // Starts checking for updates in a packaged alpha. An update downloaded by itself is installed when
+        // nothing is open or under way, so restarting interrupts nothing.
+        Updates.shared.isIdle = { [weak self] in
+            guard let self else { return false }
+            return app.workStoppedByQuitting.isEmpty && miniController.mode == .hidden
+                && !NSApp.windows.contains { $0.isVisible && $0.styleMask.contains(.titled) }
+        }
         let defaults = UserDefaults.standard
         if defaults.bool(forKey: LaunchOption.resetState) {
             UserDefaultsDraftStorage().saveDraft("")
