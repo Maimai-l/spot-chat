@@ -293,6 +293,40 @@ final class SpotChatUITests: XCTestCase {
         attachScreenshot("Web search")
     }
 
+    /// Not a check but a recording: opens and closes the steps of a reply with commands and one with a search,
+    /// two seconds apart, while the mock server records the screen, to see how they move.
+    func testOpeningStepsRecorded() throws {
+        let app = launchRunningCommands()
+        send("Please list the files", in: app)
+        XCTAssertTrue(reply(containing: "Listed the folder.", in: app).waitForExistence(timeout: 40))
+        send("Please search the web", in: app)
+        XCTAssertTrue(reply(containing: "Here is what I found.", in: app).waitForExistence(timeout: 40))
+        RunLoop.current.run(until: Date().addingTimeInterval(1.5))
+
+        _ = try Data(contentsOf: URL(string: "http://127.0.0.1:8765/record?seconds=34&name=Opening%20steps")!)
+        let started = Date()
+        func step(_ label: String, _ action: () -> Void) {
+            RunLoop.current.run(until: Date().addingTimeInterval(2))
+            print(String(format: "STEP %5.2f s %@", Date().timeIntervalSince(started), label))
+            action()
+        }
+        RunLoop.current.run(until: Date().addingTimeInterval(1))
+        let summaries = elements("commands", in: app)
+        step("close the search reply's steps") { summaries.element(boundBy: 1).click() }
+        step("open the search reply's steps") { summaries.element(boundBy: 1).click() }
+        step("open the search") { elements("toolRow", in: app).element(boundBy: 0).click() }
+        step("close the search") { elements("toolRow", in: app).element(boundBy: 0).click() }
+        step("open the commands reply's steps") { summaries.element(boundBy: 0).click() }
+        step("open the first command") { elements("toolRow", in: app).element(boundBy: 0).click() }
+        step("close the first command") { elements("toolRow", in: app).element(boundBy: 0).click() }
+        step("close the commands reply's steps") { summaries.element(boundBy: 0).click() }
+        step("scroll up") { app.scrollViews.firstMatch.scroll(byDeltaX: 0, deltaY: 300) }
+        step("open the commands reply's steps away from the end") { summaries.element(boundBy: 0).click() }
+        step("open the first command away from the end") { elements("toolRow", in: app).element(boundBy: 0).click() }
+        step("done") {}
+        RunLoop.current.run(until: Date().addingTimeInterval(started.timeIntervalSinceNow + 36))
+    }
+
     func testCommandOutsideTheFolderAsksFirstAndRunsOnceAllowed() {
         let app = launchRunningCommands()
         send("Write outside the folder", in: app)

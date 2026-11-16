@@ -19,6 +19,8 @@ The reply depends on the last user message:
 mock-vision has no reasoning: a request with reasoning_effort gets OpenAI's 400 for it.
   anything else            -> "Echo: <text>" in three chunks
 GET /v1/last-request returns the body of the last chat request.
+GET /record?seconds=N&name=NAME records the screen for N seconds into $RECORDINGS (default
+/tmp/spot-chat-recordings)/NAME.mov, for a UI test to show how something moves rather than how it looks.
 
 Streams look like DeepSeek's: a keep-alive comment first, a chunk with no choices partway, and, when
 stream_options.include_usage is set, a final usage chunk. Its prompt_cache_hit_tokens counts the bytes
@@ -27,12 +29,15 @@ of 16 tokens), the way a prefix cache would.
 """
 
 import json
+import os
 import re
+import subprocess
 import socketserver
 import sys
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import parse_qs, urlparse
 
 API_KEY = "test-key"
 MODELS = ["mock-fast", "mock-vision"]
@@ -234,6 +239,9 @@ class Handler(BaseHTTPRequestHandler):
         return False
 
     def do_GET(self):
+        if urlparse(self.path).path.endswith("/record"):
+            self.record()
+            return
         if self.path.endswith("/session-logs"):
             with lock:
                 self.send_json(200, list(session_logs_seen))
@@ -254,6 +262,23 @@ class Handler(BaseHTTPRequestHandler):
             ]})
             return
         self.send_json(404, {"error": {"message": "Not found", "type": "invalid_request_error"}})
+
+    def record(self):
+        """Starts macOS's screencapture for the asked seconds and answers at once."""
+        query = parse_qs(urlparse(self.path).query)
+        seconds = max(1, min(300, int(query.get("seconds", ["30"])[0])))
+        name = re.sub(r"[^A-Za-z0-9 _-]", "", query.get("name", ["recording"])[0]) or "recording"
+        folder = os.environ.get("RECORDINGS", "/tmp/spot-chat-recordings")
+        os.makedirs(folder, exist_ok=True)
+        path = os.path.join(folder, name + ".mov")
+        try:
+            subprocess.Popen(["screencapture", "-v", "-x", "-V", str(seconds), path],
+                             stdout=subprocess.DEVNULL, stderr=open(path + ".log", "w"))
+        except OSError as error:
+            self.send_json(500, {"error": str(error)})
+            return
+        print(f"recording {seconds} s to {path}", flush=True)
+        self.send_json(200, {"path": path, "seconds": seconds})
 
     def do_POST(self):
         length = int(self.headers.get("Content-Length", "0"))
