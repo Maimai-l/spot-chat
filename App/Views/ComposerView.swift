@@ -507,7 +507,8 @@ extension NSMenu {
     /// Opens the menu 6 below a point `drop` under the view's middle, the bottom of the input the view sits
     /// in, lined up with the view's left edge; above the view when the screen has no room below.
     func popUp(beside view: NSView, belowMiddleBy drop: CGFloat) {
-        let gap: CGFloat = 6
+        // The menu's window starts about 5 above the point it's given, padding above its first item.
+        let gap: CGFloat = 11
         let height = size.height
         if let window = view.window, let screen = window.screen {
             let frame = window.convertToScreen(view.convert(view.bounds, to: nil))

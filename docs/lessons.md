@@ -47,6 +47,14 @@ Problems this project hit and what fixed them, so they aren't solved twice.
 - **The window looked heavy next to Gemini's.** It was 480 wide with a grayer, more see-through bar, no rim and
   white blocks inside the card; it now follows Gemini's measurements (`docs/design/composer-vs-gemini.png`).
 
+- **Opening a step jumped the conversation up and slid it back down.** It followed the end of the conversation
+  while it grew, so it scrolled at once to the new end while the step was still animating open, and the line
+  clicked left the window. Screenshots couldn't show it; a screen recording from CI, looked at frame by frame,
+  did. Opening or closing something now holds the conversation still for the animation, and what opens grows
+  below the line clicked.
+- **The + menu covered the input's lower edge.** `popUp(beside:)` opens 4 below the button, which sits inside
+  the bar. It opens below the whole input now, and macOS adds about 5 of padding above a menu's first item.
+
 ## Build and CI
 
 - **The core tests couldn't start.** Resolving packages with a newer local Swift pinned swift-collections 1.7.5,
