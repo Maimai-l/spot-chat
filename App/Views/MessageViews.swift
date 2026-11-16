@@ -23,6 +23,9 @@ struct MessageList: View {
     @State private var pinnedToBottom = true
     /// True for a moment after the conversation scrolls itself to the end.
     @State private var isFollowing = false
+    /// Until this moment the conversation holds still while something the reader opened or closed changes
+    /// size, so the line they clicked stays under the pointer.
+    @State private var holdingUntil = Date.distantPast
 
     var body: some View {
         ScrollView {
@@ -64,15 +67,16 @@ struct MessageList: View {
             // Following a reply only ever scrolls down, so a move up is the reader's, however small: a
             // mouse wheel moves a few points at a time. A move up that lands exactly on the end is the
             // conversation getting shorter, not the reader.
+            let holding = Date() < holdingUntil
             if new.offset < old.offset - 0.5, new.offset < new.maxOffset - 1 {
                 pinnedToBottom = false
-            } else if new.isNearBottom {
+            } else if new.isNearBottom, !holding {
                 pinnedToBottom = true
             }
             // While the card grows open and replies render, the end moves after the conversation appeared;
             // keep up with it until the reader scrolls away.
             let resized = abs(new.content - old.content) > 0.5 || abs(new.visible - old.visible) > 0.5
-            if pinnedToBottom, resized, !new.isNearBottom {
+            if pinnedToBottom, resized, !new.isNearBottom, !holding {
                 followBottom(animated: false)
             }
         }
@@ -128,6 +132,13 @@ struct MessageList: View {
                 pinnedToBottom = true
                 DispatchQueue.main.async { followBottom(animated: true) }
             }
+        }
+        // Opening or closing a reply's steps grows or shrinks it below the line clicked. Following the end
+        // then scrolled the conversation at once while the steps were still opening, so the line jumped up
+        // and slid back down; it holds still instead, and the reader scrolls to what opened.
+        .environment(\.holdReaderPlace) {
+            pinnedToBottom = false
+            holdingUntil = Date().addingTimeInterval(0.6)
         }
         // A reply's height is known only once its page has rendered, after the message changed.
         .environment(\.replyDidResize) { id in
@@ -486,6 +497,8 @@ struct SentSelection: View {
 }
 
 extension EnvironmentValues {
+    /// Called just before the reader opens or closes something in a message, to keep the conversation still.
+    @Entry var holdReaderPlace: () -> Void = {}
     /// Whether the pointer is over the message, which shows its Copy and Edit buttons.
     @Entry var showsMessageActions = true
     /// Told when a question starts being edited (true) and when the edit ends (false), and whether it

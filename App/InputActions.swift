@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 import SpotCore
 
 /// The + menu's work for one window: uploads, sharing a window, the permission guide, and sending.
@@ -49,7 +50,8 @@ final class InputActions {
             menuDidClose: menuDidClose,
             toggleWebSearch: { [weak self] in
                 guard let app = self?.app else { return }
-                app.setSearchesTheWeb(!app.searchesTheWeb)
+                // The button beside the + grows in or shrinks away.
+                withAnimation(.easeOut(duration: 0.15)) { app.setSearchesTheWeb(!app.searchesTheWeb) }
             },
             toggleCommands: { [weak self, weak session] in
                 guard let self, let session else { return }
@@ -72,10 +74,12 @@ final class InputActions {
 
     /// Turns commands off, or on in the default folder.
     private func toggleCommands(in session: ChatSession) {
-        if session.commandFolder != nil {
-            session.setCommandFolder(nil)
-        } else {
-            session.setCommandFolder(app.readyDefaultCommandFolder())
+        withAnimation(.easeOut(duration: 0.15)) {
+            if session.commandFolder != nil {
+                session.setCommandFolder(nil)
+            } else {
+                session.setCommandFolder(app.readyDefaultCommandFolder())
+            }
         }
     }
 

@@ -1967,6 +1967,44 @@
           }
         }
       }
+    },
+    "Turn Off Web Search": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "关闭联网搜索"
+          }
+        }
+      }
+    },
+    "%lld results": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld result"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld results"
+                }
+              }
+            }
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 个结果"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

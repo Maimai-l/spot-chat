@@ -509,12 +509,23 @@ final class SpotChatUITests: XCTestCase {
         element("plusMenu", in: app).click()
         XCTAssertTrue(app.menuItems["Add File Path…"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.menuItems["Upload Image or File…"].exists, "Files go in by path while commands run")
+        XCTAssertTrue(app.menuItems["Work"].exists, "The folder commands run in is in the menu, to show or change")
+        RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        attachScreenshot("Plus menu with commands")
         menuItem("Run Commands", in: app).click()
         XCTAssertTrue(element("commandFolder", in: app).waitForNonExistence(timeout: 5))
         element("plusMenu", in: app).click()
         XCTAssertTrue(app.menuItems["Upload Image or File…"].waitForExistence(timeout: 5))
         menuItem("Run Commands", in: app).click()
         XCTAssertTrue(element("commandFolder", in: app).waitForExistence(timeout: 5), "Turning it on uses the default folder, with no folder to pick")
+
+        // Beside the +, it says under the pointer that clicking turns it off, and does.
+        let button = element("commandFolder", in: app)
+        button.hover()
+        RunLoop.current.run(until: Date().addingTimeInterval(1.5))
+        attachScreenshot("Mode button under the pointer")
+        button.click()
+        XCTAssertTrue(button.waitForNonExistence(timeout: 5))
     }
 
     // MARK: Mini window

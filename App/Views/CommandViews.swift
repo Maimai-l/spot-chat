@@ -4,14 +4,15 @@ import SpotAgent
 import SpotCore
 
 /// What a reply did, folded under one line as in Claude: "Ran 2 commands, searched the web, read 2 pages".
-/// Open while the reply is being made. Open, the steps sit in one card with a light rim, a hairline between
-/// them, and each opens in place to its details.
+/// Open while the reply is being made. Open, the steps are lines joined by a thin thread through their icons,
+/// and each opens in place to its details (docs/design/steps.html). Opening or closing keeps the line clicked
+/// where it is: what opens grows below it.
 struct CommandRunsView: View {
     let runs: [CommandRun]
     let isLive: Bool
     let stop: () -> Void
     @State private var isOpen: Bool
-    @State private var hovering = false
+    @Environment(\.holdReaderPlace) private var holdReaderPlace
 
     init(runs: [CommandRun], isLive: Bool, stop: @escaping () -> Void) {
         self.runs = runs
@@ -21,40 +22,27 @@ struct CommandRunsView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 2) {
             Button {
-                withAnimation(.easeOut(duration: 0.18)) { isOpen.toggle() }
+                holdReaderPlace()
+                withAnimation(StepMotion.open) { isOpen.toggle() }
             } label: {
                 HStack(spacing: 6) {
                     Text(Self.summary(of: shown))
                         .font(.system(size: 14))
-                        .foregroundStyle(hovering ? .primary : .secondary)
-                    DisclosureTriangle(isOpen: isOpen)
+                    StepChevron(isOpen: isOpen)
                 }
-                .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
-            .onHover { hovering = $0 }
+            .buttonStyle(StepLineStyle(height: 28))
             .accessibilityIdentifier("commands")
 
             if isOpen {
+                let steps = shown
                 VStack(alignment: .leading, spacing: 0) {
-                    ForEach(Array(shown.enumerated()), id: \.element.id) { index, run in
-                        if index > 0 {
-                            Rectangle()
-                                .fill(Color.primary.opacity(0.1))
-                                .frame(height: 0.5)
-                        }
-                        CommandRunRow(run: run, stop: stop)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 9)
+                    ForEach(steps) { run in
+                        CommandRunRow(run: run, stop: stop, isFirst: run.id == steps.first?.id, isLast: run.id == steps.last?.id)
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.5)
-                )
                 .transition(.opacity)
             }
         }
@@ -90,83 +78,148 @@ struct CommandRunsView: View {
     }
 }
 
-/// One step as a line in the card: what it did in gray, what it did it to in black. Opening it shows the
-/// command in a block of its own and what it printed below, or a search's results.
+/// How the steps open and close: the height in 0.2 seconds, the line clicked staying put.
+enum StepMotion {
+    static let open = Animation.easeOut(duration: 0.2)
+}
+
+/// A line that opens something: all of it clickable, with a light gray behind it under the pointer, so it
+/// shows at once that it can be clicked. Gray words turn black under the pointer.
+struct StepLineStyle: ButtonStyle {
+    static let rowHeight: CGFloat = 32
+    var height: CGFloat = StepLineStyle.rowHeight
+    var enabled = true
+
+    func makeBody(configuration: Configuration) -> some View {
+        StepLine(configuration: configuration, height: height, enabled: enabled)
+    }
+
+    private struct StepLine: View {
+        let configuration: Configuration
+        let height: CGFloat
+        let enabled: Bool
+        @State private var hovering = false
+
+        var body: some View {
+            configuration.label
+                .foregroundStyle(hovering && enabled ? .primary : .secondary)
+                .frame(height: height)
+                .padding(.horizontal, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(Color.primary.opacity(!enabled ? 0 : configuration.isPressed ? 0.09 : hovering ? 0.06 : 0))
+                )
+                .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .padding(.horizontal, -8)
+                .onHover { hovering = $0 }
+        }
+    }
+}
+
+/// One step as a line: its tool's icon on the thread, what it did in gray and what it did it to in black,
+/// then the results it found or how long it took. Opening it shows a search's results, or the command and
+/// what it printed in one gray block.
 struct CommandRunRow: View {
     let run: CommandRun
     let stop: () -> Void
+    var isFirst = true
+    var isLast = true
     @State private var isOpen = false
-    @State private var hovering = false
+    @Environment(\.holdReaderPlace) private var holdReaderPlace
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 0) {
             Button {
                 guard hasDetails else { return }
-                withAnimation(.easeOut(duration: 0.15)) { isOpen.toggle() }
+                holdReaderPlace()
+                withAnimation(StepMotion.open) { isOpen.toggle() }
             } label: {
-                HStack(spacing: 6) {
-                    // Words say what a step was, as in Claude; a spinner says it is still going.
-                    if !run.isFinished {
-                        CommandStateIcon(run: run)
-                    }
+                HStack(spacing: 8) {
+                    CommandStateIcon(run: run)
                     title
                         .font(.system(size: 13))
                         .lineLimit(1)
                         .truncationMode(.tail)
-                    if hasDetails {
-                        DisclosureTriangle(isOpen: isOpen)
-                    }
                     Spacer(minLength: 8)
-                    if run.state == .running {
-                        // How long it has run, so a long command doesn't look stuck: dsh shows its output
-                        // only when it ends.
-                        if run.tool == .shell {
-                            TimelineView(.periodic(from: run.startedAt, by: 1)) { context in
-                                Text(Self.format(elapsed: context.date.timeIntervalSince(run.startedAt)))
-                                    .font(.system(size: 11))
-                                    .monospacedDigit()
-                                    .foregroundStyle(.tertiary)
-                            }
-                        }
-                        Button("Stop", action: stop)
-                            .controlSize(.small)
-                            .accessibilityIdentifier("stopCommand")
-                    } else if let duration = run.duration, run.state != .denied, run.tool == .shell {
-                        Text(Self.format(duration))
-                            .font(.system(size: 11))
-                            .monospacedDigit()
-                            .foregroundStyle(.tertiary)
+                    trailing
+                    if hasDetails {
+                        StepChevron(isOpen: isOpen)
                     }
                 }
-                .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
-            .onHover { hovering = hasDetails && $0 }
+            .buttonStyle(StepLineStyle(enabled: hasDetails))
             .accessibilityIdentifier("toolRow")
 
-            if run.state == .waitingForApproval {
-                NeedsInputPill()
+            VStack(alignment: .leading, spacing: 6) {
+                if run.state == .waitingForApproval {
+                    NeedsInputPill()
+                }
+                if let note {
+                    Text(note)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("commandNote")
+                }
+                if isOpen {
+                    details
+                        .padding(.top, 2)
+                        .transition(.opacity)
+                }
             }
-            if let note {
-                Text(note)
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
-                    .accessibilityIdentifier("commandNote")
-            }
-            if isOpen {
-                details
-                    .padding(.top, 4)
-                    .transition(.opacity)
-            }
+            .padding(.leading, 24)
+            .padding(.bottom, isOpen || note != nil || run.state == .waitingForApproval ? 8 : 0)
         }
+        .background(alignment: .topLeading) { thread }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("command.\(run.state.rawValue)")
     }
 
+    /// The thread joining this step's icon to the ones above and below it, with a gap around the icon.
+    private var thread: some View {
+        let middle = StepLineStyle.rowHeight / 2
+        let gap: CGFloat = 11
+        return VStack(spacing: 0) {
+            Rectangle().fill(isFirst ? Color.clear : Color.primary.opacity(0.1)).frame(width: 1, height: middle - gap)
+            Spacer().frame(height: gap * 2)
+            Rectangle().fill(isLast ? Color.clear : Color.primary.opacity(0.1)).frame(width: 1)
+        }
+        .padding(.leading, 7.5)
+        .accessibilityHidden(true)
+    }
+
     private var title: Text {
-        let verb = Text(verbText).foregroundStyle(hovering ? .primary : .secondary)
+        let verb = Text(verbText)
         guard let object = objectText else { return verb }
         return verb + Text(verbatim: " ") + Text(verbatim: object).foregroundStyle(.primary)
+    }
+
+    /// While a command runs, how long it has, so a long one doesn't look stuck, and Stop; once it ends, how
+    /// long it took. A search shows how many results it found.
+    @ViewBuilder
+    private var trailing: some View {
+        if run.state == .running {
+            if run.tool == .shell {
+                TimelineView(.periodic(from: run.startedAt, by: 1)) { context in
+                    Text(Self.format(elapsed: context.date.timeIntervalSince(run.startedAt)))
+                        .font(.system(size: 11))
+                        .monospacedDigit()
+                        .foregroundStyle(.tertiary)
+                }
+            }
+            Button("Stop", action: stop)
+                .controlSize(.small)
+                .accessibilityIdentifier("stopCommand")
+        } else if run.tool == .webSearch, let count = run.sources?.count, count > 0 {
+            Text("\(count) results")
+                .font(.system(size: 11))
+                .monospacedDigit()
+                .foregroundStyle(.tertiary)
+        } else if let duration = run.duration, run.state != .denied, run.tool == .shell {
+            Text(Self.format(duration))
+                .font(.system(size: 11))
+                .monospacedDigit()
+                .foregroundStyle(.tertiary)
+        }
     }
 
     private var verbText: String {
@@ -199,25 +252,19 @@ struct CommandRunRow: View {
     private var details: some View {
         switch run.tool {
         case .shell, .other:
-            VStack(alignment: .leading, spacing: 8) {
+            // The command and what it printed in one block, as a terminal shows them.
+            VStack(alignment: .leading, spacing: 0) {
                 if !run.detail.isEmpty {
-                    VStack(alignment: .leading, spacing: 6) {
-                        // The tool's own name, as Claude labels the block.
-                        Text(verbatim: run.tool == .shell ? "Bash" : run.summary)
-                            .font(.system(size: 12))
-                            .foregroundStyle(.secondary)
-                        (Text(verbatim: "$ ").foregroundStyle(.tertiary) + Text(verbatim: run.detail))
-                            .font(.system(size: 12, design: .monospaced))
-                            .textSelection(.enabled)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 8)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                    .strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.5)
-                            )
-                            .accessibilityIdentifier("commandText")
-                    }
+                    (Text(verbatim: "$ ").foregroundStyle(.tertiary) + Text(verbatim: run.detail))
+                        .font(.system(size: 12, design: .monospaced))
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 8)
+                        .accessibilityIdentifier("commandText")
+                }
+                if !run.detail.isEmpty, !run.output.isEmpty {
+                    Rectangle().fill(Color.primary.opacity(0.1)).frame(height: 0.5)
                 }
                 if !run.output.isEmpty {
                     // The end of what it printed, cut here rather than by the text view: a text view told
@@ -236,10 +283,13 @@ struct CommandRunRow: View {
                     .foregroundStyle(.secondary)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
                     .accessibilityElement(children: .combine)
                     .accessibilityIdentifier("commandOutput")
                 }
             }
+            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.primary.opacity(0.05)))
         case .webSearch:
             WebResultsList(sources: run.sources ?? [])
         case .webFetch:
@@ -249,6 +299,10 @@ struct CommandRunRow: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
+                    .padding(.horizontal, 10)
+                    .frame(height: 30)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.primary.opacity(0.05)))
             }
         }
     }
@@ -290,18 +344,13 @@ struct CommandRunRow: View {
     }
 }
 
-/// A search's results in a gray block, as Claude shows them: the page's title, and its site at the end.
-/// Each opens in the browser. Sites are marked with a globe rather than their icons, which would mean a
-/// request to every site.
+/// A search's results in a gray block: the page's title, and its site at the end, each a line that opens in
+/// the browser. Sites are marked with a globe rather than their icons, which would mean a request to every site.
 struct WebResultsList: View {
     let sources: [WebSource]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text("Results")
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
-                .padding(.bottom, 4)
+        VStack(alignment: .leading, spacing: 0) {
             ForEach(sources, id: \.self) { source in
                 Button {
                     if let url = URL(string: source.url) { NSWorkspace.shared.open(url) }
@@ -312,6 +361,7 @@ struct WebResultsList: View {
                             .foregroundStyle(.secondary)
                         Text(verbatim: source.title)
                             .font(.system(size: 13))
+                            .foregroundStyle(.primary)
                             .lineLimit(1)
                             .truncationMode(.tail)
                         Spacer(minLength: 12)
@@ -320,35 +370,33 @@ struct WebResultsList: View {
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
-                    .padding(.vertical, 4)
-                    .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(StepLineStyle(height: 30))
+                .padding(.horizontal, 8)
                 .help(source.url)
                 .accessibilityIdentifier("searchResult")
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(4)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.primary.opacity(0.05)))
     }
 }
 
-/// A small filled triangle that turns down when open, as Claude marks what folds.
-struct DisclosureTriangle: View {
+/// A chevron after what folds, pointing down when open.
+struct StepChevron: View {
     let isOpen: Bool
 
     var body: some View {
-        Image(systemName: "arrowtriangle.right.fill")
-            .font(.system(size: 7))
+        Image(systemName: "chevron.right")
+            .font(.system(size: 9, weight: .semibold))
             .foregroundStyle(.secondary)
             .rotationEffect(.degrees(isOpen ? 90 : 0))
     }
 }
 
-/// What the command is, in gray as the rest of the conversation: a spinner while it runs, otherwise
-/// the tool's icon. How it ended is said in words below, not in colors.
+/// The step's tool on the thread: a spinner while it runs, otherwise the tool's icon. How it ended is said
+/// in words below, not in colors.
 struct CommandStateIcon: View {
     let run: CommandRun
 
@@ -593,55 +641,5 @@ struct PathTile: View {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         let path = url.path
         return path.hasPrefix(home) ? "~" + path.dropFirst(home.count) : path
-    }
-}
-
-/// "Run Commands Movies" next to the +: where the conversation runs commands. Its menu changes the
-/// folder or turns commands off.
-struct CommandFolderChip: View {
-    let folder: URL
-    let chooseFolder: () -> Void
-    let turnOff: () -> Void
-
-    var body: some View {
-        Menu {
-            Button("Choose Another Folder…", action: chooseFolder)
-            Button("Show in Finder") {
-                NSWorkspace.shared.activateFileViewerSelecting([folder])
-            }
-            Divider()
-            Button("Stop Running Commands", action: turnOff)
-        } label: {
-            // Where there is no room for the whole label, the icon stands for "Run Commands".
-            ViewThatFits(in: .horizontal) {
-                label(Text("Run Commands \(folder.lastPathComponent)"))
-                label(Text(folder.lastPathComponent))
-                Image(systemName: "apple.terminal")
-                    .font(.system(size: 12))
-                    .accessibilityLabel(Text("Run Commands \(folder.lastPathComponent)"))
-            }
-            .foregroundStyle(Color(nsColor: .controlAccentColor))
-            .padding(.horizontal, 11)
-            .frame(height: 28)
-            .background(Capsule().fill(Color(nsColor: .controlAccentColor).opacity(0.13)))
-            .contentShape(Capsule())
-        }
-        .menuStyle(.button)
-        .buttonStyle(.plain)
-        .menuIndicator(.hidden)
-        .fixedSize(horizontal: false, vertical: true)
-        .help(PathTile.shortPath(of: folder))
-        .accessibilityIdentifier("commandFolder")
-    }
-
-    private func label(_ text: Text) -> some View {
-        HStack(spacing: 5) {
-            Image(systemName: "apple.terminal")
-                .font(.system(size: 12))
-            text
-                .font(.system(size: 13))
-                .lineLimit(1)
-                .fixedSize()
-        }
     }
 }

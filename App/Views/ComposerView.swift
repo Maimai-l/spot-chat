@@ -40,16 +40,19 @@ struct ComposerView: View {
 
     @State private var width: CGFloat = 0
     @State private var trailingWidth: CGFloat = 120
+    /// From the +'s middle to the input's bottom, where its menu opens below.
+    @State private var plusMenuDrop: CGFloat = 26
+    @State private var plusMidY: CGFloat = 27
+    @State private var height: CGFloat = 54
 
     var body: some View {
-        let measured = ComposerTextMetrics.expandedHeight(
+        let modes = (searchShown ? 1 : 0) + (session.commandFolder != nil ? 1 : 0)
+        let textHeight = ComposerTextMetrics.expandedHeight(
             for: composer.draft,
             rowWidth: width,
             trailingWidth: trailingWidth,
-            leadingWidth: app.searchesTheWeb && webSearchAvailable ? 65 : 31
+            leadingWidth: 31 + CGFloat(modes) * 34
         )
-        // The folder chip takes the row's space, so the text sits above the buttons.
-        let textHeight = session.commandFolder != nil ? max(measured, ComposerTextMetrics.oneLineHeight) : measured
         VStack(alignment: .leading, spacing: ComposerLayout.rowSpacing) {
             if composer.asksForAccessibility {
                 AccessibilityStrip(composer: composer, app: app)
@@ -83,18 +86,27 @@ struct ComposerView: View {
             ComposerRowLayout(textHeight: textHeight) {
                 HStack(spacing: 6) {
                     PlusMenuButton(
-                        actions: actions, commandsOn: session.commandFolder != nil,
-                        webSearchOn: app.searchesTheWeb, webSearchAvailable: webSearchAvailable
+                        actions: actions, commandFolder: session.commandFolder,
+                        webSearchOn: app.searchesTheWeb, webSearchAvailable: webSearchAvailable,
+                        menuDrop: max(height - plusMidY, 14)
                     )
                         .frame(width: 28, height: 28)
                         .modifier(HoverCircle())
-                    if app.searchesTheWeb, webSearchAvailable {
-                        WebSearchModeButton(turnOff: actions.toggleWebSearch)
+                        .onGeometryChange(for: CGFloat.self, of: { $0.frame(in: .named(Self.space)).midY }) { plusMidY = $0 }
+                    if searchShown {
+                        ModeButton(
+                            symbol: "globe", turnOff: "Turn Off Web Search", identifier: "webSearchMode",
+                            action: actions.toggleWebSearch
+                        )
                     }
                     if let folder = session.commandFolder {
-                        CommandFolderChip(folder: folder, chooseFolder: actions.chooseCommandFolder, turnOff: actions.toggleCommands)
+                        ModeButton(
+                            symbol: "apple.terminal", turnOff: "Stop Running Commands", identifier: "commandFolder",
+                            place: PathTile.shortPath(of: folder), action: actions.toggleCommands
+                        )
                     }
                 }
+                .animation(.easeOut(duration: 0.15), value: modes)
                 ComposerField(
                     text: $composer.draft,
                     placeholder: String(localized: "Ask Spot"),
@@ -128,12 +140,20 @@ struct ComposerView: View {
         // The + and the last button's glyphs sit 25.5 and 24 from the ends, as in Gemini.
         .padding(.leading, 12)
         .padding(.trailing, 11)
+        .coordinateSpace(.named(Self.space))
+        .onGeometryChange(for: CGFloat.self, of: \.size.height) { height = $0 }
         .onChange(of: textHeight, initial: true) { onTextHeightChange(textHeight) }
     }
+
+    private static let space = "composer"
 
     /// Chats with DeepSeek search through its API; commands search through dsh.
     private var webSearchAvailable: Bool {
         session.commandFolder != nil || app.canSearchTheWeb(with: app.currentModel)
+    }
+
+    private var searchShown: Bool {
+        app.searchesTheWeb && webSearchAvailable
     }
 
     private var trailingControls: some View {
@@ -322,9 +342,11 @@ struct ShareTag: View {
 /// The + button. Its native menu offers uploads and the windows that can be shared.
 struct PlusMenuButton: NSViewRepresentable {
     let actions: ComposerActions
-    var commandsOn = false
+    var commandFolder: URL?
     var webSearchOn = false
     var webSearchAvailable = false
+    /// From the button's middle to the bottom of the input; the menu opens just below that.
+    var menuDrop: CGFloat = 26
 
     func makeCoordinator() -> Coordinator {
         Coordinator(actions: actions)
@@ -347,17 +369,20 @@ struct PlusMenuButton: NSViewRepresentable {
 
     func updateNSView(_ button: NSButton, context: Context) {
         context.coordinator.actions = actions
-        context.coordinator.commandsOn = commandsOn
+        context.coordinator.commandFolder = commandFolder
         context.coordinator.webSearchOn = webSearchOn
         context.coordinator.webSearchAvailable = webSearchAvailable
+        context.coordinator.menuDrop = menuDrop
     }
 
     @MainActor
     final class Coordinator: NSObject, NSMenuDelegate {
         var actions: ComposerActions
-        var commandsOn = false
+        var commandFolder: URL?
+        var commandsOn: Bool { commandFolder != nil }
         var webSearchOn = false
         var webSearchAvailable = false
+        var menuDrop: CGFloat = 26
 
         init(actions: ComposerActions) {
             self.actions = actions
@@ -368,7 +393,8 @@ struct PlusMenuButton: NSViewRepresentable {
             Task { @MainActor in
                 let windows = await actions.loadWindows()
                 let menu = makeMenu(windows: windows)
-                menu.popUp(beside: sender)
+                // Below the whole input rather than below the +, which put it over the input's lower edge.
+                menu.popUp(beside: sender, belowMiddleBy: menuDrop)
                 actions.menuDidClose()
             }
         }
@@ -390,11 +416,13 @@ struct PlusMenuButton: NSViewRepresentable {
             ]
             modes[0].isEnabled = webSearchAvailable
             modes[0].render(highlighted: false)
-            if commandsOn {
+            if let folder = commandFolder {
                 // dsh reads files where they are, so they go in by path.
                 menu.addItem(ClosureMenuItem(title: String(localized: "Add File Path…"), symbol: "paperclip", handler: actions.addPaths))
                 menu.addItem(.separator())
                 modes.forEach(menu.addItem)
+                menu.addItem(.separator())
+                menu.addItem(folderItem(folder))
                 return menu
             }
             // One picker takes images and files alike.
@@ -422,6 +450,20 @@ struct PlusMenuButton: NSViewRepresentable {
             menu.addItem(.separator())
             modes.forEach(menu.addItem)
             return menu
+        }
+
+        /// The folder commands run in, with a way to show it in Finder and to choose another.
+        private func folderItem(_ folder: URL) -> NSMenuItem {
+            let item = NSMenuItem(title: folder.lastPathComponent, action: nil, keyEquivalent: "")
+            item.image = NSImage(systemSymbolName: "folder", accessibilityDescription: nil)
+            item.toolTip = PathTile.shortPath(of: folder)
+            let submenu = NSMenu(title: folder.lastPathComponent)
+            submenu.addItem(ClosureMenuItem(title: String(localized: "Show in Finder"), symbol: nil) {
+                NSWorkspace.shared.activateFileViewerSelecting([folder])
+            })
+            submenu.addItem(ClosureMenuItem(title: String(localized: "Choose Another Folder…"), symbol: nil, handler: actions.chooseCommandFolder))
+            item.submenu = submenu
+            return item
         }
 
         func menu(_ menu: NSMenu, willHighlight item: NSMenuItem?) {
@@ -457,6 +499,24 @@ extension NSMenu {
         } else {
             y = view.isFlipped ? bottom + gap : bottom - gap
         }
+        popUp(positioning: nil, at: NSPoint(x: 0, y: y), in: view)
+    }
+}
+
+extension NSMenu {
+    /// Opens the menu 6 below a point `drop` under the view's middle, the bottom of the input the view sits
+    /// in, lined up with the view's left edge; above the view when the screen has no room below.
+    func popUp(beside view: NSView, belowMiddleBy drop: CGFloat) {
+        let gap: CGFloat = 6
+        let height = size.height
+        if let window = view.window, let screen = window.screen {
+            let frame = window.convertToScreen(view.convert(view.bounds, to: nil))
+            if frame.midY - drop - gap - height < screen.visibleFrame.minY {
+                popUp(beside: view)
+                return
+            }
+        }
+        let y = view.isFlipped ? view.bounds.midY + drop + gap : view.bounds.midY - drop - gap
         popUp(positioning: nil, at: NSPoint(x: 0, y: y), in: view)
     }
 }
@@ -547,22 +607,42 @@ final class ModeMenuDelegate: NSObject, NSMenuDelegate {
     }
 }
 
-/// The globe beside the + while web search is on, round like the + itself. Clicking it turns it off.
-struct WebSearchModeButton: View {
-    let turnOff: () -> Void
+/// A mode that is on, as a round button beside the +, alike for web search and running commands. Under the
+/// pointer its icon turns into an x and says what clicking does; clicking turns the mode off, and the button
+/// shrinks away as the rest of the row slides over (docs/design/mode-buttons.html).
+struct ModeButton: View {
+    let symbol: String
+    let turnOff: LocalizedStringKey
+    let identifier: String
+    /// Where the mode works, under the tooltip's first line: the folder commands run in.
+    var place: String?
+    let action: () -> Void
+    @State private var hovering = false
 
     var body: some View {
-        Button(action: turnOff) {
-            Image(systemName: "globe")
-                .font(.system(size: 15))
-                .foregroundStyle(Color(nsColor: .controlAccentColor))
-                .frame(width: 28, height: 28)
-                .background(Circle().fill(Color(nsColor: .controlAccentColor).opacity(0.13)))
-                .contentShape(Circle())
+        Button {
+            withAnimation(.easeOut(duration: 0.15)) { action() }
+        } label: {
+            ZStack {
+                Image(systemName: symbol)
+                    .font(.system(size: 14))
+                    .opacity(hovering ? 0 : 1)
+                Image(systemName: "xmark")
+                    .font(.system(size: 11, weight: .semibold))
+                    .opacity(hovering ? 1 : 0)
+            }
+            .foregroundStyle(Color(nsColor: .controlAccentColor))
+            .frame(width: 28, height: 28)
+            .background(Circle().fill(Color(nsColor: .controlAccentColor).opacity(hovering ? 0.22 : 0.13)))
+            .contentShape(Circle())
         }
         .buttonStyle(.plain)
-        .help(Text("Search the Web"))
-        .accessibilityLabel(Text("Search the Web"))
-        .accessibilityIdentifier("webSearchMode")
+        .onHover { inside in
+            withAnimation(.easeOut(duration: 0.1)) { hovering = inside }
+        }
+        .help(place.map { Text(turnOff) + Text(verbatim: "\n\($0)") } ?? Text(turnOff))
+        .accessibilityLabel(Text(turnOff))
+        .accessibilityIdentifier(identifier)
+        .transition(.scale(scale: 0.4).combined(with: .opacity))
     }
 }
