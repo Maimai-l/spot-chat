@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="zh-Hans"><head><meta charset="utf-8"><title>Mode Buttons</title>
+<!-- Web search and running commands beside the +, now and as proposed, at the mini window's size in points:
+     400 wide, 54 tall, 28-point buttons, corners of radius 24. One accent color; everything else gray. -->
+<style>
+:root{--text:rgba(0,0,0,.86);--sec:rgba(0,0,0,.5);--ter:rgba(0,0,0,.3);--accent:#0a7aff;--tint:rgba(10,122,255,.13);--tint2:rgba(10,122,255,.22);--rim:0 0 0 .5px rgba(0,0,0,.14)}
+*{box-sizing:border-box}
+body{margin:0;background:#1e1e1e;font-family:-apple-system,"SF Pro Text","PingFang SC","Inter","WenQuanYi Zen Hei",sans-serif;color:var(--text);padding:32px;display:flex;flex-direction:column;gap:28px;width:1024px}
+.cap{color:#d4d4d4;font-size:14px;margin:0 0 10px 2px;line-height:1.5}
+.stage{border-radius:12px;background:linear-gradient(165deg,#56677a,#2b3541);display:flex;flex-wrap:wrap;gap:28px 40px;justify-content:center;align-items:flex-start;padding:36px 0 30px}
+.cell{display:flex;flex-direction:column;align-items:center;gap:10px}
+.label{color:#d4d4d4;font-size:12px}
+.slot{position:relative;width:400px}
+.bar{width:400px;border-radius:24px;background:#ececee;box-shadow:0 8px 24px rgba(0,0,0,.25),var(--rim);font-size:15px}
+.bar.one{height:54px;display:flex;align-items:center;gap:6px;padding:0 11px 0 12px}
+.bar.two{padding:8px 11px 13px 12px}
+.bar.two .ph{padding:6px 5px 12px;display:flex}
+.row{display:flex;align-items:center;gap:6px}
+.sp{flex:1}
+.ph{color:var(--ter);flex:1;display:flex;align-items:center;margin-left:4px}
+.ph:before{content:"";width:1.5px;height:18px;background:var(--accent);margin-right:2px}
+.model{font-weight:600;font-size:15px;margin-right:4px}
+.b{width:28px;height:28px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex:none;position:relative}
+.mode{background:var(--tint)}
+.mode.hover{background:var(--tint2)}
+.chip{height:28px;border-radius:14px;background:var(--tint);color:var(--accent);display:flex;align-items:center;gap:6px;padding:0 12px 0 10px;font-size:14px}
+/* macOS menus and tooltips */
+.menu{position:absolute;background:rgba(236,236,238,.97);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.3),var(--rim);padding:5px;font-size:13px;min-width:200px;z-index:2}
+.mi{height:24px;display:flex;align-items:center;gap:8px;padding:0 10px;border-radius:5px;white-space:nowrap}
+.mi.sel{background:var(--accent);color:#fff}
+.mi .r{margin-left:auto;color:var(--sec)}
+.mi.sel .r{color:rgba(255,255,255,.8)}
+.sep{height:1px;background:rgba(0,0,0,.1);margin:5px 10px}
+.tip{position:absolute;background:#f6f6f6;border-radius:5px;box-shadow:0 2px 8px rgba(0,0,0,.25),var(--rim);font-size:12px;padding:3px 7px;white-space:nowrap;z-index:2}
+.pointer{position:absolute;width:12px;height:18px;z-index:3}
+.en{font-family:-apple-system,"SF Pro Text","Inter",sans-serif}
+</style></head><body>
+
+<!-- SF Symbols, drawn: plus, globe, apple.terminal, xmark, checkmark, folder, chevron.right, the full-window corners. -->
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="plus" viewBox="0 0 16 16"><path d="M8 2.5v11M2.5 8h11" stroke="rgba(0,0,0,.75)" stroke-width="1.5" stroke-linecap="round"/></symbol>
+  <symbol id="globe" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.3"/><ellipse cx="8" cy="8" rx="2.6" ry="6" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M2.2 8h11.6M3 5h10M3 11h10" stroke="currentColor" stroke-width="1.1"/></symbol>
+  <symbol id="term" viewBox="0 0 16 16"><rect x="1.8" y="3" width="12.4" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M4.6 6.3l1.9 1.7-1.9 1.7M8 10h3.2" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="x" viewBox="0 0 10 10"><path d="M2.2 2.2l5.6 5.6M7.8 2.2L2.2 7.8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="check" viewBox="0 0 12 12"><path d="M2.5 6.3l2.4 2.4 4.8-5.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="folder" viewBox="0 0 16 16"><path d="M2 4.5a1 1 0 0 1 1-1h3.2l1.4 1.5H13a1 1 0 0 1 1 1V12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></symbol>
+  <symbol id="clip" viewBox="0 0 16 16"><path d="M10.5 4.5l-5 5a1.5 1.5 0 0 0 2.1 2.1l5.4-5.4a3 3 0 0 0-4.2-4.2L3.4 7.4a4.2 4.2 0 0 0 6 6l4-4" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></symbol>
+  <symbol id="chev" viewBox="0 0 10 10"><path d="M3.5 1.8L6.7 5 3.5 8.2" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="expand" viewBox="0 0 16 16"><path d="M9.5 2.5h4v4M6.5 13.5h-4v-4" fill="none" stroke="rgba(0,0,0,.8)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="arrow" viewBox="0 0 12 18"><path d="M1 1v14l3.6-3.4 2.4 5.4 2.2-1-2.4-5.3H12z" fill="#000" stroke="#fff" stroke-width="1"/></symbol>
+</svg>
+
+<template id="new-bar">
+  <div class="bar one">
+    <span class="b"><svg width="16" height="16"><use href="#plus"/></svg></span>
+    <span class="b mode" data-search style="color:var(--accent)"><svg width="16" height="16"><use href="#globe"/></svg></span>
+    <span class="b mode" data-cmd style="color:var(--accent)"><svg width="16" height="16"><use href="#term"/></svg></span>
+    <span class="ph">问问 Spot</span>
+    <span class="model">deepseek-flash</span>
+    <span class="b"><svg width="16" height="16"><use href="#expand"/></svg></span>
+  </div>
+</template>
+
+<div>
+  <p class="cap">1  现在：联网搜索是圆形按钮，点一下直接关掉；运行命令是带文件夹名的胶囊，点一下弹菜单。两个长得不一样、点了效果也不一样，而且小窗放不下“运行命令”四个字，只剩文件夹名“Spot Chat”，看起来像 App 的名字</p>
+  <div class="stage">
+    <div class="cell"><div class="slot" style="height:236px">
+      <div class="bar two">
+        <div class="ph">问问 Spot</div>
+        <div class="row">
+          <span class="b"><svg width="16" height="16"><use href="#plus"/></svg></span>
+          <span class="b mode" style="color:var(--accent)"><svg width="16" height="16"><use href="#globe"/></svg></span>
+          <span class="chip"><svg width="16" height="16"><use href="#term"/></svg>Spot Chat</span>
+          <span class="sp"></span><span class="model">deepseek-flash</span>
+          <span class="b"><svg width="16" height="16"><use href="#expand"/></svg></span>
+        </div>
+      </div>
+      <div class="menu" style="left:78px;top:112px;min-width:160px">
+        <div class="mi">选择其他文件夹…</div><div class="mi sel">在访达中显示</div><div class="sep"></div><div class="mi">关闭运行命令</div>
+      </div>
+    </div><div class="label">现在</div></div>
+  </div>
+</div>
+
+<div>
+  <p class="cap">2  改为：两个模式都是 28 点的浅蓝圆形图标按钮，规则相同。输入框回到一行 54 点高，和 Gemini 一样</p>
+  <div class="stage">
+    <div class="cell"><div class="slot" data-bar></div><div class="label">联网搜索和运行命令都开</div></div>
+  </div>
+</div>
+
+<div>
+  <p class="cap">3  指针移到模式按钮上：底色加深，图标换成 ×，并显示提示。点一下就关掉，按钮缩小淡出，旁边的内容跟着滑过去。两个按钮一样</p>
+  <div class="stage">
+    <div class="cell"><div class="slot" data-bar="search-hover" style="height:110px"></div><div class="label">指针在地球上</div></div>
+    <div class="cell"><div class="slot" data-bar="cmd-hover" style="height:110px"></div><div class="label">指针在终端上</div></div>
+  </div>
+</div>
+
+<div>
+  <p class="cap">4  文件夹的设置移到“+”菜单：运行命令打开时，菜单里多一行显示当前文件夹，移上去展开“在访达中显示”和“选择其他文件夹…”。模式在菜单里开关，在输入框里关</p>
+  <div class="stage">
+    <div class="cell"><div class="slot" data-bar="menu" style="height:240px"></div><div class="label">运行命令打开时的“+”菜单</div></div>
+  </div>
+</div>
+
+<div>
+  <p class="cap">5  关掉的过程，0.15 秒：按钮缩小并淡出，右边的按钮和文字平滑滑到它原来的位置；打开时反过来，从“+”旁边长出来</p>
+  <div class="stage" id="motion"></div>
+</div>
+
+<div class="en">
+  <p class="cap">3 and 4 in English</p>
+  <div class="stage">
+    <div class="cell"><div class="slot" data-bar="cmd-hover-en" style="height:110px"></div></div>
+    <div class="cell"><div class="slot" data-bar="menu-en" style="height:240px"></div></div>
+  </div>
+</div>
+
+<script>
+  const tpl = document.getElementById('new-bar')
+  function bar(slot, top = 0) {
+    const n = tpl.content.cloneNode(true)
+    const b = n.querySelector('.bar'); b.style.position = 'absolute'; b.style.top = top + 'px'
+    slot.append(n); return slot.querySelector('.bar')
+  }
+  function hover(b, which, tip, slot, en) {
+    const btn = b.querySelector(which); btn.classList.add('hover')
+    btn.innerHTML = '<svg width="10" height="10"><use href="#x"/></svg>'
+    const t = document.createElement('div'); t.className = 'tip'; t.textContent = tip
+    const left = btn.offsetLeft; t.style.left = (left - 10) + 'px'; t.style.top = (b.offsetTop + 58) + 'px'
+    slot.append(t)
+    const p = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); p.setAttribute('class', 'pointer')
+    p.innerHTML = '<use href="#arrow"/>'; p.style.left = (left + 16) + 'px'; p.style.top = (b.offsetTop + 30) + 'px'; slot.append(p)
+    if (en) b.querySelector('.ph').textContent = 'Ask Spot'
+  }
+  function menu(slot, b, en) {
+    const m = document.createElement('div'); m.className = 'menu'; m.style.left = '6px'; m.style.top = '0px'; m.style.minWidth = '230px'
+    const z = en
+      ? ['Add File Path…', 'Search the Web', 'Run Commands', 'Spot Chat', 'Show in Finder', 'Choose Another Folder…']
+      : ['添加文件路径…', '联网搜索', '运行命令', 'Spot Chat', '在访达中显示', '选择其他文件夹…']
+    m.innerHTML = `<div class="mi"><svg width="15" height="15"><use href="#clip"/></svg>${z[0]}</div><div class="sep"></div>
+      <div class="mi"><svg width="15" height="15"><use href="#globe"/></svg>${z[1]}<span class="r" style="color:var(--accent)"><svg width="12" height="12"><use href="#check"/></svg></span></div>
+      <div class="mi"><svg width="15" height="15"><use href="#term"/></svg>${z[2]}<span class="r" style="color:var(--accent)"><svg width="12" height="12"><use href="#check"/></svg></span></div>
+      <div class="sep"></div>
+      <div class="mi sel"><svg width="15" height="15"><use href="#folder"/></svg>${z[3]}<span class="r"><svg width="10" height="10"><use href="#chev"/></svg></span></div>`
+    slot.append(m)
+    const s = document.createElement('div'); s.className = 'menu'; s.style.left = '240px'; s.style.top = '108px'; s.style.minWidth = '160px'
+    s.innerHTML = `<div class="mi">${z[4]}</div><div class="mi">${z[5]}</div>`
+    slot.append(s)
+    if (en) b.querySelector('.ph').textContent = 'Ask Spot'
+  }
+  for (const slot of document.querySelectorAll('[data-bar]')) {
+    const kind = slot.dataset.bar
+    if (kind === 'menu' || kind === 'menu-en') {
+      slot.style.height = '250px'
+      const b = bar(slot, 190); menu(slot, b, kind === 'menu-en')
+    } else if (kind) {
+      slot.style.height = '120px'
+      const b = bar(slot, 0)
+      if (kind === 'search-hover') hover(b, '[data-search]', '关闭联网搜索', slot)
+      if (kind === 'cmd-hover') hover(b, '[data-cmd]', '关闭运行命令', slot)
+      if (kind === 'cmd-hover-en') hover(b, '[data-cmd]', 'Stop Running Commands', slot, true)
+    } else {
+      slot.style.height = '54px'; bar(slot, 0)
+    }
+  }
+  // Turning web search off, in three frames: the button shrinks and fades, the rest slides left.
+  const motion = document.getElementById('motion')
+  for (const [label, scale, width] of [['0 秒', 1, 28], ['0.07 秒', .55, 14], ['0.15 秒', 0, 0]]) {
+    const cell = document.createElement('div'); cell.className = 'cell'
+    const slot = document.createElement('div'); slot.className = 'slot'; slot.style.height = '54px'
+    const b = bar(slot, 0); const g = b.querySelector('[data-search]')
+    g.style.transform = `scale(${scale})`; g.style.opacity = scale; g.style.width = width + 'px'
+    if (width === 0) { g.style.marginLeft = '-6px' } else if (width < 28) { g.style.marginLeft = '-3px' }
+    cell.append(slot)
+    const l = document.createElement('div'); l.className = 'label'; l.textContent = label; cell.append(l)
+    motion.append(cell)
+  }
+</script>
+</body></html>
