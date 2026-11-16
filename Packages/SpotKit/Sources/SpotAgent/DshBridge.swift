@@ -4,17 +4,14 @@ import SpotCore
 #if canImport(CryptoKit)
 import CryptoKit
 #endif
-#if canImport(Security)
-import Security
-#endif
 
 /// The way into the DeepSeek Harness the user runs, through Spot Chat's plugin there (`agent/bridge`): a
 /// Unix socket only the user's account can reach. A connection first sends Spot Chat's token, and once the
 /// plugin admits it, speaks ACP with a dsh-acp server of its own.
 ///
 /// Sandboxed commands can read files and open local sockets, so a token on disk would let one drive dsh and
-/// approve its own escapes. Spot Chat keeps the token in the Keychain and writes only its SHA-256 beside the
-/// socket, which the plugin compares with.
+/// approve its own escapes. Spot Chat makes a new token each launch, keeps it in memory only, and writes only
+/// its SHA-256 beside the socket, which the plugin reads again for every connection.
 public struct DshBridge: Sendable, Equatable {
     public enum Failure: LocalizedError, Equatable, Sendable {
         /// Nothing listens: DeepSeek Harness isn't open, or doesn't have the plugin.
@@ -24,8 +21,6 @@ public struct DshBridge: Sendable, Equatable {
         /// The plugin didn't answer the token in time.
         case noAnswer
         case pairing(String)
-        /// The user didn't let Spot Chat read its token from the Keychain.
-        case keychainRefused
 
         public var errorDescription: String? {
             switch self {
@@ -37,8 +32,6 @@ public struct DshBridge: Sendable, Equatable {
                 return String(localized: "DeepSeek Harness didn’t answer.")
             case let .pairing(detail):
                 return String(localized: "Couldn’t pair with DeepSeek Harness: \(detail)")
-            case .keychainRefused:
-                return String(localized: "Spot Chat wasn’t allowed to read its key for DeepSeek Harness from the Keychain.")
             }
         }
     }
@@ -206,94 +199,25 @@ public struct DshBridge: Sendable, Equatable {
     }
 }
 
-/// Spot Chat's token for the bridge, kept in the login Keychain.
+/// Spot Chat's token for the bridge: made at launch and kept in memory only.
+///
+/// It used to be kept in the Keychain, which asked the user again after every update: the Keychain lets an app
+/// read an item without asking only when it matches the item's partition list, and for an app without an
+/// Apple team ID that is the build's own hash. The plugin reads the token's hash for every connection, so a
+/// token that changes at each launch works as well and is never on disk.
 public enum DshBridgeToken {
-    private static let service = "Spot Chat dsh bridge"
-    private static let account = "token"
-
-    // macOS may ask the user each time the Keychain is read, so it is read once per launch; once the user
-    // declines, it isn't asked again until they choose to.
     private static let lock = NSLock()
-    nonisolated(unsafe) private static var cached: String?
-    nonisolated(unsafe) private static var refused = false
+    nonisolated(unsafe) private static var made: String?
 
-    /// Whether the user declined Spot Chat reading its token, this launch.
-    public static var wasRefused: Bool { lock.withLock { refused } }
-
-    /// The token: read from the Keychain the first time it's needed, and made and saved if there is none.
-    public static func current() throws -> String {
-        try lock.withLock {
-            if let cached { return cached }
-            if refused { throw DshBridge.Failure.keychainRefused }
-            let token: String
-            if let saved = try read() {
-                token = saved
-            } else {
-                var bytes = [UInt8](repeating: 0, count: 32)
-                for index in bytes.indices { bytes[index] = UInt8.random(in: 0...255) }
-                token = bytes.map { String(format: "%02x", $0) }.joined()
-                try save(token)
-                SpotLog.agent.info("Made a token for DeepSeek Harness")
-            }
-            cached = token
+    /// This launch's token, made the first time it's needed.
+    public static func current() -> String {
+        lock.withLock {
+            if let made { return made }
+            var generator = SystemRandomNumberGenerator()
+            let token = (0..<32).map { _ in String(format: "%02x", UInt8.random(in: 0...255, using: &generator)) }.joined()
+            made = token
+            SpotLog.agent.info("Made this launch's token for DeepSeek Harness")
             return token
         }
     }
-
-    /// Asks for the Keychain again, when the user chooses to after declining.
-    public static func askAgain() {
-        lock.withLock { refused = false }
-        SpotLog.agent.info("Asking for the bridge token in the Keychain again")
-    }
-
-    private static func read() throws -> String? {
-        #if canImport(Security)
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
-            kSecReturnData as String: true,
-        ]
-        var item: CFTypeRef?
-        let status = SecItemCopyMatching(query as CFDictionary, &item)
-        if status == errSecItemNotFound { return nil }
-        if status == errSecAuthFailed || status == errSecUserCanceled {
-            SpotLog.agent.notice("The user declined reading the bridge token from the Keychain", metadata: ["status": "\(status)"])
-            refused = true
-            throw DshBridge.Failure.keychainRefused
-        }
-        guard status == errSecSuccess, let data = item as? Data else {
-            SpotLog.agent.error("Couldn't read the bridge token from the Keychain", metadata: ["status": "\(status)"])
-            throw DshBridge.Failure.pairing(keychainMessage(status))
-        }
-        return String(decoding: data, as: UTF8.self)
-        #else
-        return nil
-        #endif
-    }
-
-    private static func save(_ token: String) throws {
-        #if canImport(Security)
-        let item: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
-            kSecValueData as String: Data(token.utf8),
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
-        ]
-        let status = SecItemAdd(item as CFDictionary, nil)
-        guard status == errSecSuccess else {
-            SpotLog.agent.error("Couldn't save the bridge token in the Keychain", metadata: ["status": "\(status)"])
-            throw DshBridge.Failure.pairing(keychainMessage(status))
-        }
-        #else
-        throw DshBridge.Failure.pairing("there is no Keychain")
-        #endif
-    }
-
-    #if canImport(Security)
-    private static func keychainMessage(_ status: OSStatus) -> String {
-        (SecCopyErrorMessageString(status, nil) as String?) ?? "\(status)"
-    }
-    #endif
 }

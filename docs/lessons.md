@@ -55,6 +55,11 @@ Problems this project hit and what fixed them, so they aren't solved twice.
 - **The + menu covered the input's lower edge.** `popUp(beside:)` opens 4 below the button, which sits inside
   the bar. It opens below the whole input now, and macOS adds about 5 of padding above a menu's first item.
 
+- **macOS still asked for the Keychain after every update, with a fixed certificate.** Accessibility follows the
+  designated requirement, which the certificate made the same for every build, but the Keychain checks an item's
+  partition list, and for an app without an Apple team ID that names the build's own hash (`cdhash:`). The
+  bridge's token is now made at each launch and kept in memory; the plugin reads its hash for every connection.
+
 ## Build and CI
 
 - **The core tests couldn't start.** Resolving packages with a newer local Swift pinned swift-collections 1.7.5,

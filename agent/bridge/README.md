@@ -14,8 +14,8 @@ once DeepSeek Harness has loaded the plugin.
 ## How it works
 
 The plugin listens on a Unix socket in `~/Library/Application Support/Spot Chat/dsh-bridge`, a folder only
-your account can open. A connection first sends Spot Chat's token; Spot Chat keeps the token in the Keychain
-and writes only its SHA-256 beside the socket. A connection with the right token gets an ACP server of its
+your account can open. A connection first sends Spot Chat's token; Spot Chat makes a new one each launch, keeps
+it in memory and writes only its SHA-256 beside the socket. A connection with the right token gets an ACP server of its
 own, dsh's own `dsh-acp`, whose sessions use your default agent preset, models and settings.
 
 dsh adds each session's log to its requests to DeepSeek's official API unless you turn it off in its

@@ -56,9 +56,10 @@ Settings or the menu bar.
   be valid, or Apple Code Signing must be valid"). Losing the private key means installing the next alpha by
   hand.
 - The release app is signed with the owner's self-signed certificate "Spot Chat Signing" (`scripts/sign_app.sh`,
-  secrets `MACOS_SIGNING_P12` and `MACOS_SIGNING_PASSWORD`). macOS keeps Keychain access and Accessibility by the
-  app's designated requirement, which is then the certificate rather than each build's hash, so what the user
-  allowed holds across updates. The first update after a change of certificate asks once more. Without the
+  secrets `MACOS_SIGNING_P12` and `MACOS_SIGNING_PASSWORD`). macOS keeps Accessibility by the app's designated
+  requirement, which is then the certificate rather than each build's hash, so it holds across updates; the first
+  update after a change of certificate asks once more. The Keychain doesn't follow the certificate: without an
+  Apple team ID an item's partition list names the build's hash, so Spot Chat keeps nothing there. Without the
   secrets the alpha is signed ad hoc, and the run says so. The certificate isn't Apple's: Gatekeeper treats the
   app as before.
 
@@ -144,7 +145,7 @@ services such as Docker Desktop's socket and ssh-agent (Discussion 4503); open.
 | Quitting Spot Chat while a harness turn runs lets it go on in dsh; the conversation catches up when opened again, and quitting doesn't warn | Request | Prototype, in testing |
 | Web search and running commands as two alike buttons beside the +, the folder in the + menu, and a reply's steps redesigned and opening without the conversation jumping (`docs/design/mode-buttons.html`, `docs/design/steps.html`) | Request | Done, in testing |
 | The selected text and the Accessibility notice as strips inside the input, no macOS prompt on Option-Space, and Accessibility's state in Settings (`docs/design/composer-strips.html`) | Request | Done, in testing |
-| An alpha signed ad hoc is a new app to the Keychain and to Accessibility, so macOS asked again after every update | Bug, P1 | Fixed: alphas are signed with the owner's certificate; to check on the owner's Mac across two updates |
+| An alpha signed ad hoc is a new app to the Keychain and to Accessibility, so macOS asked again after every update | Bug, P1 | Accessibility: fixed by the owner's certificate. Keychain: still asked after 198 to 201, as the partition list names the build's hash; fixed by not using the Keychain, the bridge token is made each launch |
 | The plugin installed in dsh is a copy; a newer one in a later alpha needs the install command again | Follow-up | Open |
 | A command turn stops when a new conversation starts, and reopening it in the full window loses its context | Bug, P1 | Fixed, in testing |
 | The question being edited doesn't scroll with the wheel, and sometimes sticks | Bug, P1 | Fixed, in testing |

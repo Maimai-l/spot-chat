@@ -484,8 +484,6 @@ struct HarnessState: Equatable {
     var running = false
     var listening = false
     var connected = false
-    /// The user declined Spot Chat reading its key from the Keychain; it isn't asked again until they say.
-    var keychainRefused = false
 
     /// DeepSeek Harness's app, where it is usually installed.
     static var app: URL? {
@@ -503,10 +501,7 @@ struct HarnessState: Equatable {
         state.listening = bridge.isListening
         state.running = state.listening || NSWorkspace.shared.runningApplications.contains { $0.localizedName == "DeepSeek Harness" }
         guard state.listening else { return state }
-        guard case let .success(token) = app.pairWithHarness() else {
-            state.keychainRefused = DshBridgeToken.wasRefused
-            return state
-        }
+        guard case let .success(token) = app.pairWithHarness() else { return state }
         // Connecting waits up to a few seconds, off the main thread.
         let result = await Task.detached { bridge.check(token: token) }.value
         if case let .failure(failure) = result {
@@ -573,13 +568,12 @@ private struct HarnessStatusRow: View {
     @ObservedObject var app: AppModel
     let setUp: () -> Void
     @State private var connected: Bool?
-    @State private var refused = false
 
     var body: some View {
         LabeledContent("Status") {
             HStack(spacing: 8) {
                 if let connected {
-                    Text(connected ? "Connected" : refused ? "Keychain Access Denied" : "Not Connected")
+                    Text(connected ? "Connected" : "Not Connected")
                         .foregroundStyle(.secondary)
                         .accessibilityIdentifier("harnessStatus")
                 }
@@ -595,7 +589,6 @@ private struct HarnessStatusRow: View {
                     SpotLog.agent.info("DeepSeek Harness connection", metadata: ["connected": "\(state.connected)"])
                     connected = state.connected
                 }
-                refused = state.keychainRefused
                 do {
                     try await Task.sleep(for: .seconds(5))
                 } catch {
@@ -650,16 +643,8 @@ struct HarnessSetupSheet: View {
             step(
                 done: state.connected, now: state.listening && !state.connected, waits: !state.listening, shown: state.running,
                 title: Text("Connection"),
-                status: state.connected ? "Connected" : state.keychainRefused ? "Keychain Access Denied" : "Waiting"
-            ) {
-                if state.keychainRefused {
-                    Button("Try Again") {
-                        DshBridgeToken.askAgain()
-                        Task { state = await HarnessState.now(app) }
-                    }
-                    .accessibilityIdentifier("harnessTryAgain")
-                }
-            }
+                status: state.connected ? "Connected" : "Waiting"
+            ) {}
             HStack {
                 Spacer()
                 if state.connected {

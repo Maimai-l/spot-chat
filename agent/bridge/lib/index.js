@@ -6,8 +6,9 @@
 //
 // A program that reaches the socket could drive the agent and answer its approval requests, which is how
 // dsh's own control plane was escaped before (CVE-2026-82533, CVE-2026-82033), and sandboxed commands can
-// open local sockets and read files. So a connection must first present Spot Chat's token. Spot Chat keeps
-// the token in the Keychain and writes only its SHA-256 here, so reading the files gets nothing usable.
+// open local sockets and read files. So a connection must first present Spot Chat's token. Spot Chat makes
+// a new token each launch, keeps it in memory, and writes only its SHA-256 here, which is read again for every
+// connection, so reading the files gets nothing usable.
 
 import { createHash, timingSafeEqual } from 'node:crypto'
 import { appendFileSync, chmodSync, mkdirSync, readFileSync, rmSync } from 'node:fs'

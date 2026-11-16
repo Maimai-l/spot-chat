@@ -201,12 +201,12 @@ final class AppModel: ObservableObject {
         if on { _ = pairWithHarness() }
     }
 
-    /// Makes sure the plugin accepts Spot Chat: the token from the Keychain, and its hash where the plugin
-    /// reads it. Returns the token.
+    /// Makes sure the plugin accepts Spot Chat: this launch's token, and its hash where the plugin reads it.
+    /// Returns the token.
     func pairWithHarness() -> Result<String, DshBridge.Failure> {
         do {
             let given = UserDefaults.standard.string(forKey: AppDelegate.LaunchOption.harnessToken).flatMap { $0.isEmpty ? nil : $0 }
-            let token = try given ?? DshBridgeToken.current()
+            let token = given ?? DshBridgeToken.current()
             try harnessBridge.writeTokenHash(of: token)
             return .success(token)
         } catch let failure as DshBridge.Failure {
