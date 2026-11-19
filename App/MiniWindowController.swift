@@ -180,6 +180,8 @@ final class MiniWindowController: ObservableObject {
             panel.makeKey()
         case .hide:
             panel.orderOut(nil)
+            // Notes where the keyboard is for a few seconds, for a report that keys stopped working after.
+            DispatchQueue.main.async { KeyboardTrace.watchAfterHiding() }
             // When the full window takes over, Spot Chat keeps focus. Hiding the app here would race the
             // full window's activation and leave it behind other apps, half drawn.
             if !state.isFullWindowOpen {

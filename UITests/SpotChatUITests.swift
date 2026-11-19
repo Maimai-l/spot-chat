@@ -680,6 +680,46 @@ final class SpotChatUITests: XCTestCase {
         textEdit.terminate()
     }
 
+    /// The owner's case: the full window over a browser, closed, and every key beeped until Spot Chat quit.
+    /// Closing it left Spot Chat the active app with no window, so keys still came to it. Every key here goes
+    /// to TextEdit's side and lands wherever the system sends it, as when someone types.
+    func testTypingGoesBackToTheAppInFrontAfterTheFullWindowCloses() {
+        let spot = XCUIApplication()
+        spot.launchArguments = [
+            "-AppleLanguages", "(en)", "-SpotChatDataDirectory", dataDirectory, "-SpotChatResetState", "YES",
+            "-SpotChatTestProviderURL", Self.mockURL, "-SpotChatTestProviderKey", "test-key",
+        ]
+        spot.launch()
+
+        let textEdit = XCUIApplication(bundleIdentifier: "com.apple.TextEdit")
+        textEdit.launch()
+        textEdit.activate()
+        textEdit.typeKey("n", modifierFlags: .command)
+        let document = textEdit.textViews.firstMatch
+        XCTAssertTrue(document.waitForExistence(timeout: 15))
+        document.click()
+        document.typeText("before ")
+        RunLoop.current.run(until: Date().addingTimeInterval(1))
+
+        textEdit.typeKey(" ", modifierFlags: [.option, .shift])
+        let collapse = element("collapseToMini", in: spot)
+        XCTAssertTrue(collapse.waitForExistence(timeout: 10), "Option-Shift-Space opens the full window")
+        RunLoop.current.run(until: Date().addingTimeInterval(1))
+        textEdit.typeKey("w", modifierFlags: .command)
+        XCTAssertTrue(collapse.waitForNonExistence(timeout: 10), "Command-W closes it")
+        RunLoop.current.run(until: Date().addingTimeInterval(1))
+
+        for key in ["a", "f", "t", "e", "r"] {
+            textEdit.typeKey(key, modifierFlags: [])
+        }
+        RunLoop.current.run(until: Date().addingTimeInterval(1.5))
+        attachScreenshot("Typing after the full window closed")
+        let typed = document.value as? String ?? ""
+        // TextEdit capitalizes the first word.
+        XCTAssertTrue(typed.lowercased().contains("before after"), "Keys reach TextEdit again; it holds \"\(typed)\"")
+        textEdit.terminate()
+    }
+
     func testInterfaceIsTranslatedForSimplifiedChinese() {
         let app = launch(resetState: true, language: "zh-Hans")
         send("hi", in: app)

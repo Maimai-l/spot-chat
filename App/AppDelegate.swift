@@ -86,8 +86,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         workGuard.watch(app)
 
         // Opening the mini window brings the text selected in the app in front, quoted in the input.
+        KeyboardTrace.watchForKeysWithNowhereToGo()
         KeyboardShortcuts.onKeyDown(for: .toggleMiniWindow) { [weak self] in
             guard let self else { return }
+            KeyboardTrace.note("Option-Space, mini window \(miniController.mode)")
             guard miniController.mode == .hidden, app.bringsSelection else {
                 miniController.handle(.toggleShortcut)
                 return

@@ -32,13 +32,17 @@ enum SelectionReader {
         guard NSWorkspace.shared.frontmostApplication?.processIdentifier != ProcessInfo.processInfo.processIdentifier,
               hasAccess(prompt: false)
         else { return nil }
+        let app = NSWorkspace.shared.frontmostApplication?.localizedName ?? "unknown"
         switch accessibilitySelection() {
         case let .text(text):
+            SpotLog.window.info("Read the selection through Accessibility", metadata: ["app": "\(app)", "characters": "\(text.count)"])
             return text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : text
         case .none:
+            SpotLog.window.info("Nothing selected", metadata: ["app": "\(app)"])
             return nil
         case .unknown:
             // Only for apps that don't say what is selected, so nothing is copied when nothing is selected.
+            SpotLog.window.info("The app doesn't say what is selected: copying it with Command-C", metadata: ["app": "\(app)"])
             return await copiedSelection()
         }
     }
@@ -72,6 +76,7 @@ enum SelectionReader {
         } ?? []
         let before = pasteboard.changeCount
 
+        KeyboardTrace.note("before posting Command-C")
         let source = CGEventSource(stateID: .combinedSessionState)
         let keyC: CGKeyCode = 8
         for keyDown in [true, false] {
@@ -79,11 +84,23 @@ enum SelectionReader {
             event?.flags = .maskCommand
             event?.post(tap: .cghidEventTap)
         }
+        KeyboardTrace.note("after posting Command-C")
         for _ in 0..<8 where pasteboard.changeCount == before {
-            try? await Task.sleep(for: .milliseconds(20))
+            do {
+                try await Task.sleep(for: .milliseconds(20))
+            } catch {
+                SpotLog.window.notice("Stopped waiting for the copy", metadata: ["error": "\(error)"])
+                break
+            }
         }
-        guard pasteboard.changeCount != before else { return nil }
+        guard pasteboard.changeCount != before else {
+            SpotLog.window.info("Command-C copied nothing")
+            KeyboardTrace.note("after waiting for the copy")
+            return nil
+        }
         let text = pasteboard.string(forType: .string)
+        SpotLog.window.info("Copied the selection", metadata: ["characters": "\(text?.count ?? 0)", "restoredItems": "\(saved.count)"])
+        KeyboardTrace.note("after the copy")
 
         pasteboard.clearContents()
         let items = saved.map { pairs in
