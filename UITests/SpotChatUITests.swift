@@ -636,7 +636,7 @@ final class SpotChatUITests: XCTestCase {
         XCTAssertGreaterThan(abs(after.minY - before.minY), 40)
     }
 
-    /// Option-Space over another app, then Escape: typing goes back to that app. The mini window takes the
+    /// Option-Space over another app, then Option-Space again: typing goes back to that app. The mini window takes the
     /// keyboard without making Spot Chat the active app, and once it hid, keys still went to Spot Chat, which
     /// had no window for them, so every key beeped until Spot Chat quit. Every key here goes to TextEdit,
     /// which stays the active app throughout, so the keyboard ends up wherever the system sends it, as when
@@ -664,8 +664,9 @@ final class SpotChatUITests: XCTestCase {
         XCTAssertTrue(input.waitForExistence(timeout: 10), "Option-Space opens the mini window")
         RunLoop.current.run(until: Date().addingTimeInterval(1))
         attachScreenshot("Mini window over TextEdit")
-        textEdit.typeKey(.escape, modifierFlags: [])
-        XCTAssertTrue(input.waitForNonExistence(timeout: 10), "Escape hides it")
+        // Escape doesn't close the capsule; Option-Space again does.
+        textEdit.typeKey(" ", modifierFlags: .option)
+        XCTAssertTrue(input.waitForNonExistence(timeout: 10), "Option-Space again hides it")
         RunLoop.current.run(until: Date().addingTimeInterval(1))
 
         for key in ["a", "f", "t", "e", "r"] {
