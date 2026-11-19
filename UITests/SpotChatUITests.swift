@@ -638,8 +638,9 @@ final class SpotChatUITests: XCTestCase {
 
     /// Option-Space over another app, then Escape: typing goes back to that app. The mini window takes the
     /// keyboard without making Spot Chat the active app, and once it hid, keys still went to Spot Chat, which
-    /// had no window for them, so every key beeped until Spot Chat quit. Keys are posted as the keyboard
-    /// sends them, since a test's own typing would bring the app to the front first and hide the bug.
+    /// had no window for them, so every key beeped until Spot Chat quit. Every key here goes to TextEdit,
+    /// which stays the active app throughout, so the keyboard ends up wherever the system sends it, as when
+    /// someone types; keys posted by the test runner itself never arrive.
     func testTypingGoesBackToTheAppInFrontAfterTheMiniWindowCloses() {
         let spot = XCUIApplication()
         spot.launchArguments = [
@@ -658,44 +659,23 @@ final class SpotChatUITests: XCTestCase {
         document.typeText("before ")
         RunLoop.current.run(until: Date().addingTimeInterval(1))
 
-        postKey(49, flags: .maskAlternate)
+        textEdit.typeKey(" ", modifierFlags: .option)
         let input = composer(in: spot)
         XCTAssertTrue(input.waitForExistence(timeout: 10), "Option-Space opens the mini window")
         RunLoop.current.run(until: Date().addingTimeInterval(1))
         attachScreenshot("Mini window over TextEdit")
-        postKey(53)
+        textEdit.typeKey(.escape, modifierFlags: [])
         XCTAssertTrue(input.waitForNonExistence(timeout: 10), "Escape hides it")
         RunLoop.current.run(until: Date().addingTimeInterval(1))
 
-        postText("after")
+        for key in ["a", "f", "t", "e", "r"] {
+            textEdit.typeKey(key, modifierFlags: [])
+        }
         RunLoop.current.run(until: Date().addingTimeInterval(1.5))
         attachScreenshot("Typing after the mini window closed")
         let typed = document.value as? String ?? ""
         XCTAssertTrue(typed.contains("before after"), "Keys reach TextEdit again; it holds \"\(typed)\"")
         textEdit.terminate()
-    }
-
-    /// A key as the keyboard sends it, to whatever has the keyboard, without bringing any app to the front.
-    func postKey(_ code: CGKeyCode, flags: CGEventFlags = []) {
-        let source = CGEventSource(stateID: .hidSystemState)
-        for down in [true, false] {
-            let event = CGEvent(keyboardEventSource: source, virtualKey: code, keyDown: down)
-            event?.flags = flags
-            event?.post(tap: .cghidEventTap)
-            usleep(20_000)
-        }
-    }
-
-    func postText(_ text: String) {
-        let source = CGEventSource(stateID: .hidSystemState)
-        for unit in text.utf16 {
-            for down in [true, false] {
-                let event = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: down)
-                event?.keyboardSetUnicodeString(stringLength: 1, unicodeString: [unit])
-                event?.post(tap: .cghidEventTap)
-                usleep(20_000)
-            }
-        }
     }
 
     func testInterfaceIsTranslatedForSimplifiedChinese() {
