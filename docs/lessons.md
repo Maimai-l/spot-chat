@@ -64,12 +64,6 @@ Problems this project hit and what fixed them, so they aren't solved twice.
   downloaded by itself when the app quits, and a menu bar app is rarely quit. Spot Chat takes the install over
   (`willInstallUpdateOnQuit`) and runs it once it is idle.
 
-- **After the full window closed, every key beeped until Spot Chat quit.** Closing it switched Spot Chat back to
-  an accessory app but left it the active app with no window, so keys still came to it while the browser behind
-  looked in front. The log couldn't say where keys went, and asking the owner to try things was the wrong way
-  round; `KeyboardTrace` now logs it. A first guess, that the mini window kept the keyboard, was tested and
-  wrong: its test stays as a guard.
-
 ## Build and CI
 
 - **The core tests couldn't start.** Resolving packages with a newer local Swift pinned swift-collections 1.7.5,

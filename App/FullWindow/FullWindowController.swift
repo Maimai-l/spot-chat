@@ -67,28 +67,7 @@ final class FullWindowController: NSObject, ObservableObject, NSWindowDelegate {
     func close() {
         session.stop()
         window?.orderOut(nil)
-        handBackKeyboard()
-    }
-
-    /// Back to a menu bar app, giving the keyboard to the app behind. Becoming an accessory app again left
-    /// Spot Chat the active app with no window, so every key the user typed came to it and macOS beeped at
-    /// it, the app behind looking in front all the while, until Spot Chat quit. Hiding it hands activation
-    /// back, unless the mini window, as after collapsing, or Settings is still showing.
-    private func handBackKeyboard() {
-        let closing = window
         NSApp.setActivationPolicy(.accessory)
-        DispatchQueue.main.async {
-            let othersShowing = NSApp.windows.contains {
-                $0 !== closing && $0.isVisible && ($0.styleMask.contains(.titled) || $0 is MiniPanel)
-            }
-            if NSApp.isActive, !othersShowing {
-                NSApp.hide(nil)
-            }
-            SpotLog.window.info("Full window closed", metadata: [
-                "handedBackKeyboard": "\(!othersShowing)", "othersShowing": "\(othersShowing)",
-            ])
-            KeyboardTrace.note("after the full window closed")
-        }
     }
 
     func collapse() {
@@ -160,7 +139,7 @@ final class FullWindowController: NSObject, ObservableObject, NSWindowDelegate {
 
     func windowWillClose(_ notification: Notification) {
         session.stop()
-        handBackKeyboard()
+        NSApp.setActivationPolicy(.accessory)
         onClose()
     }
 
