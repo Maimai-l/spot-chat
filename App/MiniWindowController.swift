@@ -31,8 +31,6 @@ final class MiniWindowController: ObservableObject {
     private var suppressFocusLoss = 0
     /// Where the input bar's bottom-left corner sits; the window grows up from here.
     private var inputCorner = CGPoint.zero
-    /// The app the user was in when the mini window took the keyboard, to give it back to.
-    private var appBeforeShowing: NSRunningApplication?
     private lazy var panel: MiniPanel = makePanel()
 
     init(app: AppModel, composer: ComposerModel, inputActions: InputActions, placementStore: PlacementStore? = nil) {
@@ -177,10 +175,6 @@ final class MiniWindowController: ObservableObject {
         case .focusInput:
             composer.requestFocus()
         case .bringToFront:
-            if let front = NSWorkspace.shared.frontmostApplication,
-               front.processIdentifier != ProcessInfo.processInfo.processIdentifier {
-                appBeforeShowing = front
-            }
             if NSApp.isHidden { NSApp.unhideWithoutActivation() }
             panel.orderFrontRegardless()
             panel.makeKey()
@@ -216,26 +210,12 @@ final class MiniWindowController: ObservableObject {
         }
     }
 
-    /// Gives the keyboard back to the app the user was in. The panel takes the keyboard without making Spot
-    /// Chat the active app, and ordering it out didn't give it back: keys kept coming to Spot Chat, which had
-    /// no window for them, so every key beeped and flashed the screen until Spot Chat quit. Hiding the app
-    /// lets go of the keyboard, as it did already when Spot Chat had become active (for a file picker, say);
-    /// with Settings or another window still open, the app the user was in is asked to take it back instead.
+    /// When Spot Chat became active (for a file picker, say), hiding the capsule hands focus back.
     private func returnFocusToPreviousApp() {
         let otherWindowsOpen = NSApp.windows.contains { $0 !== panel && $0.isVisible && $0.canBecomeMain }
-        let wasActive = NSApp.isActive
-        let previous = appBeforeShowing
-        appBeforeShowing = nil
-        if !otherWindowsOpen {
+        if NSApp.isActive, !otherWindowsOpen {
             NSApp.hide(nil)
-        } else if let previous, !previous.isTerminated {
-            if wasActive { NSApp.yieldActivation(to: previous) }
-            previous.activate()
         }
-        SpotLog.window.info("Gave the keyboard back", metadata: [
-            "to": "\(previous?.localizedName ?? "nothing")", "wasActive": "\(wasActive)",
-            "hidden": "\(!otherWindowsOpen)", "keyWindow": "\(NSApp.keyWindow.map { String(describing: type(of: $0)) } ?? "none")",
-        ])
     }
 
     private func composerDidResize() {
