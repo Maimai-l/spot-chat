@@ -675,7 +675,8 @@ final class SpotChatUITests: XCTestCase {
         RunLoop.current.run(until: Date().addingTimeInterval(1.5))
         attachScreenshot("Typing after the mini window closed")
         let typed = document.value as? String ?? ""
-        XCTAssertTrue(typed.contains("before after"), "Keys reach TextEdit again; it holds \"\(typed)\"")
+        // TextEdit capitalizes the first word.
+        XCTAssertTrue(typed.lowercased().contains("before after"), "Keys reach TextEdit again; it holds \"\(typed)\"")
         textEdit.terminate()
     }
 
