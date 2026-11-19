@@ -1,11 +1,13 @@
 import AppKit
+import ApplicationServices
+import Carbon
 import Logging
 import SpotCore
 
 /// Writes down where the keyboard is, so a report like "after Spot Chat closed, every key beeped until it
 /// quit" can be traced from the log alone. It records which keys are held (the modifiers, as the user's
 /// own keyboard and as the system as a whole see them), which app is in front and which window of Spot
-/// Chat has the keyboard. It never records which letters were typed: only that a key was pressed, whether
+/// Chat has the keyboard, the input method and whether secure input is on. It never records which letters were typed: only that a key was pressed, whether
 /// it was a modifier, and which modifiers were down with it.
 @MainActor
 enum KeyboardTrace {
@@ -14,11 +16,13 @@ enum KeyboardTrace {
         SpotLog.window.info("Keyboard", metadata: state(moment))
     }
 
-    /// For a while after the mini window hides, notes every key pressed anywhere and where it went, then stops.
+    /// For a minute after a window of Spot Chat hides, notes every key pressed anywhere and where it went, then stops.
     /// Keys pressed in other apps are seen only with Accessibility access, which bringing selected text has.
-    static func watchAfterHiding(seconds: TimeInterval = 8, limit: Int = 12) {
+    static func watchAfterHiding(_ window: String = "the mini window", seconds: TimeInterval = 60, limit: Int = 20) {
         stopWatching()
-        note("after the mini window hid")
+        watch += 1
+        let current = watch
+        note("after \(window) hid")
         var seen = 0
         let handle: (NSEvent, String) -> Void = { event, place in
             seen += 1
@@ -38,8 +42,19 @@ enum KeyboardTrace {
         if global == nil {
             SpotLog.window.notice("Can't see keys pressed in other apps without Accessibility access")
         }
+        // A few notes along the way, so a key typed late in the minute still has the state beside it.
+        for after in [2.0, 10.0, 30.0] where after < seconds {
+            DispatchQueue.main.asyncAfter(deadline: .now() + after) {
+                guard watch == current else { return }
+                note("\(Int(after)) s after \(window) hid")
+            }
+        }
         DispatchQueue.main.asyncAfter(deadline: .now() + seconds) {
-            note("\(Int(seconds)) s after the mini window hid")
+            // A later hide started a watch of its own.
+            guard watch == current else { return }
+            var metadata = state("\(Int(seconds)) s after \(window) hid")
+            metadata["keysSeen"] = "\(seen)"
+            SpotLog.window.info("Keyboard", metadata: metadata)
             stopWatching()
         }
     }
@@ -63,6 +78,8 @@ enum KeyboardTrace {
         local = nil
     }
 
+    /// Counts watches, so one that a later hide replaced doesn't stop the new one.
+    nonisolated(unsafe) private static var watch = 0
     nonisolated(unsafe) private static var global: Any?
     nonisolated(unsafe) private static var local: Any?
     nonisolated(unsafe) private static var orphan: Any?
@@ -79,7 +96,45 @@ enum KeyboardTrace {
             // includes keys Spot Chat itself posted.
             "heldOnKeyboard": "\(names(of: CGEventSource.flagsState(.hidSystemState)))",
             "heldForSystem": "\(names(of: CGEventSource.flagsState(.combinedSessionState)))",
+            // Secure input, which a password field turns on, keeps keys from every app's monitors; an app
+            // that leaves it on hides typing from them all.
+            "secureInput": "\(secureInput())",
+            // The input method keys pass through first, and whether a text field of Spot Chat still holds
+            // it: one left holding it after its window hid gets every key, typed anywhere.
+            "inputSource": "\(inputSource())",
+            "spotChatTextInput": "\(NSTextInputContext.current.map { "\(type(of: $0.client))" } ?? "none")",
+            // Where the app in front has its keyboard focus, by role only, never the contents.
+            "frontFocus": "\(focus(of: front))",
         ]
+    }
+
+    private static func inputSource() -> String {
+        guard let source = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue(),
+              let id = TISGetInputSourceProperty(source, kTISPropertyInputSourceID)
+        else { return "unknown" }
+        return Unmanaged<CFString>.fromOpaque(id).takeUnretainedValue() as String
+    }
+
+    private static func secureInput() -> String {
+        guard IsSecureEventInputEnabled() else { return "off" }
+        let session = CGSessionCopyCurrentDictionary() as? [String: Any]
+        guard let pid = (session?["kCGSSessionSecureInputPID"] as? NSNumber)?.int32Value else { return "on" }
+        return "on by \(NSRunningApplication(processIdentifier: pid)?.localizedName ?? "process \(pid)")"
+    }
+
+    private static func focus(of app: NSRunningApplication?) -> String {
+        guard let app, SelectionReader.hasAccess(prompt: false) else { return "unknown" }
+        let element = AXUIElementCreateApplication(app.processIdentifier)
+        var window: CFTypeRef?
+        let hasWindow = AXUIElementCopyAttributeValue(element, kAXFocusedWindowAttribute as CFString, &window) == .success
+            && window != nil
+        var focused: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, kAXFocusedUIElementAttribute as CFString, &focused) == .success,
+              let focused, CFGetTypeID(focused) == AXUIElementGetTypeID()
+        else { return hasWindow ? "window, no focused element" : "no focused window" }
+        var role: CFTypeRef?
+        AXUIElementCopyAttributeValue(focused as! AXUIElement, kAXRoleAttribute as CFString, &role)
+        return "\(hasWindow ? "window" : "no focused window"), \(role as? String ?? "unknown role")"
     }
 
     private static func names(of flags: CGEventFlags) -> String {

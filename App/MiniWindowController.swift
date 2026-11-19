@@ -179,6 +179,16 @@ final class MiniWindowController: ObservableObject {
             panel.orderFrontRegardless()
             panel.makeKey()
         case .hide:
+            // Let go of the input method before hiding. The panel takes the keyboard without making Spot Chat
+            // active, and its text field kept the input method after the panel was ordered out, so with a
+            // Chinese input method every key typed anywhere went to the hidden field and macOS beeped, until
+            // Spot Chat quit. Text still being composed in the input method is dropped, as when a window closes.
+            if let context = NSTextInputContext.current {
+                SpotLog.window.info("Letting go of the input method", metadata: ["client": "\(type(of: context.client))"])
+                context.discardMarkedText()
+                context.deactivate()
+            }
+            panel.makeFirstResponder(nil)
             panel.orderOut(nil)
             // Notes where the keyboard is for a few seconds, for a report that keys stopped working after.
             DispatchQueue.main.async { KeyboardTrace.watchAfterHiding() }

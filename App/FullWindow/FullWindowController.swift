@@ -76,6 +76,8 @@ final class FullWindowController: NSObject, ObservableObject, NSWindowDelegate {
     /// back, unless the mini window, as after collapsing, or Settings is still showing.
     private func handBackKeyboard() {
         let closing = window
+        // Let go of the input method too, as the mini window does when it hides.
+        NSTextInputContext.current?.deactivate()
         NSApp.setActivationPolicy(.accessory)
         DispatchQueue.main.async {
             let othersShowing = NSApp.windows.contains {
@@ -87,7 +89,7 @@ final class FullWindowController: NSObject, ObservableObject, NSWindowDelegate {
             SpotLog.window.info("Full window closed", metadata: [
                 "handedBackKeyboard": "\(!othersShowing)", "othersShowing": "\(othersShowing)",
             ])
-            KeyboardTrace.note("after the full window closed")
+            KeyboardTrace.watchAfterHiding("the full window")
         }
     }
 

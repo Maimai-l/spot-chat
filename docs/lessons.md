@@ -64,11 +64,14 @@ Problems this project hit and what fixed them, so they aren't solved twice.
   downloaded by itself when the app quits, and a menu bar app is rarely quit. Spot Chat takes the install over
   (`willInstallUpdateOnQuit`) and runs it once it is idle.
 
-- **Every key beeped until Spot Chat quit, with a browser in front.** Not yet explained. Two guesses were tested
-  in CI and neither reproduced: that the mini window kept the keyboard after hiding, and that closing the full
-  window left Spot Chat active with no window. Both tests stay as guards. Asking the owner to try things was
-  the wrong way round; `KeyboardTrace` now logs where keys go after a window closes and warns when one reaches
-  Spot Chat with no window to take it, so the next time it happens the log says.
+- **Every key beeped until Spot Chat quit, with a browser in front.** Two guesses were tested in CI and didn't
+  reproduce: the mini window keeping the keyboard, and the full window leaving Spot Chat active. Both tests stay
+  as guards. Asking the owner to try things was the wrong way round; `KeyboardTrace` now logs it. Its first log
+  showed the owner typing in the seconds after the mini window closed, with Edge in front, and no app seeing a
+  single key, Spot Chat included: the keys were taken before any app, by the input method (or by secure input).
+  The panel takes the keyboard without activating Spot Chat, and its text field kept the input method after
+  the panel hid. Hiding now ends the input method's session with it first; the log records the input source,
+  whether a Spot Chat field holds it, and secure input, to confirm.
 
 ## Build and CI
 
