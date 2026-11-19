@@ -681,8 +681,7 @@ final class SpotChatUITests: XCTestCase {
     }
 
     /// The owner's case: the full window over a browser, closed, and every key beeped until Spot Chat quit.
-    /// Closing it left Spot Chat the active app with no window, so keys still came to it. Every key here goes
-    /// to TextEdit's side and lands wherever the system sends it, as when someone types.
+    /// Closing it left Spot Chat the active app with no window, so keys still came to it.
     func testTypingGoesBackToTheAppInFrontAfterTheFullWindowCloses() {
         let spot = XCUIApplication()
         spot.launchArguments = [
@@ -705,9 +704,17 @@ final class SpotChatUITests: XCTestCase {
         let collapse = element("collapseToMini", in: spot)
         XCTAssertTrue(collapse.waitForExistence(timeout: 10), "Option-Shift-Space opens the full window")
         RunLoop.current.run(until: Date().addingTimeInterval(1))
-        textEdit.typeKey("w", modifierFlags: .command)
+        spot.typeKey("w", modifierFlags: .command)
         XCTAssertTrue(collapse.waitForNonExistence(timeout: 10), "Command-W closes it")
-        RunLoop.current.run(until: Date().addingTimeInterval(1))
+
+        // Typing through XCUITest would bring TextEdit to the front first and hide the bug, so first ask which
+        // app is in front: keys go to it.
+        let deadline = Date().addingTimeInterval(5)
+        while textEdit.state != .runningForeground, Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+        }
+        XCTAssertEqual(textEdit.state, .runningForeground, "TextEdit is in front again, so keys go to it")
+        XCTAssertNotEqual(spot.state, .runningForeground, "Spot Chat isn't left in front with no window")
 
         for key in ["a", "f", "t", "e", "r"] {
             textEdit.typeKey(key, modifierFlags: [])
